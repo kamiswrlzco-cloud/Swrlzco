@@ -1,0 +1,102 @@
+name: SWRLZ Source Package Integrity
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'swrlz-core/sources/**/*.zip'
+      - 'swrlz-core/sources/**/*.sha256'
+      - 'swrlz-core/sources/**/*.sha'
+      - 'swrlz-core/sources/**/*.txt'
+      - 'swrlz-core/sources/**/*.manifest.json'
+
+  workflow_dispatch:
+    inputs:
+      source_zip:
+        description: Repository-relative path to a source ZIP under swrlz-core/sources
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  SWRLZ_SOURCE_ROOT: swrlz-core/sources
+  SWRLZ_VERIFY_TOOL: swrlz-core/tools/ci/verify_swrlz_package_pair.py
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Resolve changed or selected source packages
+        id: sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          list="$RUNNER_TEMP/swrlz-zips.txt"
+          : > "$list"
+
+          if [[ "${{ github.event_name }}" == 'workflow_dispatch' ]]; then
+            source='${{ inputs.source_zip }}'
+            case "$source" in
+              swrlz-core/sources/client/*.zip|swrlz-core/sources/server/*.zip) ;;
+              *) echo "source_zip must point to CLIENT or SERVER source lane: $source" >&2; exit 64 ;;
+            esac
+            printf '%s\n' "$source" >> "$list"
+          else
+            BEFORE='${{ github.event.before }}'
+            AFTER='${{ github.sha }}'
+            changed="$RUNNER_TEMP/swrlz-changed.txt"
+
+            if [[ -z "$BEFORE" || "$BEFORE" =~ ^0+$ ]]; then
+              git show --pretty= --name-only "$AFTER" > "$changed"
+            else
+              git diff --name-only "$BEFORE" "$AFTER" > "$changed"
+            fi
+
+            while IFS= read -r path; do
+              [[ -n "$path" ]] || continue
+              [[ "$path" == swrlz-core/sources/client/* || "$path" == swrlz-core/sources/server/* ]] || continue
+
+              case "$path" in
+                *.zip)
+                  printf '%s\n' "$path" >> "$list"
+                  ;;
+                *.sha256)
+                  printf '%s.zip\n' "${path%.sha256}" >> "$list"
+                  ;;
+                *.sha)
+                  printf '%s.zip\n' "${path%.sha}" >> "$list"
+                  ;;
+                *.txt)
+                  printf '%s.zip\n' "${path%.txt}" >> "$list"
+                  ;;
+                *.manifest.json)
+                  printf '%s.zip\n' "${path%.manifest.json}" >> "$list"
+                  ;;
+              esac
+            done < "$changed"
+          fi
+
+          sort -u -o "$list" "$list"
+          cat "$list"
+          echo "list=$list" >> "$GITHUB_OUTPUT"
+
+      - name: Verify final ZIP checksum and optional manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          list='${{ steps.sources.outputs.list }}'
+          [[ -s "$list" ]] || { echo 'No source packages selected.'; exit 0; }
+
+          while IFS= read -r zip; do
+            [[ -n "$zip" ]] || continue
+            python3 "$SWRLZ_VERIFY_TOOL" "$zip"
+          done < "$list"

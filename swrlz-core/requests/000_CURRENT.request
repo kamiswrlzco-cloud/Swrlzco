@@ -1,0 +1,16 @@
+# SWRLZ unified Android build request
+# Schema 2 is consumed only by /.github/workflows/swrlz-apk-router.yml.
+# Keep enabled=false unless an automatic request-triggered build is explicitly authorized.
+#
+# target: CLIENT or SERVER
+# source_mode=lane_latest uses the current authoritative source lane.
+# source_zip may contain an explicit repository-relative source ZIP path.
+
+schema=2
+enabled=false
+request_id=
+target=CLIENT
+source_mode=lane_latest
+source_zip=
+build_variant=debug
+commit_release_artifacts=false

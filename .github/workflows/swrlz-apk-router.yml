@@ -1,0 +1,368 @@
+name: SWRLZ APK Router — CLIENT / SERVER
+
+on:
+  workflow_dispatch:
+    inputs:
+      component:
+        description: Android source lane to build
+        required: true
+        type: choice
+        options:
+          - CLIENT
+          - SERVER
+      source_zip:
+        description: Optional explicit repository-relative ZIP path inside the selected source lane
+        required: false
+        default: ""
+        type: string
+      build_variant:
+        description: Android build variant
+        required: true
+        default: debug
+        type: choice
+        options:
+          - debug
+          - release
+      commit_release_artifacts:
+        description: Commit built files and latest-component manifest to swrlz-core/releases
+        required: true
+        default: false
+        type: boolean
+
+  push:
+    branches:
+      - main
+    paths:
+      - 'swrlz-core/sources/client/*.zip'
+      - 'swrlz-core/sources/client/*.sha256'
+      - 'swrlz-core/sources/client/*.sha'
+      - 'swrlz-core/sources/client/*.txt'
+      - 'swrlz-core/sources/client/*.manifest.json'
+      - 'swrlz-core/sources/server/*.zip'
+      - 'swrlz-core/sources/server/*.sha256'
+      - 'swrlz-core/sources/server/*.sha'
+      - 'swrlz-core/sources/server/*.txt'
+      - 'swrlz-core/sources/server/*.manifest.json'
+      - 'swrlz-core/requests/000_CURRENT.request'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: swrlz-apk-router-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  SWRLZ_CI_ROOT: swrlz-core/tools/ci
+  SWRLZ_BUILD_WORK_DIR: ${{ runner.temp }}/swrlz-build/router
+  SWRLZ_ARTIFACT_ROOT: ${{ runner.temp }}/swrlz-artifacts/router
+  SWRLZ_REQUEST_FILE: swrlz-core/requests/000_CURRENT.request
+
+jobs:
+  resolver-tests:
+    name: Validate source resolver
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run resolver unit tests
+        working-directory: swrlz-core/tools/ci
+        run: python3 test_resolve_swrlz_source.py
+
+  prepare:
+    name: Determine component route
+    needs: resolver-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.route.outputs.matrix }}
+      has_work: ${{ steps.route.outputs.has_work }}
+      build_variant: ${{ steps.route.outputs.build_variant }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Resolve manual, source-path, or request route
+        id: route
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+          MANUAL_COMPONENT: ${{ inputs.component || '' }}
+          MANUAL_VARIANT: ${{ inputs.build_variant || 'debug' }}
+          REQUEST_FILE: swrlz-core/requests/000_CURRENT.request
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from __future__ import annotations
+          import json, os, subprocess
+          from pathlib import Path
+
+          allowed = {"CLIENT", "SERVER"}
+
+          def parse_request(path: Path) -> dict[str, str]:
+              values = {}
+              if not path.is_file():
+                  return values
+              for raw in path.read_text(encoding="utf-8").splitlines():
+                  line = raw.strip()
+                  if not line or line.startswith("#") or "=" not in line:
+                      continue
+                  key, value = line.split("=", 1)
+                  values[key.strip()] = value.strip()
+              return values
+
+          event = os.environ["EVENT_NAME"]
+          components = set()
+          variant = "debug"
+
+          if event == "workflow_dispatch":
+              component = os.environ.get("MANUAL_COMPONENT", "").upper()
+              if component not in allowed:
+                  raise SystemExit(f"Unsupported manual component: {component!r}")
+              components.add(component)
+              variant = os.environ.get("MANUAL_VARIANT", "debug").lower()
+          else:
+              before = os.environ.get("BEFORE_SHA", "")
+              after = os.environ["AFTER_SHA"]
+              cmd = ["git", "show", "--pretty=", "--name-only", after] if (not before or set(before) == {"0"}) \
+                  else ["git", "diff", "--name-only", before, after]
+              changed = {line.strip() for line in subprocess.check_output(cmd, text=True).splitlines() if line.strip()}
+
+              lane_prefixes = {
+                  "swrlz-core/sources/client/": "CLIENT",
+                  "swrlz-core/sources/server/": "SERVER",
+              }
+              for path in changed:
+                  for prefix, component in lane_prefixes.items():
+                      if path.startswith(prefix):
+                          components.add(component)
+                          break
+
+              request_path = os.environ["REQUEST_FILE"]
+              if request_path in changed:
+                  request = parse_request(Path(request_path))
+                  if request.get("enabled", "false").lower() == "true":
+                      target = request.get("target", "").upper()
+                      if target not in allowed:
+                          raise SystemExit(f"Enabled build request has invalid target: {target!r}")
+                      components.add(target)
+                      variant = request.get("build_variant", "debug").lower()
+                      if request.get("commit_release_artifacts", "false").lower() != "false":
+                          raise SystemExit("Automatic request builds may not commit release artifacts; use manual dispatch.")
+
+          if variant not in {"debug", "release"}:
+              raise SystemExit(f"Unsupported build variant: {variant!r}")
+
+          ordered = [c for c in ("CLIENT", "SERVER") if c in components]
+          has_work = bool(ordered)
+          matrix_components = ordered if ordered else ["CLIENT"]
+
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as handle:
+              handle.write("matrix=" + json.dumps({"component": matrix_components}) + "\n")
+              handle.write(f"has_work={'true' if has_work else 'false'}\n")
+              handle.write(f"build_variant={variant}\n")
+          PY
+
+  build:
+    name: Build ${{ matrix.component }} APK
+    needs: [resolver-tests, prepare]
+    if: needs.prepare.outputs.has_work == 'true'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle 8.7
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Resolve canonical source and checksum
+        id: resolve
+        env:
+          COMPONENT: ${{ matrix.component }}
+          MANUAL_SOURCE_ZIP: ${{ inputs.source_zip || '' }}
+        run: |
+          set -euo pipefail
+          SOURCE_ARGUMENTS=()
+          if [[ "${{ github.event_name }}" == 'workflow_dispatch' && -n "$MANUAL_SOURCE_ZIP" ]]; then
+            SOURCE_ARGUMENTS+=(--source-zip "$MANUAL_SOURCE_ZIP")
+          fi
+          python3 "$SWRLZ_CI_ROOT/resolve_swrlz_source.py" \
+            --component "$COMPONENT" \
+            --github-output "$GITHUB_OUTPUT" \
+            "${SOURCE_ARGUMENTS[@]}"
+
+      - name: Verify selected source package
+        run: |
+          set -euo pipefail
+          python3 "$SWRLZ_CI_ROOT/verify_swrlz_package_pair.py" \
+            "${{ steps.resolve.outputs.selected_source }}" \
+            --checksum "${{ steps.resolve.outputs.checksum_file }}"
+
+      - name: Build selected Android component
+        id: build
+        env:
+          COMPONENT: ${{ matrix.component }}
+          SOURCE_ZIP: ${{ steps.resolve.outputs.selected_source }}
+          CANONICAL_STEM: ${{ steps.resolve.outputs.canonical_stem }}
+          VARIANT: ${{ needs.prepare.outputs.build_variant }}
+        run: |
+          set -euo pipefail
+          "$SWRLZ_CI_ROOT/build_swrlz_component.sh" \
+            "$COMPONENT" "$SOURCE_ZIP" "$CANONICAL_STEM" "$VARIANT" \
+            "$SWRLZ_BUILD_WORK_DIR/$COMPONENT" \
+            "$SWRLZ_ARTIFACT_ROOT/$COMPONENT"
+
+      - name: Apply optional stable development signing
+        id: signing
+        env:
+          ARTIFACT_DIR: ${{ steps.build.outputs.artifact_dir }}
+          SWRLZ_DEV_KEYSTORE_BASE64: ${{ secrets.SWRLZ_DEV_KEYSTORE_BASE64 }}
+          SWRLZ_DEV_KEYSTORE_PASSWORD: ${{ secrets.SWRLZ_DEV_KEYSTORE_PASSWORD }}
+          SWRLZ_DEV_KEY_ALIAS: ${{ secrets.SWRLZ_DEV_KEY_ALIAS }}
+          SWRLZ_DEV_KEY_PASSWORD: ${{ secrets.SWRLZ_DEV_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          PRESENT=0
+          for value in "$SWRLZ_DEV_KEYSTORE_BASE64" "$SWRLZ_DEV_KEYSTORE_PASSWORD" "$SWRLZ_DEV_KEY_ALIAS" "$SWRLZ_DEV_KEY_PASSWORD"; do
+            [[ -n "$value" ]] && PRESENT=$((PRESENT + 1))
+          done
+
+          SIGNING_MODE='runner/default-source-signing'
+          if [[ "$PRESENT" -ne 0 && "$PRESENT" -ne 4 ]]; then
+            echo 'Stable development signing secrets are only partially configured.' >&2
+            exit 1
+          fi
+
+          if [[ "$PRESENT" -eq 4 ]]; then
+            KEYSTORE="$RUNNER_TEMP/swrlz-dev-signing.jks"
+            printf '%s' "$SWRLZ_DEV_KEYSTORE_BASE64" | base64 -d > "$KEYSTORE"
+            APKSIGNER="$(find "${ANDROID_HOME:-$HOME}" -type f -name apksigner -print 2>/dev/null | sort -V | tail -n 1 || true)"
+            ZIPALIGN="$(find "${ANDROID_HOME:-$HOME}" -type f -name zipalign -print 2>/dev/null | sort -V | tail -n 1 || true)"
+            [[ -n "$APKSIGNER" && -n "$ZIPALIGN" ]] || { echo 'apksigner/zipalign not found.' >&2; exit 1; }
+
+            mapfile -t APKS < <(find "$ARTIFACT_DIR" -maxdepth 1 -type f -name '*.apk' ! -name '*_stable-signed.apk' -print | sort)
+            for APK in "${APKS[@]}"; do
+              BASE="${APK%.apk}"
+              ALIGNED="${BASE}_aligned.apk"
+              SIGNED="${BASE}_stable-signed.apk"
+              "$ZIPALIGN" -f -p 4 "$APK" "$ALIGNED"
+              "$APKSIGNER" sign \
+                --ks "$KEYSTORE" \
+                --ks-pass "pass:$SWRLZ_DEV_KEYSTORE_PASSWORD" \
+                --ks-key-alias "$SWRLZ_DEV_KEY_ALIAS" \
+                --key-pass "pass:$SWRLZ_DEV_KEY_PASSWORD" \
+                --out "$SIGNED" "$ALIGNED"
+              "$APKSIGNER" verify "$SIGNED"
+              sha256sum "$SIGNED" > "$SIGNED.sha256"
+              rm -f "$ALIGNED"
+            done
+            SIGNING_MODE='stable-dev-signing-active'
+          fi
+
+          printf '%s\n' "$SIGNING_MODE" > "$ARTIFACT_DIR/SWRLZ_SIGNING_MODE.txt"
+          echo "signing_mode=$SIGNING_MODE" >> "$GITHUB_OUTPUT"
+
+      - name: Record source resolution provenance
+        env:
+          ARTIFACT_DIR: ${{ steps.build.outputs.artifact_dir }}
+          RESOLUTION_JSON: ${{ steps.resolve.outputs.resolution_json }}
+        run: |
+          set -euo pipefail
+          printf '%s\n' "$RESOLUTION_JSON" > "$ARTIFACT_DIR/SOURCE_RESOLUTION.json"
+          sha256sum "$ARTIFACT_DIR/SOURCE_RESOLUTION.json" > "$ARTIFACT_DIR/SOURCE_RESOLUTION.json.sha256"
+          {
+            echo "## ${{ matrix.component }} source resolution"
+            echo
+            echo "- Uploaded filename: \`${{ steps.resolve.outputs.uploaded_filename }}\`"
+            echo "- Canonical filename: \`${{ steps.resolve.outputs.canonical_filename }}\`"
+            echo "- Source SHA-256: \`${{ steps.resolve.outputs.source_sha256 }}\`"
+            echo "- Checksum file: \`${{ steps.resolve.outputs.checksum_file }}\`"
+            echo "- Signing mode: \`${{ steps.signing.outputs.signing_mode }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload APK and provenance artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.resolve.outputs.canonical_stem }}_${{ needs.prepare.outputs.build_variant }}_APK
+          path: ${{ steps.build.outputs.artifact_dir }}/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Commit release artifacts when manually requested
+        if: github.event_name == 'workflow_dispatch' && inputs.commit_release_artifacts
+        env:
+          COMPONENT: ${{ matrix.component }}
+          ARTIFACT_DIR: ${{ steps.build.outputs.artifact_dir }}
+          CANONICAL_STEM: ${{ steps.resolve.outputs.canonical_stem }}
+          SOURCE_ZIP: ${{ steps.resolve.outputs.selected_source }}
+          SOURCE_SHA256: ${{ steps.resolve.outputs.source_sha256 }}
+          VARIANT: ${{ needs.prepare.outputs.build_variant }}
+          SIGNING_MODE: ${{ steps.signing.outputs.signing_mode }}
+        run: |
+          set -euo pipefail
+          RELEASE_DIR="swrlz-core/releases/${CANONICAL_STEM}_APK"
+          rm -rf "$RELEASE_DIR"
+          mkdir -p "$RELEASE_DIR"
+          cp -a "$ARTIFACT_DIR"/. "$RELEASE_DIR"/
+
+          python3 - <<'PY'
+          import json, os
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          component = os.environ["COMPONENT"]
+          manifest = {
+              "schema": 2,
+              "component": component,
+              "canonical_source": os.environ["CANONICAL_STEM"] + ".zip",
+              "selected_source": os.environ["SOURCE_ZIP"],
+              "source_sha256": os.environ["SOURCE_SHA256"],
+              "variant": os.environ["VARIANT"],
+              "signing_mode": os.environ["SIGNING_MODE"],
+              "artifact_folder": "swrlz-core/releases/" + os.environ["CANONICAL_STEM"] + "_APK",
+              "repository_commit": os.environ["GITHUB_SHA"],
+              "workflow_run": os.environ["GITHUB_RUN_ID"],
+              "built_at_utc": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+          }
+          Path(f"swrlz-core/releases/latest_{component.lower()}.json").write_text(
+              json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "$RELEASE_DIR" "swrlz-core/releases/latest_${COMPONENT,,}.json"
+          if git diff --cached --quiet; then
+            echo 'No release artifact changes to commit.'
+            exit 0
+          fi
+          git commit -m "build(${COMPONENT,,}): add ${CANONICAL_STEM} APK artifacts"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
