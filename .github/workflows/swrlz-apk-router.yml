@@ -58,8 +58,6 @@ defaults:
 
 env:
   SWRLZ_CI_ROOT: swrlz-core/tools/ci
-  SWRLZ_BUILD_WORK_DIR: ${{ runner.temp }}/swrlz-build/router
-  SWRLZ_ARTIFACT_ROOT: ${{ runner.temp }}/swrlz-artifacts/router
   SWRLZ_REQUEST_FILE: swrlz-core/requests/000_CURRENT.request
 
 jobs:
@@ -232,6 +230,8 @@ jobs:
           SOURCE_ZIP: ${{ steps.resolve.outputs.selected_source }}
           CANONICAL_STEM: ${{ steps.resolve.outputs.canonical_stem }}
           VARIANT: ${{ needs.prepare.outputs.build_variant }}
+          SWRLZ_BUILD_WORK_DIR: ${{ runner.temp }}/swrlz-build/router
+          SWRLZ_ARTIFACT_ROOT: ${{ runner.temp }}/swrlz-artifacts/router
         run: |
           set -euo pipefail
           "$SWRLZ_CI_ROOT/build_swrlz_component.sh" \
