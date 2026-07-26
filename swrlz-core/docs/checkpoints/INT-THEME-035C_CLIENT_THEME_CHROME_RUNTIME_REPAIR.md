@@ -1,6 +1,6 @@
 # INT-THEME-035C — CLIENT Theme Chrome + Runtime Visual Repair
 
-Status: `IMPLEMENTED — SOURCE ONLY; BUILD/DEVICE VERIFICATION PENDING`
+Status: `SOURCE IMPLEMENTED; REPOSITORY PACKAGE-PAIR VERIFICATION FAILED; SUPERSEDED BY INT-THEME-035D`
 Date: 2026-07-26
 Target: CLIENT only
 Source identity: `CLIENT CFv2.1.8`
@@ -128,7 +128,7 @@ Static progress geometry evidence:
 
 This composite verifies asset scaling, shared track inset, mask, head placement, and frame containment. It is not Android runtime or device evidence.
 
-Not run or claimed:
+Not run or claimed at source packaging time:
 
 - Gradle or Kotlin/Android compilation;
 - unit, instrumentation, or UI tests;
@@ -136,26 +136,24 @@ Not run or claimed:
 - Android launcher-cache/device behavior;
 - startup choreography/frame-time/memory acceptance;
 - phone/tablet/font-scale/TalkBack/reduced-motion device acceptance;
-- GitHub Actions;
 - release, deployment, or installation.
 
-## Repository publication evidence
+## Repository and CI evidence
 
-- Lifecycle: `REPOSITORY PUBLISHED — FEATURE BRANCH; MERGE APPROVAL PENDING`.
-- Remote branch: `agent/int-theme-035c-client-theme-chrome`.
-- Source publication commit: `cbc90d000db9244f4eae1962f4b803ac378347a1`.
-- Draft pull request: [#1 — CLIENT CFv2.1.8: Theme chrome and runtime visual repair](https://github.com/kamiswrlzco-cloud/Swrlzco/pull/1).
-- At publication verification, the branch was one commit ahead of and zero commits behind `main`, and GitHub reported the PR mergeable.
-- Remote publication tree SHA and independently verified local candidate tree SHA both equal `aa076c9d91e51dc26f7594f59001eaa2224b4127`; their tree diff is empty.
-- `main` remained at `d9879a9838385c6b9192eba4b83b8250a93fa027` and was not modified.
-- No GitHub Actions run was triggered: the repository source-integrity and APK-router workflows are limited to `main` pushes or explicit manual dispatch, and no PR-associated run was observed for the publication commit.
-- This is a documentation-only publication-evidence follow-up. The immutable CLIENT ZIP, checksum, manifest, implementation source, and SERVER remain unchanged.
-- No merge, build, APK assembly, release, deployment, or installation occurred.
+- PR #1 merged to `main` at `bc80d7a4d28d656f640ac1a511b9ae340e8b45ee`.
+- Source Package Integrity run `30222384992` selected the correct CFv2.1.8 ZIP
+  and failed because its manifest lacked canonical `zip`, `size_bytes`, and
+  `verified: true` fields.
+- APK Router run `30222384996` passed resolver tests, selected the correct
+  CFv2.1.8 ZIP/SHA pair, and failed at the same package-verification step.
+- Kotlin/Android compilation was skipped and no APK artifact was produced.
+- The failure is packaging lineage, not evidence of an application compile defect.
 
-## Next gate
+## Current disposition
 
-Build and device verification require:
+The failed CFv2.1.8 pair remains immutable lineage. CLIENT CFv2.1.9 under
+INT-THEME-035D preserves the theme implementation and repairs package/application
+identity plus the canonical manifest contract.
 
-`APPROVE INT-THEME-035C BUILD + DEVICE VERIFICATION — NO RELEASE`
-
-That gate authorizes compilation, tests, a debug APK, and device evidence. It does not authorize release, production deployment, or protocol/authority changes.
+No release, deployment, installation, SERVER, protocol, or authority change is
+claimed by this historical checkpoint.
