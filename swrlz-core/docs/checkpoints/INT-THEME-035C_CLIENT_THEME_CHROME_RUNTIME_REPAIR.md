@@ -139,6 +139,19 @@ Not run or claimed:
 - GitHub Actions;
 - release, deployment, or installation.
 
+## Repository publication evidence
+
+- Lifecycle: `REPOSITORY PUBLISHED — FEATURE BRANCH; MERGE APPROVAL PENDING`.
+- Remote branch: `agent/int-theme-035c-client-theme-chrome`.
+- Source publication commit: `cbc90d000db9244f4eae1962f4b803ac378347a1`.
+- Draft pull request: [#1 — CLIENT CFv2.1.8: Theme chrome and runtime visual repair](https://github.com/kamiswrlzco-cloud/Swrlzco/pull/1).
+- At publication verification, the branch was one commit ahead of and zero commits behind `main`, and GitHub reported the PR mergeable.
+- Remote publication tree SHA and independently verified local candidate tree SHA both equal `aa076c9d91e51dc26f7594f59001eaa2224b4127`; their tree diff is empty.
+- `main` remained at `d9879a9838385c6b9192eba4b83b8250a93fa027` and was not modified.
+- No GitHub Actions run was triggered: the repository source-integrity and APK-router workflows are limited to `main` pushes or explicit manual dispatch, and no PR-associated run was observed for the publication commit.
+- This is a documentation-only publication-evidence follow-up. The immutable CLIENT ZIP, checksum, manifest, implementation source, and SERVER remain unchanged.
+- No merge, build, APK assembly, release, deployment, or installation occurred.
+
 ## Next gate
 
 Build and device verification require:
