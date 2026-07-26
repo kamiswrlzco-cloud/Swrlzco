@@ -9,6 +9,7 @@ Start with:
 2. [`DOCUMENTATION_INDEX.md`](DOCUMENTATION_INDEX.md)
 3. [`reference/source-of-truth.md`](reference/source-of-truth.md)
 4. [`architecture/repository-migration-foundation.md`](architecture/repository-migration-foundation.md)
+5. [`checkpoints/INT-THEME-035C_CLIENT_THEME_CHROME_RUNTIME_REPAIR.md`](checkpoints/INT-THEME-035C_CLIENT_THEME_CHROME_RUNTIME_REPAIR.md)
 
 Documentation Rebuild v2 source reports are preserved under `rebuild-v2/` as historical
 evidence. Raw `.reference` source-tree duplicates and extracted Office internals from the

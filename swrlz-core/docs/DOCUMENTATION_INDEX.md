@@ -11,6 +11,7 @@
 
 - `architecture/system-overview.md`
 - `architecture/client-architecture.md`
+- `architecture/client-theme-chrome-runtime-v1.md` — declarative CLIENT chrome, progress, startup, performance, and accessibility boundaries
 - `architecture/repository-migration-foundation.md`
 
 ## Runtime and implementation analysis
@@ -34,6 +35,14 @@
 ## Releases
 
 - `releases/compatibility-matrix.md`
+- `releases/CLIENT_CFv2.1.8_THEME_CHROME_RUNTIME_REPAIR.md`
+
+## Checkpoints and engineering evidence
+
+- `checkpoints/INT-THEME-035C_CLIENT_THEME_CHROME_RUNTIME_REPAIR.md`
+- `engineering/Engineering_Log.md`
+- `evidence/INT-THEME-035C_PROGRESS_GEOMETRY_PREVIEW.jpg` — static geometry evidence, not Android runtime evidence
+- `handoffs/INT-THEME-035C_SOURCE_HANDOFF.md`
 
 ## Historical rebuild records
 

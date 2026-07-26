@@ -1,4 +1,4 @@
-# Current Authority — 2026-07-25
+# Current Authority — 2026-07-26
 
 ## Official repository
 
@@ -10,11 +10,13 @@
 
 ### CLIENT
 
-- File: `sources/client/CLIENT_CFv2.1.2_SWRLZ.zip`
-- SHA-256: `80ae8f9d4bead7596d60e327e825dd94d96209373017fb514bb957153cc6aa2f`
+- File: `sources/client/CLIENT_CFv2.1.8_SWRLZ.zip`
+- SHA-256: `d344e683cc76756020b1a02e118b2417c03d6552eeb032dd5dd91058c0f7f055`
 - Android applicationId: `sh.swurlz.core`
-- versionCode: `100`
-- versionName: `2.1.2-repository-bootstrap-forge-v1`
+- versionCode: `106`
+- versionName: `2.1.8-theme-chrome-runtime-repair-v1`
+- Checkpoint: `INT-THEME-035C`
+- Status: source-only implementation verified; compilation and device acceptance pending
 
 ### SERVER
 
@@ -24,14 +26,24 @@
 - versionCode: `50`
 - versionName: `2.1.0-forge-parity-portable-repository-v1`
 
-## Repository bootstrap capability
+## CLIENT checkpoint boundary
 
-CLIENT CFv2.1.2 defaults Forge to this repository and `swrlz-core/...` lanes, and can expand a generic bootstrap ZIP into repository root with optional outer-ZIP removal.
+CLIENT CFv2.1.8 extends the declarative ThemePack presentation system across the CLIENT
+shell and repairs launcher, startup, preview-progress, and Jester ignition behavior.
+The immutable CFv2.1.7 parent remains beside it as the rollback baseline.
+
+Theme selection remains local and presentation-only. SERVER, protocol, trust, Truth Firewall,
+identity proof, permissions, missions, Forge authority, local/remote distinctions, accessibility
+automation, and offline-first behavior are unchanged.
 
 ## Validation boundary
 
-The source packages and SHA-256 receipts are present and hash-matched in this bootstrap.
-Compilation/device/integration success is **not** claimed by this bootstrap.
+The CLIENT CFv2.1.8 source package and SHA-256 receipt are present and hash-matched.
+It also has a package manifest and source-only checkpoint evidence. The SERVER authority entry
+above is preserved from the repository baseline and was not modified or revalidated by this
+CLIENT-only checkpoint.
+Compilation, tests, APK assembly, device behavior, workflow execution, and release success are
+**not** claimed.
 
 ## Historical evidence
 
