@@ -22,6 +22,11 @@ class ResolveSwrlzSourceTests(unittest.TestCase):
         subprocess.run(["git", "init", "-q"], cwd=self.root, check=True)
         subprocess.run(["git", "config", "user.email", "tests@example.invalid"], cwd=self.root, check=True)
         subprocess.run(["git", "config", "user.name", "SWRLZ Tests"], cwd=self.root, check=True)
+
+        # Do not let the GitHub Actions push event leak into isolated temp repos.
+        for key in ("GITHUB_EVENT_NAME", "GITHUB_EVENT_PATH", "GITHUB_EVENT_BEFORE", "GITHUB_SHA"):
+            os.environ.pop(key, None)
+
         for spec in COMPONENTS.values():
             (self.root / spec.lane).mkdir(parents=True, exist_ok=True)
 
@@ -46,18 +51,18 @@ class ResolveSwrlzSourceTests(unittest.TestCase):
         self.assertEqual(COMPONENTS["SERVER"].lane, "swrlz-core/sources/server")
 
     def test_copy_suffix_is_transport_only(self):
-        parsed = parse_transport_name("CLIENT_CFv2.1.2_SWRLZ (9).zip", ".zip")
-        self.assertEqual(parsed.logical_stem, "CLIENT_CFv2.1.2_SWRLZ")
+        parsed = parse_transport_name("CLIENT_CFv2.1.3_SWRLZ (9).zip", ".zip")
+        self.assertEqual(parsed.logical_stem, "CLIENT_CFv2.1.3_SWRLZ")
         self.assertEqual(parsed.duplicate_suffix, 9)
 
     def test_explicit_client_source_resolves(self):
-        source = self.write_pair("CLIENT", "CLIENT_CFv2.1.2_SWRLZ.zip", b"client")
+        source = self.write_pair("CLIENT", "CLIENT_CFv2.1.3_SWRLZ.zip", b"client")
         result = resolve_source(self.root, "CLIENT", str(source.relative_to(self.root)))
         self.assertEqual(result["selected_source"], str(source.relative_to(self.root)))
         self.assertEqual(result["source_sha256"], digest(b"client"))
 
     def test_current_push_selects_changed_server(self):
-        source = self.write_pair("SERVER", "SERVER_CFv2.1.0_SWRLZ.zip", b"server-v1")
+        source = self.write_pair("SERVER", "SERVER_CFv2.1.1_SWRLZ.zip", b"server-v1")
         first = self.commit("initial")
         source.write_bytes(b"server-v2")
         source.with_suffix(".sha256").write_text(f"{digest(b'server-v2')}  {source.name}\n")

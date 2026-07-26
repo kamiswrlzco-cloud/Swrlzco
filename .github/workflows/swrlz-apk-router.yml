@@ -133,7 +133,11 @@ jobs:
               after = os.environ["AFTER_SHA"]
               cmd = ["git", "show", "--pretty=", "--name-only", after] if (not before or set(before) == {"0"}) \
                   else ["git", "diff", "--name-only", before, after]
-              changed = {line.strip() for line in subprocess.check_output(cmd, text=True).splitlines() if line.strip()}
+              changed = {
+                  line.strip()
+                  for line in subprocess.check_output(cmd, text=True).splitlines()
+                  if line.strip()
+              }
 
               lane_prefixes = {
                   "swrlz-core/sources/client/": "CLIENT",
@@ -155,7 +159,9 @@ jobs:
                       components.add(target)
                       variant = request.get("build_variant", "debug").lower()
                       if request.get("commit_release_artifacts", "false").lower() != "false":
-                          raise SystemExit("Automatic request builds may not commit release artifacts; use manual dispatch.")
+                          raise SystemExit(
+                              "Automatic request builds may not commit release artifacts; use manual dispatch."
+                          )
 
           if variant not in {"debug", "release"}:
               raise SystemExit(f"Unsupported build variant: {variant!r}")
@@ -234,7 +240,9 @@ jobs:
           SWRLZ_ARTIFACT_ROOT: ${{ runner.temp }}/swrlz-artifacts/router
         run: |
           set -euo pipefail
-          "$SWRLZ_CI_ROOT/build_swrlz_component.sh" \
+          # Forge/Git API uploads may store shell helpers as mode 100644.
+          # Invoke through Bash so CI does not depend on the executable bit.
+          bash "$SWRLZ_CI_ROOT/build_swrlz_component.sh" \
             "$COMPONENT" "$SOURCE_ZIP" "$CANONICAL_STEM" "$VARIANT" \
             "$SWRLZ_BUILD_WORK_DIR/$COMPONENT" \
             "$SWRLZ_ARTIFACT_ROOT/$COMPONENT"
@@ -250,7 +258,11 @@ jobs:
         run: |
           set -euo pipefail
           PRESENT=0
-          for value in "$SWRLZ_DEV_KEYSTORE_BASE64" "$SWRLZ_DEV_KEYSTORE_PASSWORD" "$SWRLZ_DEV_KEY_ALIAS" "$SWRLZ_DEV_KEY_PASSWORD"; do
+          for value in \
+            "$SWRLZ_DEV_KEYSTORE_BASE64" \
+            "$SWRLZ_DEV_KEYSTORE_PASSWORD" \
+            "$SWRLZ_DEV_KEY_ALIAS" \
+            "$SWRLZ_DEV_KEY_PASSWORD"; do
             [[ -n "$value" ]] && PRESENT=$((PRESENT + 1))
           done
 
@@ -265,9 +277,15 @@ jobs:
             printf '%s' "$SWRLZ_DEV_KEYSTORE_BASE64" | base64 -d > "$KEYSTORE"
             APKSIGNER="$(find "${ANDROID_HOME:-$HOME}" -type f -name apksigner -print 2>/dev/null | sort -V | tail -n 1 || true)"
             ZIPALIGN="$(find "${ANDROID_HOME:-$HOME}" -type f -name zipalign -print 2>/dev/null | sort -V | tail -n 1 || true)"
-            [[ -n "$APKSIGNER" && -n "$ZIPALIGN" ]] || { echo 'apksigner/zipalign not found.' >&2; exit 1; }
+            [[ -n "$APKSIGNER" && -n "$ZIPALIGN" ]] || {
+              echo 'apksigner/zipalign not found.' >&2
+              exit 1
+            }
 
-            mapfile -t APKS < <(find "$ARTIFACT_DIR" -maxdepth 1 -type f -name '*.apk' ! -name '*_stable-signed.apk' -print | sort)
+            mapfile -t APKS < <(
+              find "$ARTIFACT_DIR" -maxdepth 1 -type f -name '*.apk' \
+                ! -name '*_stable-signed.apk' -print | sort
+            )
             for APK in "${APKS[@]}"; do
               BASE="${APK%.apk}"
               ALIGNED="${BASE}_aligned.apk"
