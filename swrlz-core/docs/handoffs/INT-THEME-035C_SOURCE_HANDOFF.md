@@ -31,8 +31,12 @@ Verification:
 
 - source-only integrity: pass;
 - immutable ZIP/SHA-256 pairing: pass;
-- build/APK/device/workflow/release: not run or claimed.
+- repository promotion: PR #1 merged at `bc80d7a4d28d656f640ac1a511b9ae340e8b45ee`;
+- Source Package Integrity run `30222384992`: failed manifest-schema verification;
+- APK Router run `30222384996`: resolver passed, then the same manifest-schema verification failed;
+- Android compilation: skipped;
+- APK artifact: not produced;
+- device/release/deployment: not run or claimed.
 
-Next explicit gate:
-
-`APPROVE INT-THEME-035C BUILD + DEVICE VERIFICATION — NO RELEASE`
+This failed package pair remains immutable lineage. CLIENT CFv2.1.9 under
+INT-THEME-035D preserves the implementation and repairs the canonical manifest contract.

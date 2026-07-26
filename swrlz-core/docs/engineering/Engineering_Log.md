@@ -1,5 +1,44 @@
 # CLIENT Engineering Log
 
+## 2026-07-26 — INT-THEME-035D
+
+### Objective
+
+Repair the canonical CLIENT source ZIP/checksum/manifest contract after repository
+promotion exposed a manifest-schema mismatch before compilation.
+
+### Source lineage
+
+PR #1 promoted CLIENT CFv2.1.8 to `main` at merge commit
+`bc80d7a4d28d656f640ac1a511b9ae340e8b45ee`.
+
+### Facts
+
+- Source Package Integrity run `30222384992` selected CFv2.1.8 and failed at manifest verification.
+- APK Router run `30222384996` passed resolver tests, selected the same CFv2.1.8 ZIP/SHA pair, and failed at the same verification gate.
+- The CFv2.1.8 ZIP and SHA matched.
+- The manifest used `sourcePackage` and `bytes` instead of canonical `zip` and `size_bytes`, and omitted `verified: true`.
+- Kotlin/Android compilation was skipped and no APK artifact was produced.
+
+### Engineering changes
+
+Advanced the packaging/identity successor to CLIENT CFv2.1.9 / versionCode 107.
+CFv2.1.8 theme behavior is unchanged. The new manifest retains rich checkpoint metadata
+and adds the exact repository verifier contract. Failed CFv2.1.8 evidence remains preserved.
+
+### Verification performed
+
+- behavior diff limited to Android/package identity and documentation;
+- 688-entry ZIP CRC and path/root safety: pass;
+- deterministic repackage byte comparison: pass;
+- SHA-256: `87a09a5032751dbf74f5a277a6d9b0e1f9bc48e38e48006c50d0c107cd3d30ac`;
+- repository package-pair verifier: pass locally.
+
+### Runtime evidence
+
+Repository CI build and device evidence remain pending. No release, deployment, or
+installation is claimed.
+
 ## 2026-07-26 — INT-THEME-035C
 
 Verified canonical parent `CLIENT_CFv2.1.7_SWRLZ.zip` at SHA-256 `bc5b941e9b0c86e28581d8f6019b6c54722243279ef666aa3c35c4f97745fe76`.
@@ -8,7 +47,7 @@ Advanced the CLIENT-only source successor to CFv2.1.8 / versionCode 106. The imp
 
 The authority diff remains presentation-only. SERVER, protocol, network, trust, identity proof, permission, mission, Forge transaction, accessibility automation, local/remote, and offline-first sources are unchanged.
 
-Source-only integrity evidence is recorded in `docs/checkpoints/INT-THEME-035C_CLIENT_THEME_CHROME_RUNTIME_REPAIR.md`. Gradle, tests, APK, device acceptance, workflow execution, release, and deployment are not run or claimed.
+Source-only integrity evidence is recorded in `docs/checkpoints/INT-THEME-035C_CLIENT_THEME_CHROME_RUNTIME_REPAIR.md`. At initial packaging time, Gradle, tests, APK, device acceptance, workflow execution, release, and deployment were not run or claimed. Later repository CI failure evidence and the package-pair successor are recorded under INT-THEME-035D.
 
 ## 2026-07-26 — INT-THEME-035B
 

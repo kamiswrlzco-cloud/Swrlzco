@@ -1,4 +1,4 @@
-> **Migration note:** this analysis originated from Documentation Rebuild v2 and contains historical evidence paths. Current source authority is CLIENT CFv2.1.8 / SERVER CFv2.1.0; see `../CURRENT_AUTHORITY.md` or the nearest equivalent path before treating any historical version/path as current.
+> **Migration note:** this analysis originated from Documentation Rebuild v2 and contains historical evidence paths. Current source authority is CLIENT CFv2.1.9 / SERVER CFv2.1.0; see `../CURRENT_AUTHORITY.md` or the nearest equivalent path before treating any historical version/path as current.
 
 # Status Matrix
 
@@ -20,4 +20,3 @@ This file will be the canonical status matrix for major SWRLZ systems. It is pop
 | Server | Mission targeting contract | IMPLEMENTED | `MissionTargetContractV1.kt`: semantic node addressing, snapshot correlation | .reference/swrlz-source/extracted/server/SERVER_CFv2.0.49_SWRLZ/.../protocol/MissionTargetContractV1.kt
 | WordMesh | Master engineering manual present | DOCUMENTED | `SWRLZ_WordMesh_Master_Engineering_Manual_v6.0.docx` extracted to `_wordmesh_doc/` | /workspaces/Swrlzco/_wordmesh_doc/
 | WordMesh | Complete protocol/data model documentation | HIGH PRIORITY GAP | Manual references protocol but system docs lack architecture diagrams, sequence flows, state machines | TODO: extract critical sections
-

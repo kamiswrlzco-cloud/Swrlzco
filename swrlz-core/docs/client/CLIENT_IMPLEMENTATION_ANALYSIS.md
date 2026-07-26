@@ -1,4 +1,4 @@
-> **Migration note:** this analysis originated from Documentation Rebuild v2 and contains historical evidence paths. Current source authority is CLIENT CFv2.1.2; see `../CURRENT_AUTHORITY.md` or the nearest equivalent path before treating any historical version/path as current.
+> **Migration note:** this analysis originated from Documentation Rebuild v2 and contains historical evidence paths. Current source authority is CLIENT CFv2.1.9; see `../CURRENT_AUTHORITY.md` or the nearest equivalent path before treating any historical version/path as current.
 
 # Client Implementation Analysis
 

@@ -1,0 +1,61 @@
+{
+  "manifestVersion": 1,
+  "zip": "CLIENT_CFv2.1.9_SWRLZ.zip",
+  "sha256": "87a09a5032751dbf74f5a277a6d9b0e1f9bc48e38e48006c50d0c107cd3d30ac",
+  "size_bytes": 36527185,
+  "verified": true,
+  "checkpoint": "INT-THEME-035D",
+  "target": "CLIENT",
+  "status": "PACKAGE_PAIR_VERIFIED",
+  "sourcePackage": "CLIENT_CFv2.1.9_SWRLZ.zip",
+  "sourceRoot": "CLIENT_CFv2.1.9_SWRLZ/",
+  "bytes": 36527185,
+  "entries": 688,
+  "android": {
+    "versionCode": 107,
+    "versionName": "2.1.9-package-pair-repair-v1",
+    "patchLabel": "CFv2.1.9-PACKAGE-PAIR-REPAIR-V1"
+  },
+  "parent": {
+    "sourcePackage": "CLIENT_CFv2.1.8_SWRLZ.zip",
+    "sha256": "d344e683cc76756020b1a02e118b2417c03d6552eeb032dd5dd91058c0f7f055",
+    "checkpoint": "INT-THEME-035C",
+    "mergeCommit": "bc80d7a4d28d656f640ac1a511b9ae340e8b45ee",
+    "packagePairStatus": "FAILED_MANIFEST_SCHEMA",
+    "workflowRuns": [
+      30222384992,
+      30222384996
+    ]
+  },
+  "scope": {
+    "packagingIdentityRepair": true,
+    "androidIdentityChange": true,
+    "clientPresentationChange": false,
+    "themeContractChange": false,
+    "serverChange": false,
+    "protocolChange": false,
+    "trustOrAuthorityChange": false,
+    "permissionChange": false,
+    "missionBehaviorChange": false,
+    "forgeAuthorityChange": false
+  },
+  "verification": {
+    "parentZipAndSha256": "PASS",
+    "behaviorDiffLimitedToIdentityAndDocumentation": "PASS",
+    "zipCrc": "PASS",
+    "zipPathSafety": "PASS",
+    "zipRoot": "PASS",
+    "checksumPair": "PASS",
+    "canonicalManifestContract": "PASS",
+    "repositoryVerifier": "PASS"
+  },
+  "notRunOrClaimed": [
+    "Kotlin or Android compilation",
+    "unit or instrumentation tests",
+    "APK or AAB assembly",
+    "device startup or launcher-cache acceptance",
+    "TalkBack, font-scale, reduced-motion, frame-time, or memory device acceptance",
+    "release, deployment, or installation"
+  ],
+  "createdAt": "2026-07-26"
+}

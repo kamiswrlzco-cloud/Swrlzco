@@ -10,13 +10,13 @@
 
 ### CLIENT
 
-- File: `sources/client/CLIENT_CFv2.1.8_SWRLZ.zip`
-- SHA-256: `d344e683cc76756020b1a02e118b2417c03d6552eeb032dd5dd91058c0f7f055`
+- File: `sources/client/CLIENT_CFv2.1.9_SWRLZ.zip`
+- SHA-256: `87a09a5032751dbf74f5a277a6d9b0e1f9bc48e38e48006c50d0c107cd3d30ac`
 - Android applicationId: `sh.swurlz.core`
-- versionCode: `106`
-- versionName: `2.1.8-theme-chrome-runtime-repair-v1`
-- Checkpoint: `INT-THEME-035C`
-- Status: source-only implementation verified; compilation and device acceptance pending
+- versionCode: `107`
+- versionName: `2.1.9-package-pair-repair-v1`
+- Checkpoint: `INT-THEME-035D`
+- Status: package pair verified locally with the repository verifier; repository CI compilation and device acceptance pending
 
 ### SERVER
 
@@ -28,9 +28,11 @@
 
 ## CLIENT checkpoint boundary
 
-CLIENT CFv2.1.8 extends the declarative ThemePack presentation system across the CLIENT
-shell and repairs launcher, startup, preview-progress, and Jester ignition behavior.
-The immutable CFv2.1.7 parent remains beside it as the rollback baseline.
+CLIENT CFv2.1.9 preserves the complete CFv2.1.8 declarative ThemePack presentation
+implementation. It repairs package/application identity and the canonical sidecar-manifest
+contract after CI stopped before compilation on the CFv2.1.8 manifest. CFv2.1.8 remains
+preserved as failed package-pair lineage; CFv2.1.7 remains the preceding implementation
+rollback baseline.
 
 Theme selection remains local and presentation-only. SERVER, protocol, trust, Truth Firewall,
 identity proof, permissions, missions, Forge authority, local/remote distinctions, accessibility
@@ -38,11 +40,11 @@ automation, and offline-first behavior are unchanged.
 
 ## Validation boundary
 
-The CLIENT CFv2.1.8 source package and SHA-256 receipt are present and hash-matched.
-It also has a package manifest and source-only checkpoint evidence. The SERVER authority entry
-above is preserved from the repository baseline and was not modified or revalidated by this
-CLIENT-only checkpoint.
-Compilation, tests, APK assembly, device behavior, workflow execution, and release success are
+The CLIENT CFv2.1.9 source package, SHA-256 receipt, and manifest are present and pass the
+repository package-pair verifier locally. Its source-behavior diff from CFv2.1.8 is limited
+to build/package identity and documentation. The SERVER authority entry above is preserved
+from the repository baseline and was not modified or revalidated by this CLIENT-only checkpoint.
+Repository CI compilation, APK assembly, device behavior, release, and deployment success are
 **not** claimed.
 
 ## Historical evidence
