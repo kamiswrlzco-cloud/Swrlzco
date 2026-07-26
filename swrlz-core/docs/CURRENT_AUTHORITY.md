@@ -16,7 +16,7 @@
 - versionCode: `107`
 - versionName: `2.1.9-package-pair-repair-v1`
 - Checkpoint: `INT-THEME-035D`
-- Status: package pair verified locally with the repository verifier; repository CI compilation and device acceptance pending
+- Status: package pair and repository CLIENT debug build verified; device acceptance pending
 
 ### SERVER
 
@@ -40,12 +40,15 @@ automation, and offline-first behavior are unchanged.
 
 ## Validation boundary
 
-The CLIENT CFv2.1.9 source package, SHA-256 receipt, and manifest are present and pass the
-repository package-pair verifier locally. Its source-behavior diff from CFv2.1.8 is limited
-to build/package identity and documentation. The SERVER authority entry above is preserved
-from the repository baseline and was not modified or revalidated by this CLIENT-only checkpoint.
-Repository CI compilation, APK assembly, device behavior, release, and deployment success are
-**not** claimed.
+The CLIENT CFv2.1.9 source package, SHA-256 receipt, and manifest pass both local and
+repository package-pair verification. Automatic Source Package Integrity run `30223152048`
+and APK Router run `30223152052` passed. The resulting debug APK has SHA-256
+`0f7312dd346c6eb587b0ec44ab28b9dd30e9371799c26dbbe657fdc354fba419`.
+Its source-behavior diff from CFv2.1.8 is limited to build/package identity and
+documentation. The SERVER authority entry above is preserved from the repository
+baseline and was not modified, built, or revalidated by this CLIENT-only checkpoint.
+Device behavior, release signing, distribution, installation, and deployment success
+are **not** claimed.
 
 ## Historical evidence
 

@@ -1,8 +1,8 @@
 # Checkpoint INT-THEME-035D: CLIENT Package Pair Repair
 
 Mode: IMPLEMENT
-Lifecycle state: IMPLEMENTATION_VERIFIED / DOCUMENTATION_SYNCED
-Status: `PACKAGE PAIR VERIFIED LOCALLY; REPOSITORY CI PENDING`
+Lifecycle state: IMPLEMENTATION_VERIFIED / BUILD_VERIFIED / DOCUMENTATION_SYNCED
+Status: `PACKAGE PAIR AND CLIENT DEBUG BUILD VERIFIED; DEVICE ACCEPTANCE PENDING`
 
 ## Objective
 
@@ -42,7 +42,8 @@ None material. The failure contract and verifier implementation were directly in
 
 ## Recommendations
 
-Perform device validation only after a successful CI APK build.
+Perform device validation against the verified CI debug APK before claiming runtime
+visual or accessibility acceptance.
 
 ## Sources of truth inspected
 
@@ -50,6 +51,9 @@ Perform device validation only after a successful CI APK build.
 - Workflow runs `30222384992` and `30222384996`
 - `swrlz-core/tools/ci/verify_swrlz_package_pair.py`
 - CFv2.1.8 ZIP, SHA-256, manifest, and checkpoint record
+- PR #2, merge commit `77be6f4f93ff73c0f9cbd2b3c5d6f401bcb893ef`,
+  workflow runs `30223152048` and `30223152052`, and downloaded artifact
+  `8637844750`
 
 ## Files changed
 
@@ -85,13 +89,27 @@ rich checkpoint fields and adds canonical `zip`, `sha256`, `size_bytes`, and
 - SHA-256: `87a09a5032751dbf74f5a277a6d9b0e1f9bc48e38e48006c50d0c107cd3d30ac`
 - Independent deterministic repackage: byte-identical
 - Repository package-pair verifier: PASS locally
+- Repository source-package integrity workflow: PASS
+- Repository CLIENT debug build: PASS
 
 ## Build evidence
 
-- Status: BUILD PENDING
+- Status: BUILD VERIFIED
 - Failed predecessor runs: `30222384992`, `30222384996`
-- CFv2.1.9 workflow/run: pending repository promotion
-- Artifact: none yet
+- PR #2 merge commit: `77be6f4f93ff73c0f9cbd2b3c5d6f401bcb893ef`
+- Source Package Integrity run `30223152048`: PASS
+- APK Router run `30223152052`: PASS
+- CLIENT build job `89849022603`: PASS
+- SERVER build job: not started
+- Release-commit step: skipped
+- Artifact `8637844750`: `CLIENT_CFv2.1.9_SWRLZ_debug_APK`
+- Artifact ZIP SHA-256:
+  `e4e5c65c134f11ab1dac77d368e0f2cc8e09c393917e9ed2e22b9a6282be20c4`
+- APK SHA-256:
+  `0f7312dd346c6eb587b0ec44ab28b9dd30e9371799c26dbbe657fdc354fba419`
+- Signing mode: `runner/default-source-signing`
+- Detailed evidence:
+  `../evidence/INT-THEME-035D_CI_BUILD_EVIDENCE.md`
 
 ## Device evidence
 
@@ -106,21 +124,29 @@ CFv2.1.8 remains preserved as failed package-pair lineage.
 
 ## Known limitations
 
-Package verification does not prove Android compilation or device behavior.
+CI compilation does not prove installation, device-specific launcher migration,
+runtime animation quality, performance, accessibility acceptance, release signing,
+or distribution. Artifact checksum receipts contain correct hashes but runner-local
+absolute filename fields; downloaded hashes were independently recalculated.
 
 ## Unresolved issues
 
-CI compilation and device acceptance remain evidence-gated.
+Device acceptance remains evidence-gated.
 
 ## Current disposition
 
-Repository promotion and automatic CI are authorized. Release, deployment, and
-installation are excluded.
+Repository promotion and automatic CI completed successfully. Release, deployment,
+and installation remain excluded.
 
 ## Approval required to continue
 
-- Waiting for: NOT APPLICABLE within the currently authorized repair/CI gate
-- Approval would authorize: NOT APPLICABLE
-- Approval would not authorize: release, deployment, installation, SERVER, protocol, or authority changes
-- Expected result: repository verification followed by CLIENT debug APK CI evidence
-- Exact approval phrase: NOT APPLICABLE
+- Waiting for: CLIENT device/emulator installation and visual/accessibility acceptance
+- Approval would authorize: install the verified CI debug APK on an explicitly
+  connected test target; capture launcher, startup, progress, theme-switch,
+  restart-persistence, reduced-motion, and layout evidence
+- Approval would not authorize: release signing, public distribution, deployment,
+  SERVER, protocol, trust, permission, mission, or authority changes
+- Expected result: device-backed pass/fail evidence and a bounded corrective
+  successor only if a runtime defect is reproduced
+- Exact approval phrase:
+  `APPROVE INT-THEME-035D CLIENT DEVICE INSTALL + VISUAL ACCEPTANCE — NO RELEASE`

@@ -33,8 +33,18 @@ Verification:
 - ZIP CRC/root/path safety: PASS
 - checksum/manifest identity: PASS
 - repository verifier: PASS locally
-- CI build: pending promotion
+- Source Package Integrity run `30223152048`: PASS
+- APK Router run `30223152052`: PASS
+- CLIENT debug APK SHA-256:
+  `0f7312dd346c6eb587b0ec44ab28b9dd30e9371799c26dbbe657fdc354fba419`
+- CI artifact ZIP SHA-256:
+  `e4e5c65c134f11ab1dac77d368e0f2cc8e09c393917e9ed2e22b9a6282be20c4`
+- CI signing mode: `runner/default-source-signing`
 - device acceptance: pending
+
+Detailed CI evidence:
+
+- `../evidence/INT-THEME-035D_CI_BUILD_EVIDENCE.md`
 
 Excluded:
 
