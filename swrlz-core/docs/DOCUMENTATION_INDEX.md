@@ -45,6 +45,7 @@
 - `engineering/Engineering_Log.md`
 - `evidence/INT-THEME-035C_PROGRESS_GEOMETRY_PREVIEW.jpg` — static geometry evidence, not Android runtime evidence
 - `handoffs/INT-THEME-035D_SOURCE_HANDOFF.md`
+- `evidence/INT-THEME-035D_CI_BUILD_EVIDENCE.md`
 - `handoffs/INT-THEME-035C_SOURCE_HANDOFF.md`
 
 ## Historical rebuild records

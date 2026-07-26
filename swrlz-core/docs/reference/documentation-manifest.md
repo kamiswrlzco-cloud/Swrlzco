@@ -36,7 +36,9 @@ Historical rebuild reports were retained under `docs/rebuild-v2/`.
 The current source authority is the source package + exact checksum under `sources/`, subject
 to later supersession by a newer explicitly verified package or repository HEAD.
 
-Build success, device testing, and integration status remain evidence-gated.
+CLIENT CFv2.1.9 package verification and CI debug build are evidenced under
+`../evidence/INT-THEME-035D_CI_BUILD_EVIDENCE.md`. Device testing and runtime
+acceptance remain evidence-gated.
 
 CLIENT CFv2.1.9 is the package-pair/identity successor under `INT-THEME-035D`.
 It preserves CFv2.1.8 application behavior and corrects the canonical manifest contract.

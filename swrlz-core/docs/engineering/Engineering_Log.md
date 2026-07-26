@@ -36,8 +36,14 @@ and adds the exact repository verifier contract. Failed CFv2.1.8 evidence remain
 
 ### Runtime evidence
 
-Repository CI build and device evidence remain pending. No release, deployment, or
-installation is claimed.
+PR #2 merged at `77be6f4f93ff73c0f9cbd2b3c5d6f401bcb893ef`.
+Source Package Integrity run `30223152048` passed the exact manifest gate that
+rejected CFv2.1.8. APK Router run `30223152052` passed resolver tests, routed
+CLIENT only, verified the selected source, completed `:app:assembleDebug`, and
+uploaded artifact `8637844750`. The downloaded APK is 56,667,850 bytes with
+SHA-256 `0f7312dd346c6eb587b0ec44ab28b9dd30e9371799c26dbbe657fdc354fba419`.
+Signing mode is `runner/default-source-signing`. Device evidence remains pending.
+No SERVER build, release, deployment, or installation is claimed.
 
 ## 2026-07-26 — INT-THEME-035C
 
