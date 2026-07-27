@@ -1,0 +1,23 @@
+{
+  "artifact_identity_note": "Immutable reissue of the original SERVER CFv2.1.8 candidate bytes under candidate revision R1. Source ZIP content is unchanged.",
+  "candidate_revision": "R1",
+  "checkpoint": "INT-CHAT-039I",
+  "parent_sha256": "96d05d0fa7a9c11ea565be0ce3453d0e1d3449112205ce787b679df47541d7e1",
+  "parent_zip": "SERVER_CFv2.1.7_SWRLZ.zip",
+  "promotion_blocker": "Android Gradle compile/build unavailable in local execution environment because Gradle distribution/dependencies cannot be downloaded (DNS/network blocked).",
+  "promotion_verified": false,
+  "sha256": "2001b8c5fa6f5e6e2ea1a53bcc97f151917dca526f4e3f2825f2ad00547bf3bf",
+  "size_bytes": 40279585,
+  "status": "candidate",
+  "target": "SERVER",
+  "validation": {
+    "acceptance_policy": "not_applicable_runtime_unchanged",
+    "android_compile": "blocked_environment",
+    "debug_build": "not_run",
+    "source_static": "passed"
+  },
+  "verified": true,
+  "version_code": 58,
+  "version_name": "2.1.8-adaptive-chat-parity-sync-candidate-v1",
+  "zip": "SERVER_CFv2.1.8_SWRLZ_CANDIDATE_R1.zip"
+}
