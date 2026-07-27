@@ -13,6 +13,7 @@
 - `architecture/client-architecture.md`
 - `architecture/client-theme-chrome-runtime-v1.md` — declarative CLIENT chrome, progress, startup, performance, and accessibility boundaries
 - `architecture/repository-migration-foundation.md`
+- `architecture/conversational-artifact-forge-and-file-organization-v1.md` — approved/planned persistent Forge, Chat package discovery, Local Artifact Resolver, safe file organization, and multi-folder Keep Organized behavior
 
 ## Runtime and implementation analysis
 
@@ -40,6 +41,7 @@
 
 ## Checkpoints and engineering evidence
 
+- `checkpoints/INT-DOC-FILE-039M_ENGINEERING_SYNC.md` — documentation synchronization for Precheck/Promotion Gate, Forge 039K/039L, and FILES 039M; does not change source authority
 - `checkpoints/INT-THEME-035D_CLIENT_PACKAGE_PAIR_REPAIR.md`
 - `checkpoints/INT-THEME-035C_CLIENT_THEME_CHROME_RUNTIME_REPAIR.md`
 - `engineering/Engineering_Log.md`
