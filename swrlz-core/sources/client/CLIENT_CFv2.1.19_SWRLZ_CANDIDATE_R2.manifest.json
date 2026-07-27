@@ -1,0 +1,44 @@
+{
+  "checkpoint": "INT-CHAT-039J",
+  "status": "candidate_R2",
+  "target": "CLIENT",
+  "zip": "CLIENT_CFv2.1.19_SWRLZ_CANDIDATE_R2.zip",
+  "sha256": "14fc9d8a5c3411b741f964fd05ec129e26ae32c0729cb0be50a04120c990f9e5",
+  "size_bytes": 14911388,
+  "verified": true,
+  "version_code": 117,
+  "version_name": "2.1.19-adaptive-chat-workspace-candidate-v2",
+  "candidate_parent": {
+    "revision": "R1",
+    "zip": "CLIENT_CFv2.1.19_SWRLZ_CANDIDATE_R1.zip",
+    "sha256": "f6db0e5e46616f9705e2c9500a7008516897fe0c93004cf6adcd8ab6cea5ea3e"
+  },
+  "source_parent": {
+    "zip": "CLIENT_CFv2.1.18_SWRLZ.zip",
+    "sha256": "2de60c5267e9ff9765cdb21af4f0fbe424972521050d4c460f9aac8b76dea7c4"
+  },
+  "build_evidence": {
+    "workflow_run": 30306467282,
+    "result": "compileDebugKotlin failed on missing ExperimentalMaterial3Api opt-in",
+    "repair": "ProviderMeshStatusStrip function-level opt-in"
+  },
+  "validation": {
+    "compose_optin_gate_self_test": "passed",
+    "compose_optin_full_source_scan": "passed",
+    "chat_workspace_policy_kotlinc": "passed",
+    "json_parse": "passed",
+    "xml_parse": "passed",
+    "changed_kotlin_lexical_balance": "passed",
+    "android_recompile_after_repair": "pending_external_build"
+  },
+  "promotion_verified": false,
+  "promotion_blocker": "A complete Android compile/debug build after the 039J repair is still required before canonical promotion.",
+  "file_count": 569,
+  "zip_entry_count": 707,
+  "candidate_revision": "R2",
+  "expected_build_identity": {
+    "candidate_revision": "R2",
+    "sha256": "14fc9d8a5c3411b741f964fd05ec129e26ae32c0729cb0be50a04120c990f9e5",
+    "rule": "Workflow evidence only counts if the resolved source SHA-256 exactly matches this value."
+  }
+}
