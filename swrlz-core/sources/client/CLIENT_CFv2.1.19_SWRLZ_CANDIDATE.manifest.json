@@ -1,0 +1,21 @@
+{
+  "checkpoint": "INT-CHAT-039I",
+  "parent_sha256": "2de60c5267e9ff9765cdb21af4f0fbe424972521050d4c460f9aac8b76dea7c4",
+  "parent_zip": "CLIENT_CFv2.1.18_SWRLZ.zip",
+  "promotion_blocker": "Android Gradle compile/build unavailable in local execution environment because Gradle distribution/dependencies cannot be downloaded (DNS/network blocked).",
+  "promotion_verified": false,
+  "sha256": "f6db0e5e46616f9705e2c9500a7008516897fe0c93004cf6adcd8ab6cea5ea3e",
+  "size_bytes": 14876721,
+  "status": "candidate",
+  "target": "CLIENT",
+  "validation": {
+    "acceptance_policy": "passed",
+    "android_compile": "blocked_environment",
+    "debug_build": "not_run",
+    "source_static": "passed"
+  },
+  "verified": true,
+  "version_code": 117,
+  "version_name": "2.1.19-adaptive-chat-workspace-candidate-v1",
+  "zip": "CLIENT_CFv2.1.19_SWRLZ_CANDIDATE.zip"
+}
