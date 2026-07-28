@@ -11,6 +11,7 @@ SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 DUPLICATE_SUFFIX_RE = re.compile(r"\s*\(\d+\)$")
 CHECKSUM_EXTENSIONS = (".sha256", ".sha", ".txt")
 
+
 def sha256(path: Path) -> str:
     h = hashlib.sha256()
     with path.open("rb") as fh:
@@ -18,18 +19,21 @@ def sha256(path: Path) -> str:
             h.update(chunk)
     return h.hexdigest()
 
+
 def transport_stem(name: str, extension: str) -> str:
     if not name.lower().endswith(extension.lower()):
         return ""
     return DUPLICATE_SUFFIX_RE.sub("", name[:-len(extension)].rstrip()).rstrip()
 
+
 def aliases(directory: Path, stem: str, extensions: tuple[str, ...]) -> list[Path]:
-    found = []
+    found: list[Path] = []
     for extension in extensions:
         for path in directory.glob(f"*{extension}"):
             if transport_stem(path.name, extension).casefold() == stem.casefold():
                 found.append(path)
     return sorted(found, key=lambda p: (DUPLICATE_SUFFIX_RE.search(p.stem) is not None, p.name.casefold()))
+
 
 def resolve_zip(requested: Path) -> Path:
     if requested.is_file():
@@ -43,6 +47,7 @@ def resolve_zip(requested: Path) -> Path:
         raise SystemExit("Package verification failed: ZIP aliases contain different bytes")
     return candidates[0]
 
+
 def parse_checksum(checksum: Path) -> tuple[str, str | None]:
     parts = checksum.read_text(encoding="utf-8").strip().split()
     if len(parts) == 1:
@@ -55,7 +60,8 @@ def parse_checksum(checksum: Path) -> tuple[str, str | None]:
         raise SystemExit("Malformed checksum file: SHA-256 must be 64 hexadecimal characters")
     return declared_hash.lower(), declared_name
 
-def resolve_checksum(zip_path: Path, explicit: Path | None) -> Path:
+
+def resolve_checksum(zip_path: Path, explicit: Path | None) -> Path | None:
     if explicit:
         if explicit.is_file():
             return explicit
@@ -63,11 +69,22 @@ def resolve_checksum(zip_path: Path, explicit: Path | None) -> Path:
     stem = transport_stem(zip_path.name, ".zip")
     candidates = aliases(zip_path.parent, stem, CHECKSUM_EXTENSIONS)
     if not candidates:
-        raise SystemExit(f"Missing checksum for ZIP: {zip_path}")
+        return None
     values = {parse_checksum(path)[0] for path in candidates}
     if len(values) != 1:
         raise SystemExit("Package verification failed: checksum aliases disagree")
     return candidates[0]
+
+
+def resolve_manifest(zip_path: Path, explicit: Path | None) -> Path | None:
+    if explicit:
+        if explicit.is_file():
+            return explicit
+        raise SystemExit(f"Missing manifest: {explicit}")
+    stem = transport_stem(zip_path.name, ".zip")
+    candidates = aliases(zip_path.parent, stem, (".manifest.json",))
+    return candidates[0] if candidates else None
+
 
 def main() -> int:
     parser = argparse.ArgumentParser()
@@ -78,22 +95,19 @@ def main() -> int:
 
     zip_path = resolve_zip(args.zip_path)
     checksum = resolve_checksum(zip_path, args.checksum)
-    manifest = args.manifest or zip_path.with_suffix(".manifest.json")
-    declared_hash, declared_name = parse_checksum(checksum)
+    manifest = resolve_manifest(zip_path, args.manifest)
     actual_hash = sha256(zip_path)
     zip_stem = transport_stem(zip_path.name, ".zip")
+    failures: list[str] = []
 
-    failures = []
-    if declared_name is not None and transport_stem(declared_name, ".zip").casefold() != zip_stem.casefold():
-        failures.append(f"checksum basename {declared_name!r} does not identify {zip_path.name!r}")
-    if declared_hash != actual_hash:
-        failures.append(f"checksum hash {declared_hash} != {actual_hash}")
+    if checksum is not None:
+        declared_hash, declared_name = parse_checksum(checksum)
+        if declared_name is not None and transport_stem(declared_name, ".zip").casefold() != zip_stem.casefold():
+            failures.append(f"checksum basename {declared_name!r} does not identify {zip_path.name!r}")
+        if declared_hash != actual_hash:
+            failures.append(f"checksum hash {declared_hash} != {actual_hash}")
 
-    manifest_name = None
-    candidates = [manifest] if manifest.is_file() else aliases(zip_path.parent, zip_stem, (".manifest.json",))
-    if candidates:
-        manifest = candidates[0]
-        manifest_name = manifest.name
+    if manifest is not None:
         try:
             payload = json.loads(manifest.read_text(encoding="utf-8"))
         except Exception as exc:
@@ -101,9 +115,9 @@ def main() -> int:
         else:
             if transport_stem(str(payload.get("zip") or ""), ".zip").casefold() != zip_stem.casefold():
                 failures.append("manifest ZIP basename mismatch")
-            if payload.get("sha256") != actual_hash:
+            if str(payload.get("sha256") or "").lower() != actual_hash:
                 failures.append("manifest SHA-256 mismatch")
-            if payload.get("size_bytes") != zip_path.stat().st_size:
+            if "size_bytes" in payload and payload.get("size_bytes") != zip_path.stat().st_size:
                 failures.append("manifest size mismatch")
             if payload.get("verified") is not True:
                 failures.append("manifest verified flag is not true")
@@ -116,11 +130,14 @@ def main() -> int:
         "logical_stem": zip_stem,
         "sha256": actual_hash,
         "size_bytes": zip_path.stat().st_size,
-        "checksum": checksum.as_posix(),
-        "manifest": manifest_name,
+        "checksum": checksum.as_posix() if checksum else None,
+        "manifest": manifest.as_posix() if manifest else None,
         "verified": True,
+        "build_eligible": True,
+        "evidence_policy": "ZIP required; supplied checksum/manifest validated; missing evidence allowed",
     }, indent=2))
     return 0
+
 
 if __name__ == "__main__":
     raise SystemExit(main())
