@@ -34,15 +34,9 @@ on:
       - main
     paths:
       - 'swrlz-core/sources/client/*.zip'
-      - 'swrlz-core/sources/client/*.sha256'
-      - 'swrlz-core/sources/client/*.sha'
-      - 'swrlz-core/sources/client/*.txt'
-      - 'swrlz-core/sources/client/*.manifest.json'
+      - 'swrlz-core/sources/client/*.transport.json'
       - 'swrlz-core/sources/server/*.zip'
-      - 'swrlz-core/sources/server/*.sha256'
-      - 'swrlz-core/sources/server/*.sha'
-      - 'swrlz-core/sources/server/*.txt'
-      - 'swrlz-core/sources/server/*.manifest.json'
+      - 'swrlz-core/sources/server/*.transport.json'
       - 'swrlz-core/requests/000_CURRENT.request'
 
 permissions:
@@ -219,15 +213,21 @@ jobs:
           fi
           python3 "$SWRLZ_CI_ROOT/resolve_swrlz_source.py" \
             --component "$COMPONENT" \
+            --work-dir "$RUNNER_TEMP/swrlz-source-resolver/$COMPONENT" \
             --github-output "$GITHUB_OUTPUT" \
             "${SOURCE_ARGUMENTS[@]}"
 
       - name: Verify selected source package
         run: |
           set -euo pipefail
-          python3 "$SWRLZ_CI_ROOT/verify_swrlz_package_pair.py" \
-            "${{ steps.resolve.outputs.selected_source }}" \
-            --checksum "${{ steps.resolve.outputs.checksum_file }}"
+          VERIFY_ARGS=("${{ steps.resolve.outputs.selected_source }}")
+          if [[ -n "${{ steps.resolve.outputs.checksum_file }}" ]]; then
+            VERIFY_ARGS+=(--checksum "${{ steps.resolve.outputs.checksum_file }}")
+          fi
+          if [[ -n "${{ steps.resolve.outputs.manifest_file }}" ]]; then
+            VERIFY_ARGS+=(--manifest "${{ steps.resolve.outputs.manifest_file }}")
+          fi
+          python3 "$SWRLZ_CI_ROOT/verify_swrlz_package_pair.py" "${VERIFY_ARGS[@]}"
 
       - name: Build selected Android component
         id: build
@@ -321,7 +321,10 @@ jobs:
             echo "- Uploaded filename: \`${{ steps.resolve.outputs.uploaded_filename }}\`"
             echo "- Canonical filename: \`${{ steps.resolve.outputs.canonical_filename }}\`"
             echo "- Source SHA-256: \`${{ steps.resolve.outputs.source_sha256 }}\`"
-            echo "- Checksum file: \`${{ steps.resolve.outputs.checksum_file }}\`"
+            echo "- Source kind: \`${{ steps.resolve.outputs.source_kind }}\`"
+            echo "- Checksum file: \`${{ steps.resolve.outputs.checksum_file || 'none supplied' }}\`"
+            echo "- Manifest file: \`${{ steps.resolve.outputs.manifest_file || 'none supplied' }}\`"
+            echo "- Transport manifest: \`${{ steps.resolve.outputs.transport_manifest || 'direct ZIP' }}\`"
             echo "- Signing mode: \`${{ steps.signing.outputs.signing_mode }}\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
