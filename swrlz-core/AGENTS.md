@@ -20,6 +20,8 @@ Use the implementation labels:
 - Do not silently treat historical `.reference` trees as current implementation authority.
 - Do not claim compilation, device testing, or integration success without corresponding evidence.
 - Keep CLIENT and SERVER source lineage separate.
-- Source ZIPs must remain paired with their exact `.sha256` sibling.
+- A source ZIP is sufficient input for an APK build attempt. Matching `.sha256` and package-manifest sidecars are optional build evidence; when supplied they must validate exactly, and contradictory evidence blocks the build.
+- Promoted/current source authority remains a stronger evidence class: authoritative source packages must retain their exact matching SHA-256 evidence even though build candidates may be ZIP-only.
+- Chunked source transport is transport only: verify each chunk and the reconstructed whole-ZIP SHA-256 before compilation, and never treat individual chunks as source authority.
 - Record exact paths, hashes, workflow/run evidence, and rollback lineage for automated repairs.
 - GitHub Actions YAML belongs at repository-root `/.github/workflows/`, not under `swrlz-core/`.
