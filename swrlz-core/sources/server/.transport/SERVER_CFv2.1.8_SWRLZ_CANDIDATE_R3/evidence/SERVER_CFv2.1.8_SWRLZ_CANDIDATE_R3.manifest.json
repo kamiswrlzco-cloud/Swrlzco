@@ -1,0 +1,19 @@
+{
+  "candidate_revision": "R3",
+  "checkpoint": "INT-CHAT-039J",
+  "parent_candidate": "SERVER_CFv2.1.8_SWRLZ_CANDIDATE_R2.zip",
+  "promotion_verified": false,
+  "sha256": "506d83b058bf8127092a8d08c20c61f763bbb97e4847d8f6ce4d3f5c0df7c451",
+  "size_bytes": 40290065,
+  "target": "SERVER",
+  "validation": {
+    "android_compile": "pending",
+    "compiler_regression_precheck": "passed",
+    "debug_build": "pending",
+    "source_static": "passed"
+  },
+  "verified": true,
+  "version_code": 58,
+  "version_name": "2.1.8-adaptive-chat-parity-sync-candidate-v3",
+  "zip": "SERVER_CFv2.1.8_SWRLZ_CANDIDATE_R3.zip"
+}
