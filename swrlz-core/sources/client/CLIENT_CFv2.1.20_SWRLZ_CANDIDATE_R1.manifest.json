@@ -1,0 +1,28 @@
+{
+  "candidate_revision": "R1",
+  "cf_version": "2.1.20",
+  "checkpoint": "INT-FORGE-039F+039N",
+  "component": "CLIENT",
+  "promotion_verified": false,
+  "repo_ci_patch": "repo-patches/INT-FORGE-039F-039N (bundled, unapplied)",
+  "sha256": "83bdcde66eedbdc6e1788b14a7b323e4ae1f5f9b2255f0adfadd336b80b15361",
+  "size_bytes": 14947250,
+  "source_parent": "CLIENT_CFv2.1.19_SWRLZ_CANDIDATE_R2.zip",
+  "validation": {
+    "android_compile": "blocked_before_compilation: Gradle 8.7 unavailable; services.gradle.org unreachable",
+    "apk_build": "pending",
+    "archive_source_equality": "passed",
+    "ci_resolver_tests": "8/8 passed",
+    "compose_optin_gate": "passed",
+    "deterministic_repack": "passed",
+    "forge_source_regression_gate": "passed",
+    "json_parse_files": 17,
+    "pure_jvm_chunk_roundtrip": "passed",
+    "xml_parse_files": 17,
+    "zip_crc": "passed"
+  },
+  "verified": true,
+  "version_code": 118,
+  "version_name": "2.1.20-forge-chunked-transport-optional-evidence-candidate-r1",
+  "zip": "CLIENT_CFv2.1.20_SWRLZ_CANDIDATE_R1.zip"
+}
