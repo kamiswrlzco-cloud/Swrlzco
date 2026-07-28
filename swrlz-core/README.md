@@ -53,3 +53,16 @@ For this repository layout, configure SWRLZ Forge to use:
 
 The Forge path fields remain configurable so this layout can move again without requiring
 another repository-target rewrite.
+
+## APK Router source-input policy
+
+Repository CI accepts either:
+
+- a lane-root CLIENT/SERVER source `.zip`; or
+- a lane-root `*.transport.json` describing verified chunked source transport.
+
+For a build attempt, the source ZIP is the required source identity. CI computes the whole ZIP SHA-256. A matching checksum or package manifest is optional build evidence; when supplied it must validate exactly and contradictory evidence blocks the build.
+
+For chunked transport, CI verifies each declared chunk and reconstructs the exact original ZIP in runner temporary storage before compilation. Transport chunks are not independent source authority.
+
+This build-input flexibility does **not** change the current-source-authority table above. Promotion remains a separate evidence-gated checkpoint. See `docs/checkpoints/INT-FORGE-039F-039N_CI_APPLICATION.md`.
