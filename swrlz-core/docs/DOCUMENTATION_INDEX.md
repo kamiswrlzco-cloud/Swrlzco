@@ -15,6 +15,11 @@
 - `architecture/repository-migration-foundation.md`
 - `architecture/conversational-artifact-forge-and-file-organization-v1.md` — Forge transport/lifecycle, Chat package discovery, Local Artifact Resolver, safe file organization, multi-folder Keep Organized, and 039F/039N build-input boundaries
 - `architecture/SWRLZ_DISTRIBUTED_INTELLIGENCE_ARCHITECTURE_V1.md` — canonical distributed CLIENT/SERVER/SWRLIE architecture, LOCAL/LAN/ONLINE modes, SERVER network/Forge authority direction, model independence, model lifecycle, node hosting, telemetry, and implementation-status boundaries
+- `architecture/SWRLZ_RUNTIME_AND_LIVE_PACK_UPDATE_ARCHITECTURE_V1.md` — companion architecture for stable runtime products, SERVER-owned live-pack discovery, SWRLIE base-plus-modules evolution, incremental/content-addressed fetch, hot activation generations, rollback, and separate signed APK runtime updates
+
+## Contracts
+
+- `contracts/SWRLZ_UPDATE_AND_PACK_MANIFEST_CONTRACT_V1.md` — common manifest, product/activation classes, compatibility, object identity, lineage, signing, update planning, state machine, rollback, source adapters, and CLIENT/SERVER authority boundaries for runtime and live-pack updates
 
 ## Runtime and implementation analysis
 
@@ -42,6 +47,7 @@
 
 ## Checkpoints and engineering evidence
 
+- `checkpoints/INT-DOC-UPD-040C-040D_UPDATE_ARCHITECTURE_SYNC.md` — docs-only integration record for game-like SWRLZ live packs, modular SWRLIE delivery, SERVER-owned update discovery, and separate runtime/APK update supervision; 040C/040D remain planned implementation checkpoints
 - `checkpoints/INT-DOC-AI-040A_DISTRIBUTED_INTELLIGENCE_ARCHITECTURE_SYNC.md` — docs-only integration record for the distributed intelligence architecture; no source/build/promotion authority change
 - `checkpoints/INT-FORGE-039F-039N_CI_APPLICATION.md` — implemented repository CI support for verified chunk reconstruction and ZIP-only build eligibility; no source promotion
 - `checkpoints/INT-FORGE-039F-039N_DOCUMENTATION_IMPACT_SET.md` — maintained-document impact classification for the CI application
