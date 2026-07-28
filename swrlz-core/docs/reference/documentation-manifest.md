@@ -2,7 +2,8 @@
 
 **Migration generation:** New official `Swrlzco/swrlz-core` bootstrap  
 **Prepared:** 2026-07-26  
-**Last policy synchronization:** 2026-07-28 — INT-FORGE-039F + INT-FORGE-039N
+**Last policy synchronization:** 2026-07-28 — INT-FORGE-039F + INT-FORGE-039N  
+**Last architecture documentation synchronization:** 2026-07-28 — INT-DOC-AI-040A
 
 ## Current source baseline
 
@@ -31,6 +32,12 @@ The following were intentionally **not promoted into active repository authority
 - `_wordmesh_doc/` raw extracted Office/XML internals
 
 Historical rebuild reports were retained under `docs/rebuild-v2/`.
+
+## Maintained architecture additions
+
+`INT-DOC-AI-040A` adds `../architecture/SWRLZ_DISTRIBUTED_INTELLIGENCE_ARCHITECTURE_V1.md` as the canonical design consolidation for the intended distributed CLIENT/SERVER/SWRLIE architecture. It documents operating modes, authority boundaries, SERVER-heavy reasoning/network direction, model independence, Model Vault/model-lineage direction, node-hosting, Forge delegation, and learning-telemetry design.
+
+This documentation addition is **architecture evidence only**. It does not alter current CLIENT/SERVER source authority, does not prove any planned component is implemented, and does not constitute build, device, integration, release, or deployment evidence.
 
 ## Version and build-input policy
 
