@@ -4,7 +4,7 @@
 
 - `CURRENT_AUTHORITY.md` — current repository, source packages, hashes, and evidence boundary
 - `reference/source-of-truth.md` — authority hierarchy
-- `reference/documentation-manifest.md` — package accounting and migration state
+- `reference/documentation-manifest.md` — package accounting, source-authority evidence, ZIP-only build eligibility, and chunk-transport policy
 - `architecture/repository-migration-foundation.md` — selected repository layout
 
 ## Architecture
@@ -13,7 +13,7 @@
 - `architecture/client-architecture.md`
 - `architecture/client-theme-chrome-runtime-v1.md` — declarative CLIENT chrome, progress, startup, performance, and accessibility boundaries
 - `architecture/repository-migration-foundation.md`
-- `architecture/conversational-artifact-forge-and-file-organization-v1.md` — approved/planned persistent Forge, Chat package discovery, Local Artifact Resolver, safe file organization, and multi-folder Keep Organized behavior
+- `architecture/conversational-artifact-forge-and-file-organization-v1.md` — Forge transport/lifecycle, Chat package discovery, Local Artifact Resolver, safe file organization, multi-folder Keep Organized, and 039F/039N build-input boundaries
 
 ## Runtime and implementation analysis
 
@@ -41,6 +41,8 @@
 
 ## Checkpoints and engineering evidence
 
+- `checkpoints/INT-FORGE-039F-039N_CI_APPLICATION.md` — implemented repository CI support for verified chunk reconstruction and ZIP-only build eligibility; no source promotion
+- `checkpoints/INT-FORGE-039F-039N_DOCUMENTATION_IMPACT_SET.md` — maintained-document impact classification for the CI application
 - `checkpoints/INT-DOC-FILE-039M_ENGINEERING_SYNC.md` — documentation synchronization for Precheck/Promotion Gate, Forge 039K/039L, and FILES 039M; does not change source authority
 - `checkpoints/INT-THEME-035D_CLIENT_PACKAGE_PAIR_REPAIR.md`
 - `checkpoints/INT-THEME-035C_CLIENT_THEME_CHROME_RUNTIME_REPAIR.md`
