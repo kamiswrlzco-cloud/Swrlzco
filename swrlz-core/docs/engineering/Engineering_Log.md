@@ -1,5 +1,35 @@
 # CLIENT Engineering Log
 
+## 2026-07-27 — INT-DOC-FILE-039M engineering synchronization
+
+### Authority boundary
+
+Repository source authority remains the versions recorded by `docs/CURRENT_AUTHORITY.md`. Later CLIENT CFv2.1.19 and SERVER CFv2.1.8 work is candidate/evidence lineage and is not promoted by this documentation update.
+
+### Validation process adopted
+
+Normal implementation work now uses a Precheck + Promotion Gate: verify the parent, establish baseline evidence when the toolchain is available, define acceptance/regression tests, work in disposable candidates, run compile/repair loops, complete applicable build/contract/security checks, synchronize affected documentation, and promote only after evidence is green.
+
+Candidate artifacts are immutable revisions (`R1`, `R2`, ...). Different bytes must not reuse a candidate identity. Build results count only when the workflow-resolved source SHA equals the expected candidate SHA.
+
+### Current compiler evidence
+
+CLIENT CFv2.1.19 adaptive Chat work remains candidate lineage. Earlier Material3 `ModalBottomSheet` opt-in evidence produced a narrow regression precheck; a repeated build of the old candidate demonstrated the need for immutable candidate names and expected-SHA matching.
+
+SERVER CFv2.1.8 R1 workflow `30314210205` reached `:app:compileDebugKotlin` and exposed four bounded blockers: cross-module nullable smart-cast use, stale `SwrlzTheme(family=...)` API use, cross-file access to private `SectionLabel`, and explicit `foundation.layout.weight` import. A SERVER R2 repair candidate is being handled outside current repository authority and must build green before promotion.
+
+### Approved Forge/file architecture
+
+INT-FORGE-039K is approved/planned to move long-running Forge transfers out of Compose screen lifecycle ownership, preserve an active transaction across navigation, and expose pause/cancel/retry/progress state. Source ZIP selection should independently auto-pair both checksum and manifest companions by default.
+
+INT-FORGE-039L is approved/planned for Chat-driven latest-valid CLIENT/SERVER/BOTH package discovery, cryptographic package-family verification, destination preview, and verified Forge staging.
+
+INT-FILE-039M is approved/planned for a shared Local Artifact Resolver plus a safe conversational file organizer. The design includes plan-first moves, suggested/created folders, ambiguity dialogs, explicit remembered organization rules, package-family moves, operation journaling, undo, Storage Access Framework roots, and UI-lifecycle-independent execution.
+
+The Keep Organized extension allows multiple user-selected folders to be watched with independent thresholds/rules and conservative background notifications such as Organize / Review / Snooze. Automatic handling applies only to behavior the user has explicitly configured; ambiguous placement remains ask-first.
+
+See `docs/architecture/conversational-artifact-forge-and-file-organization-v1.md` and `docs/checkpoints/INT-DOC-FILE-039M_ENGINEERING_SYNC.md`.
+
 ## 2026-07-26 — INT-THEME-035D
 
 ### Objective
