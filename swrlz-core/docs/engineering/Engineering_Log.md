@@ -1,5 +1,30 @@
 # CLIENT Engineering Log
 
+## 2026-07-28 — INT-FORGE-039F + INT-FORGE-039N repository CI application
+
+### Applied repository behavior
+
+The approved repository CI counterpart for deterministic chunked source transport and ZIP-only build eligibility is now applied on `main`.
+
+Applied commit chain:
+
+- `2c0c2d76af164324b2db4f931ff8592f833626f7` — source resolver accepts direct ZIP or verified `chunked-git-blobs-v1`, reconstructs the original ZIP in runner temporary storage, and treats sidecar evidence as optional;
+- `08b3eec90389051b6e597a55569afacc9a3b4e81` — package verifier permits ZIP-only build input while failing closed on supplied checksum/manifest contradictions;
+- `9ed835d06ae35f0b299c3231c0401c69a5c0fd2a` — resolver regression suite covers ZIP-only input, mismatched evidence, exact chunk reconstruction, corruption rejection, and transport-manifest push selection;
+- `9d166a62cbdfeacb35dec242502bc92907940515` — APK Router workflow integrates runner-temp reconstruction, optional evidence arguments, `.transport.json` source routing, and source-kind provenance.
+
+### Validation boundary
+
+Before application, the patch matched the exact live CI file revisions. Resolver tests passed 8/8 and patched Python CI tools compiled locally. Chunk reconstruction separately reproduced SERVER CFv2.1.8 R3 whole-ZIP SHA-256 `506d83b058bf8127092a8d08c20c61f763bbb97e4847d8f6ce4d3f5c0df7c451`.
+
+No workflow was manually dispatched by this checkpoint. No APK, release, deployment, installation, or CLIENT/SERVER source promotion is claimed.
+
+CLIENT CFv2.1.20 candidate R1 contains the corresponding Forge-side chunk/evidence implementation but remains source/static verified and Android-build pending. SERVER CFv2.1.8 R3 source is unchanged by the repository transport fix.
+
+Current repository source authority remains the versions recorded by `docs/CURRENT_AUTHORITY.md`.
+
+See `docs/checkpoints/INT-FORGE-039F-039N_CI_APPLICATION.md` and `docs/checkpoints/INT-FORGE-039F-039N_DOCUMENTATION_IMPACT_SET.md`.
+
 ## 2026-07-27 — INT-DOC-FILE-039M engineering synchronization
 
 ### Authority boundary
@@ -16,13 +41,13 @@ Candidate artifacts are immutable revisions (`R1`, `R2`, ...). Different bytes m
 
 CLIENT CFv2.1.19 adaptive Chat work remains candidate lineage. Earlier Material3 `ModalBottomSheet` opt-in evidence produced a narrow regression precheck; a repeated build of the old candidate demonstrated the need for immutable candidate names and expected-SHA matching.
 
-SERVER CFv2.1.8 R1 workflow `30314210205` reached `:app:compileDebugKotlin` and exposed four bounded blockers: cross-module nullable smart-cast use, stale `SwrlzTheme(family=...)` API use, cross-file access to private `SectionLabel`, and explicit `foundation.layout.weight` import. A SERVER R2 repair candidate is being handled outside current repository authority and must build green before promotion.
+SERVER CFv2.1.8 R1 workflow `30314210205` reached `:app:compileDebugKotlin` and exposed four bounded blockers: cross-module nullable smart-cast use, stale `SwrlzTheme(family=...)` API use, cross-file access to private `SectionLabel`, and explicit `foundation.layout.weight` import. Later R2 repaired those four compiler-evidenced defects; R3 preserved those repairs while correcting the external candidate manifest schema. SERVER candidate promotion remains evidence-gated.
 
 ### Approved Forge/file architecture
 
 INT-FORGE-039K is approved/planned to move long-running Forge transfers out of Compose screen lifecycle ownership, preserve an active transaction across navigation, and expose pause/cancel/retry/progress state. Source ZIP selection should independently auto-pair both checksum and manifest companions by default.
 
-INT-FORGE-039L is approved/planned for Chat-driven latest-valid CLIENT/SERVER/BOTH package discovery, cryptographic package-family verification, destination preview, and verified Forge staging.
+INT-FORGE-039L is approved/planned for Chat-driven latest-valid CLIENT/SERVER/BOTH package discovery, source identity plus supplied-evidence verification, destination preview, and Forge staging.
 
 INT-FILE-039M is approved/planned for a shared Local Artifact Resolver plus a safe conversational file organizer. The design includes plan-first moves, suggested/created folders, ambiguity dialogs, explicit remembered organization rules, package-family moves, operation journaling, undo, Storage Access Framework roots, and UI-lifecycle-independent execution.
 
