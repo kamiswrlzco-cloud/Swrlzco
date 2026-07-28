@@ -3,7 +3,8 @@
 **Migration generation:** New official `Swrlzco/swrlz-core` bootstrap  
 **Prepared:** 2026-07-26  
 **Last policy synchronization:** 2026-07-28 — INT-FORGE-039F + INT-FORGE-039N  
-**Last architecture documentation synchronization:** 2026-07-28 — INT-DOC-AI-040A
+**Last architecture documentation synchronization:** 2026-07-28 — INT-DOC-AI-040A  
+**Last update architecture synchronization:** 2026-07-28 — INT-DOC-UPD-040C-040D
 
 ## Current source baseline
 
@@ -35,9 +36,27 @@ Historical rebuild reports were retained under `docs/rebuild-v2/`.
 
 ## Maintained architecture additions
 
+### INT-DOC-AI-040A — distributed intelligence
+
 `INT-DOC-AI-040A` adds `../architecture/SWRLZ_DISTRIBUTED_INTELLIGENCE_ARCHITECTURE_V1.md` as the canonical design consolidation for the intended distributed CLIENT/SERVER/SWRLIE architecture. It documents operating modes, authority boundaries, SERVER-heavy reasoning/network direction, model independence, Model Vault/model-lineage direction, node-hosting, Forge delegation, and learning-telemetry design.
 
 This documentation addition is **architecture evidence only**. It does not alter current CLIENT/SERVER source authority, does not prove any planned component is implemented, and does not constitute build, device, integration, release, or deployment evidence.
+
+### INT-DOC-UPD-040C-040D — live pack and runtime update architecture
+
+`INT-DOC-UPD-040C-040D` adds:
+
+- `../architecture/SWRLZ_RUNTIME_AND_LIVE_PACK_UPDATE_ARCHITECTURE_V1.md`
+- `../contracts/SWRLZ_UPDATE_AND_PACK_MANIFEST_CONTRACT_V1.md`
+- `../checkpoints/INT-DOC-UPD-040C-040D_UPDATE_ARCHITECTURE_SYNC.md`
+
+This documentation defines the intended split between stable signed CLIENT/SERVER/Launcher runtime products and non-executable live packs that may be downloaded, verified, staged, and activated while SWRLZ continues running. It records SERVER-owned normal internet update discovery, source-provider abstraction, content-addressed object reuse, immutable staged generations, rollback, and separate Android package-replacement semantics for executable runtime changes.
+
+It also records the SWRLIE base-plus-modules direction: a relatively stable base model with independently versioned adapters, knowledge, configuration, and specialist modules where technically appropriate. The neural model remains advisory; SWRLZ retains Truth Firewall, command routing, approval policy, tool schemas, node trust, file authority, Forge validation, update trust, activation, and rollback authority.
+
+`INT-PACK-040C` and `INT-UPD-040D` remain **planned implementation checkpoints**. This docs sync does not approve or claim their implementation. `INT-AI-040B` remains the separately approved bounded 350M local-inference implementation scope.
+
+This update documentation is **architecture/contract evidence only**. It does not alter `CURRENT_AUTHORITY.md`, source packages, workflows, build tools, model weights, release assets, APKs, device state, or deployments.
 
 ## Version and build-input policy
 
