@@ -1,7 +1,8 @@
 # Documentation Manifest and Package Accounting
 
 **Migration generation:** New official `Swrlzco/swrlz-core` bootstrap  
-**Prepared:** 2026-07-26
+**Prepared:** 2026-07-26  
+**Last policy synchronization:** 2026-07-28 — INT-FORGE-039F + INT-FORGE-039N
 
 ## Current source baseline
 
@@ -31,18 +32,20 @@ The following were intentionally **not promoted into active repository authority
 
 Historical rebuild reports were retained under `docs/rebuild-v2/`.
 
-## Version policy
+## Version and build-input policy
 
-The current source authority is the source package + exact checksum under `sources/`, subject
-to later supersession by a newer explicitly verified package or repository HEAD.
+Current promoted source authority remains the source package + exact checksum under `sources/`, subject to later supersession by a newer explicitly verified package or repository HEAD.
 
-CLIENT CFv2.1.9 package verification and CI debug build are evidenced under
-`../evidence/INT-THEME-035D_CI_BUILD_EVIDENCE.md`. Device testing and runtime
-acceptance remain evidence-gated.
+APK **build eligibility is a separate evidence class**. Repository CI may attempt a build from a valid CLIENT/SERVER source ZIP without a supplied checksum or package manifest. CI calculates the source ZIP SHA-256 itself. When checksum or package-manifest evidence is supplied, it must validate exactly; contradictory supplied evidence blocks the build.
 
-CLIENT CFv2.1.9 is the package-pair/identity successor under `INT-THEME-035D`.
-It preserves CFv2.1.8 application behavior and corrects the canonical manifest contract.
-CFv2.1.8 and its failed workflow evidence remain preserved as lineage. The CFv2.1.7
-parent package remains available as the preceding implementation rollback baseline.
-The SERVER row is preserved from the repository baseline and was not revalidated by this
-CLIENT-only checkpoint.
+Large source archives may be transported as verified chunks described by `*.transport.json`. The transport manifest/chunks are not source authority. CI verifies each chunk, reconstructs the original ZIP in runner temporary storage, and verifies whole size/SHA-256 before compilation.
+
+A successful build from ZIP-only input does not by itself promote the ZIP to current authority. Promotion remains a separate checkpoint requiring the applicable package, build, lineage, documentation, and runtime evidence.
+
+CLIENT CFv2.1.9 package verification and CI debug build are evidenced under `../evidence/INT-THEME-035D_CI_BUILD_EVIDENCE.md`. Device testing and runtime acceptance remain evidence-gated.
+
+CLIENT CFv2.1.9 is the package-pair/identity successor under `INT-THEME-035D`. It preserves CFv2.1.8 application behavior and corrects the canonical manifest contract. CFv2.1.8 and its failed workflow evidence remain preserved as lineage. The CFv2.1.7 parent package remains available as the preceding implementation rollback baseline.
+
+The SERVER row is preserved from the repository baseline and was not revalidated by that CLIENT-only checkpoint.
+
+Repository CI transport/build-input policy application is recorded in `../checkpoints/INT-FORGE-039F-039N_CI_APPLICATION.md`; it does not alter the source-baseline table above.
