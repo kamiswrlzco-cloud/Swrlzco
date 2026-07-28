@@ -1,0 +1,33 @@
+{
+  "candidate_revision": "R2",
+  "cf_version": "2.1.21",
+  "checkpoint": "INT-CMD-039P-R2",
+  "component": "CLIENT",
+  "promotion_verified": false,
+  "sha256": "c4eb68554bc3c5bf95a0599c42da782ad3b948331cab3b08229eb73c3a9b089b",
+  "size_bytes": 15002468,
+  "source_parent": "CLIENT_CFv2.1.21_SWRLZ_CANDIDATE_R1.zip",
+  "source_parent_sha256": "c1d3d029b55fdd095067f54e78466856b638ef281daa28ae4171bc446fd32528",
+  "validation": {
+    "android_compile": "blocked_before_compilation: Gradle 8.7 unavailable; services.gradle.org unreachable",
+    "apk_build": "pending",
+    "archive_directory_entries": 150,
+    "archive_file_entries": 603,
+    "archive_source_equality": "passed",
+    "command_contract_compile": "passed",
+    "command_resolver_smoke": "passed_structured_and_legacy",
+    "command_static_gate": "28/28 passed",
+    "compose_optin_gate": "passed",
+    "composer_end_caret_static_gate": "passed",
+    "deterministic_repack": "passed",
+    "forge_039f_039n_regression_gate": "passed",
+    "json_parse_files": 17,
+    "response_top_exact_anchor_static_gate": "passed",
+    "xml_parse_files": 17,
+    "zip_crc": "passed"
+  },
+  "verified": true,
+  "version_code": 119,
+  "version_name": "2.1.21-command-palette-parent-child-cursor-follow-candidate-r2",
+  "zip": "CLIENT_CFv2.1.21_SWRLZ_CANDIDATE_R2.zip"
+}
