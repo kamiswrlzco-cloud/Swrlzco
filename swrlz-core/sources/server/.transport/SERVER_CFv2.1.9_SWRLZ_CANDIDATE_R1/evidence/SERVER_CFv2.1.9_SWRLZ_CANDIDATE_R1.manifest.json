@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "component": "SERVER",
+  "checkpoint": "INT-AI-040B",
+  "candidate_revision": "R1",
+  "version_code": 59,
+  "version_name": "2.1.9-swrlie-350m-local-inference-candidate-r1",
+  "parent_zip": "SERVER_CFv2.1.8_SWRLZ_CANDIDATE_R3.zip",
+  "parent_sha256": "506d83b058bf8127092a8d08c20c61f763bbb97e4847d8f6ce4d3f5c0df7c451",
+  "zip": "SERVER_CFv2.1.9_SWRLZ_CANDIDATE_R1.zip",
+  "sha256": "988eb4bb108bdc0b762e20bb65c25baab014f9bab424dd7d1d5eea01b0b296f9",
+  "size_bytes": 40341867,
+  "verified": true,
+  "promotion_verified": false,
+  "evidence_class": ["source_static", "exact_model_fixture", "bounded_kotlin_contract_check"],
+  "android_compile_verified": false,
+  "apk_build_verified": false,
+  "device_verified": false,
+  "integration_verified": false,
+  "release_verified": false,
+  "deployment_verified": false,
+  "source_file_count": 491,
+  "source_directory_count": 126,
+  "model_target": {
+    "file": "LFM2.5-350M-Q4_0.gguf",
+    "sha256": "85e32858daafad55b7bcd6b97a1343ee0661188e8036f9862d14d6b563142f50",
+    "size_bytes": 219309792,
+    "architecture": "lfm2",
+    "quantization": "Q4_0",
+    "bundled_in_source": false
+  },
+  "validation": {
+    "source_static": "PASS",
+    "exact_uploaded_gguf_fixture": "PASS",
+    "production_kotlin_gguf_reader_fixture": "PASS",
+    "llama_engine_api_shaped_kotlinc": "PASS",
+    "gradle_android_compile": "BLOCKED_BEFORE_COMPILATION_GRADLE_8_9_NOT_CACHED_AND_NETWORK_UNAVAILABLE"
+  },
+  "notes": "Source candidate only. No GGUF weights, APK, build result, promotion, release, deployment, automatic model bootstrap, live-pack updater, or CLIENT runtime updater is claimed."
+}
