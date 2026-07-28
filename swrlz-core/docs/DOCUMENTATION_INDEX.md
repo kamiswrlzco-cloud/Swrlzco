@@ -14,6 +14,7 @@
 - `architecture/client-theme-chrome-runtime-v1.md` — declarative CLIENT chrome, progress, startup, performance, and accessibility boundaries
 - `architecture/repository-migration-foundation.md`
 - `architecture/conversational-artifact-forge-and-file-organization-v1.md` — Forge transport/lifecycle, Chat package discovery, Local Artifact Resolver, safe file organization, multi-folder Keep Organized, and 039F/039N build-input boundaries
+- `architecture/SWRLZ_DISTRIBUTED_INTELLIGENCE_ARCHITECTURE_V1.md` — canonical distributed CLIENT/SERVER/SWRLIE architecture, LOCAL/LAN/ONLINE modes, SERVER network/Forge authority direction, model independence, model lifecycle, node hosting, telemetry, and implementation-status boundaries
 
 ## Runtime and implementation analysis
 
@@ -41,6 +42,7 @@
 
 ## Checkpoints and engineering evidence
 
+- `checkpoints/INT-DOC-AI-040A_DISTRIBUTED_INTELLIGENCE_ARCHITECTURE_SYNC.md` — docs-only integration record for the distributed intelligence architecture; no source/build/promotion authority change
 - `checkpoints/INT-FORGE-039F-039N_CI_APPLICATION.md` — implemented repository CI support for verified chunk reconstruction and ZIP-only build eligibility; no source promotion
 - `checkpoints/INT-FORGE-039F-039N_DOCUMENTATION_IMPACT_SET.md` — maintained-document impact classification for the CI application
 - `checkpoints/INT-DOC-FILE-039M_ENGINEERING_SYNC.md` — documentation synchronization for Precheck/Promotion Gate, Forge 039K/039L, and FILES 039M; does not change source authority
