@@ -30,6 +30,14 @@
 
 The repository also contains later candidate/evidence lineage. These entries are intentionally separated from promoted source authority.
 
+### CLIENT CFv2.1.22 candidate
+
+| Revision | VC | Source SHA-256 | Repository Forge commit | Authority status |
+|---|---:|---|---|---|
+| R1 | 120 | `49284e9a57d30a2b37912c32ac9a85fbb333d4a6ed620687c855469363d0ecd5` | `1d3fa542db0f700a1f35256be9317393d25bbc8c` | candidate only |
+
+CLIENT CFv2.1.22 R1 is checkpoint `INT-UX-039Q`, with parent `CLIENT_CFv2.1.21_SWRLZ_CANDIDATE_R2.zip`. Repository transport includes checksum and candidate-manifest evidence. Its candidate manifest records source/static validation but Android compilation was blocked before compilation because the required Gradle distribution was unavailable; APK build remained pending. This candidate therefore does not replace promoted CLIENT CFv2.1.9 authority.
+
 ### SERVER CFv2.1.9 SWRLIE candidates
 
 | Revision | VC | Source SHA-256 | Repository Forge commit | Authority status |
@@ -39,10 +47,13 @@ The repository also contains later candidate/evidence lineage. These entries are
 | R3 | 61 | `8012a32decc24260ed3978ead0520fa26277fea7712f71a26faadd37772bc955` | `54c64be91e0fdc0bf229a1389518707eec150356` | candidate only |
 | R4 | 62 | `9adaec91086f0c994194acd08865fa3797c125a87e1f885d45269d707c9b8112` | `e4955c8e0e81773fdb3583d7da5654ca20e0cbc1` | candidate only |
 | R5 | 63 | `88179c35705e845ae9ad8e53ca44408b49471d7728c3a12acba1d9e219bba355` | `f158d75cba7553b7eb8a4f6d0c5ac3307f8b9be7` | candidate only |
+| R6 | 64 | `ba1bd057d4fca57e3506d3aefacd5d7d485c657b195e7fdf47288f2f6ae307cf` | `cb073ca4c008109aec9da4ad6f111657d31bc421` | candidate only |
 
-R1-R5 transport/checksum presence establishes candidate source identity represented by those Forge commits. It does **not** by itself establish Android build, device, integration, promotion, release, deployment, or installation evidence.
+R1-R6 transport/checksum presence establishes the candidate source identity represented by those Forge commits. R1/R2 repository transport includes candidate-manifest evidence; R3-R6 repository transport does not contain the separately packaged candidate manifests. Transport evidence does **not** by itself establish Android compilation, APK build, device behavior, integration, promotion, release, deployment, or installation.
 
-See `checkpoints/INT-DOC-AI-040B-R1-R5_SWRLIE_RUNTIME_SYNC.md` for the documented progression.
+Project-owner/operator evidence separately reports a successful R5 Android build. A later user-supplied device screenshot shows SERVER CFv2.1.9 VC64 rendering the current Chat/Command Center surface. That screenshot is device-visible working-state evidence for VC64, but it is not treated as exact source-SHA → CI workflow → APK provenance or as promotion evidence.
+
+See `checkpoints/INT-DOC-AI-040B-R1-R5_SWRLIE_RUNTIME_SYNC.md` for R1-R5 progression and the later dense-chat/identity synchronization record for R6 and subsequent architecture clarifications.
 
 ## CLIENT checkpoint boundary
 
@@ -54,7 +65,7 @@ Theme selection remains local and presentation-only. SERVER, protocol, trust, Tr
 
 The CLIENT CFv2.1.9 source package, SHA-256 receipt, and manifest pass both local and repository package-pair verification. Automatic Source Package Integrity run `30223152048` and APK Router run `30223152052` passed. The resulting debug APK has SHA-256 `0f7312dd346c6eb587b0ec44ab28b9dd30e9371799c26dbbe657fdc354fba419`.
 
-Its source-behavior diff from CFv2.1.8 is limited to build/package identity and documentation. The promoted SERVER authority entry above remains CFv2.1.0; later SERVER CFv2.1.9 R1-R5 candidates are documented separately and are not promoted by this authority synchronization.
+Its source-behavior diff from CFv2.1.8 is limited to build/package identity and documentation. The promoted SERVER authority entry above remains CFv2.1.0; later CLIENT CFv2.1.22 R1 and SERVER CFv2.1.9 R1-R6 candidates are documented separately and are not promoted by this authority synchronization.
 
 Device behavior, release signing, distribution, installation, and deployment success are **not** claimed unless separately evidenced for the applicable candidate/version.
 
