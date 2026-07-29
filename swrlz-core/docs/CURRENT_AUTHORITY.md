@@ -1,4 +1,4 @@
-# Current Authority — 2026-07-26
+# Current Authority — 2026-07-29
 
 ## Official repository
 
@@ -6,7 +6,7 @@
 - Active project root: `/swrlz-core`
 - Default branch: `main`
 
-## Current source packages
+## Current promoted source packages
 
 ### CLIENT
 
@@ -26,33 +26,38 @@
 - versionCode: `50`
 - versionName: `2.1.0-forge-parity-portable-repository-v1`
 
+## Later candidate lineage — not promoted authority
+
+The repository also contains later candidate/evidence lineage. These entries are intentionally separated from promoted source authority.
+
+### SERVER CFv2.1.9 SWRLIE candidates
+
+| Revision | VC | Source SHA-256 | Repository Forge commit | Authority status |
+|---|---:|---|---|---|
+| R1 | 59 | `988eb4bb108bdc0b762e20bb65c25baab014f9bab424dd7d1d5eea01b0b296f9` | `55654e3bca3b80445bb0873d545966a8a7131a29` | candidate only |
+| R2 | 60 | `fe2b547ede3b16521c8a2f41cedbe00e408232d2efbb6124404bc64a7eaa1fd6` | `2ea339f972178e71819225def7f7a0d33c48636e` | candidate only |
+| R3 | 61 | `8012a32decc24260ed3978ead0520fa26277fea7712f71a26faadd37772bc955` | `54c64be91e0fdc0bf229a1389518707eec150356` | candidate only |
+| R4 | 62 | `9adaec91086f0c994194acd08865fa3797c125a87e1f885d45269d707c9b8112` | `e4955c8e0e81773fdb3583d7da5654ca20e0cbc1` | candidate only |
+| R5 | 63 | `88179c35705e845ae9ad8e53ca44408b49471d7728c3a12acba1d9e219bba355` | `f158d75cba7553b7eb8a4f6d0c5ac3307f8b9be7` | candidate only |
+
+R1-R5 transport/checksum presence establishes candidate source identity represented by those Forge commits. It does **not** by itself establish Android build, device, integration, promotion, release, deployment, or installation evidence.
+
+See `checkpoints/INT-DOC-AI-040B-R1-R5_SWRLIE_RUNTIME_SYNC.md` for the documented progression.
+
 ## CLIENT checkpoint boundary
 
-CLIENT CFv2.1.9 preserves the complete CFv2.1.8 declarative ThemePack presentation
-implementation. It repairs package/application identity and the canonical sidecar-manifest
-contract after CI stopped before compilation on the CFv2.1.8 manifest. CFv2.1.8 remains
-preserved as failed package-pair lineage; CFv2.1.7 remains the preceding implementation
-rollback baseline.
+CLIENT CFv2.1.9 preserves the complete CFv2.1.8 declarative ThemePack presentation implementation. It repairs package/application identity and the canonical sidecar-manifest contract after CI stopped before compilation on the CFv2.1.8 manifest. CFv2.1.8 remains preserved as failed package-pair lineage; CFv2.1.7 remains the preceding implementation rollback baseline.
 
-Theme selection remains local and presentation-only. SERVER, protocol, trust, Truth Firewall,
-identity proof, permissions, missions, Forge authority, local/remote distinctions, accessibility
-automation, and offline-first behavior are unchanged.
+Theme selection remains local and presentation-only. SERVER, protocol, trust, Truth Firewall, identity proof, permissions, missions, Forge authority, local/remote distinctions, accessibility automation, and offline-first behavior are unchanged by that CLIENT checkpoint.
 
 ## Validation boundary
 
-The CLIENT CFv2.1.9 source package, SHA-256 receipt, and manifest pass both local and
-repository package-pair verification. Automatic Source Package Integrity run `30223152048`
-and APK Router run `30223152052` passed. The resulting debug APK has SHA-256
-`0f7312dd346c6eb587b0ec44ab28b9dd30e9371799c26dbbe657fdc354fba419`.
-Its source-behavior diff from CFv2.1.8 is limited to build/package identity and
-documentation. The SERVER authority entry above is preserved from the repository
-baseline and was not modified, built, or revalidated by this CLIENT-only checkpoint.
-Device behavior, release signing, distribution, installation, and deployment success
-are **not** claimed.
+The CLIENT CFv2.1.9 source package, SHA-256 receipt, and manifest pass both local and repository package-pair verification. Automatic Source Package Integrity run `30223152048` and APK Router run `30223152052` passed. The resulting debug APK has SHA-256 `0f7312dd346c6eb587b0ec44ab28b9dd30e9371799c26dbbe657fdc354fba419`.
+
+Its source-behavior diff from CFv2.1.8 is limited to build/package identity and documentation. The promoted SERVER authority entry above remains CFv2.1.0; later SERVER CFv2.1.9 R1-R5 candidates are documented separately and are not promoted by this authority synchronization.
+
+Device behavior, release signing, distribution, installation, and deployment success are **not** claimed unless separately evidenced for the applicable candidate/version.
 
 ## Historical evidence
 
-Documentation Rebuild v2 and the corrected CFv2.1.0 handoff are preserved under
-`docs/rebuild-v2/` and `docs/handoffs/`. References to the previous
-`ahazus420-stack/Swrlzcore` repository describe historical evidence and migration lineage;
-they are not the current repository authority.
+Documentation Rebuild v2 and the corrected CFv2.1.0 handoff are preserved under `docs/rebuild-v2/` and `docs/handoffs/`. References to the previous `ahazus420-stack/Swrlzcore` repository describe historical evidence and migration lineage; they are not the current repository authority.
