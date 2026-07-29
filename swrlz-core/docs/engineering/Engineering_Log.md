@@ -1,5 +1,70 @@
 # CLIENT Engineering Log
 
+## 2026-07-29 — INT-DOC-AI-041H dense-chat identity/model synchronization
+
+### Repository evidence reviewed
+
+Latest maintained evidence now includes:
+
+- CLIENT CFv2.1.22 R1 / VC120 / SHA `49284e9a57d30a2b37912c32ac9a85fbb333d4a6ed620687c855469363d0ecd5` / Forge commit `1d3fa542db0f700a1f35256be9317393d25bbc8c`;
+- SERVER CFv2.1.9 R6 / VC64 / SHA `ba1bd057d4fca57e3506d3aefacd5d7d485c657b195e7fdf47288f2f6ae307cf` / Forge commit `cb073ca4c008109aec9da4ad6f111657d31bc421`.
+
+CLIENT R1 repository transport includes checksum+candidate-manifest evidence. SERVER R6 repository transport includes checksum+verified chunk transport but no separately packaged candidate manifest.
+
+Project-owner/operator evidence reports a successful SERVER R5 Android build. A later user-supplied screenshot shows SERVER CFv2.1.9 VC64 and the current Chat/Command Center surface; this is device-visible working-state evidence but is not exact source-SHA → CI → APK provenance or promotion evidence.
+
+### Identity architecture correction
+
+The dense-chat review established the canonical identity invariant:
+
+- SWRLZ / Swurlz = persistent primary identity;
+- selected LLM = replaceable reasoning engine;
+- Swurlzara = replaceable expression/profile lens;
+- SWRLIE = first-party reasoning/provider interface;
+- SERVER = runtime/inference host.
+
+Model/profile swaps must not silently reassign primary identity.
+
+Truth Firewall is intrinsic SWRLZ epistemic/authority anatomy rather than model/profile equipment. Changing models, profiles, or plugins cannot remove it or turn style/confidence into permission.
+
+See `docs/architecture/SWRLZ_IDENTITY_PROFILE_AND_REASONING_EQUIPMENT_V1.md`.
+
+### Behavioral evaluation update
+
+`SWRLZ-LFM-EVAL-001A2` was approved as evaluation/documentation-only work preserving frozen v1 and expanding coverage for natural Chat, SWRLZ identity, Swurlzara lens behavior, role separation, grounding, instruction internalization, profile leak resistance, memory transfer, technical/practical reasoning, truthful absurdity, task presets, formatting, and equipped-gear self-reflection.
+
+No Behavioral-EQ v2 freeze artifact is claimed by this docs synchronization.
+
+### Operator-reported Q4_K_M vs Q8_0 result
+
+Parallel work-chat evaluation was reported by the project owner:
+
+- frozen suite: Q4_K_M `20/72`, Q8_0 `19/72`;
+- smoke test: both `5/12`;
+- size: Q4_K_M `218.69 MiB`, Q8_0 `361.65 MiB`;
+- Q4_K_M ran faster in the reported test;
+- Q4_K_M was selected as the base for `SWRLZ-LFM-OPT-001A.gguf`.
+
+This is a narrow benchmark win and not evidence that Q4_K_M universally beats Q8_0. This repository documentation records the operator report; it does not independently verify or publish the optimized GGUF artifact.
+
+### Current planned directions recorded
+
+- `INT-AI-041E`: local per-response Feedback Ledger with explicit positive/negative/neutral/unrated semantics, optional stars/tags/notes, lineage, and no automatic training/external telemetry.
+- `INT-AI-041F`: balanced lightweight base + independently versioned neural/Skill/knowledge/specialist feature-plugin architecture with base lineage, compatibility, resource/conflict, and rollback rules.
+- `INT-CHAT-041G`: compact Chat status, dragon-triggered vertical Command Center popup, and real operational Response Processing stages with corrected identity labels; no fake percent or chain-of-thought display.
+
+These remain separately approval/implementation-gated.
+
+### Authority boundary
+
+INT-DOC-AI-041H is documentation-only. Current promoted source authority remains CLIENT CFv2.1.9 and SERVER CFv2.1.0. This checkpoint does not train/merge/quantize model weights, modify CLIENT/SERVER source, build an APK, trigger workflows, promote candidates, release, deploy, or install anything.
+
+See:
+
+- `docs/checkpoints/INT-DOC-AI-041H_DENSE_CHAT_IDENTITY_MODEL_SYNC.md`
+- `docs/architecture/SWRLZ_IDENTITY_PROFILE_AND_REASONING_EQUIPMENT_V1.md`
+- `docs/CURRENT_AUTHORITY.md`
+
 ## 2026-07-29 — INT-DOC-AI-040B-R1-R5 SWRLIE runtime synchronization
 
 ### Repository evidence reviewed
@@ -145,7 +210,7 @@ No SERVER build, release, deployment, or installation is claimed.
 
 Verified canonical parent `CLIENT_CFv2.1.7_SWRLZ.zip` at SHA-256 `bc5b941e9b0c86e28581d8f6019b6c54722243279ef666aa3c35c4f97745fe76`.
 
-Advanced the CLIENT-only source successor to CFv2.1.8 / versionCode 106. The implementation replaces the default legacy launcher, completes per-theme identity/chrome mappings, introduces reusable full-shell ThemePack backdrop/Kapanion/panel renderers, contains progress artwork inside one calibrated track, and stages the Jester ignition sequence. Existing distinct Kapanion assets were reused; no Jester art was copied into other families and no AI-generated replacement art was required.
+Advanced the source successor to CLIENT CFv2.1.8 / versionCode 106. The implementation replaces the default legacy launcher, completes per-theme identity/chrome mappings, introduces reusable full-shell ThemePack backdrop/Kapanion/panel renderers, contains progress artwork inside one calibrated track, and stages the Jester ignition sequence. Existing distinct Kapanion assets were reused; no Jester art was copied into other families and no AI-generated replacement art was required.
 
 The authority diff remains presentation-only. SERVER, protocol, network, trust, identity proof, permission, mission, Forge transaction, accessibility automation, local/remote, and offline-first sources are unchanged.
 
