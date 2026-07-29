@@ -1,10 +1,10 @@
-> **Authority note:** current promoted SERVER source authority remains SERVER CFv2.1.0 in `../CURRENT_AUTHORITY.md`. SERVER CFv2.1.9 R1-R5 are later source-candidate/evidence lineage and must not be treated as promoted authority without a separate promotion checkpoint.
+> **Authority note:** current promoted SERVER source authority remains SERVER CFv2.1.0 in `../CURRENT_AUTHORITY.md`. SERVER CFv2.1.9 R1-R6 are later source-candidate/evidence lineage and must not be treated as promoted authority without a separate promotion checkpoint.
 
 # Server Implementation Analysis
 
 ## Current candidate evidence — 2026-07-29
 
-Repository transport lineage now contains SERVER CFv2.1.9 SWRLIE candidates R1-R5:
+Repository transport lineage now contains SERVER CFv2.1.9 SWRLIE candidates R1-R6:
 
 | Rev | VC | Source SHA-256 | Main source-candidate change |
 |---|---:|---|---|
@@ -13,16 +13,25 @@ Repository transport lineage now contains SERVER CFv2.1.9 SWRLIE candidates R1-R
 | R3 | 61 | `8012a32decc24260ed3978ead0520fa26277fea7712f71a26faadd37772bc955` | local startup model recovery/load, adaptive/copyable Chat, double-Enter send, response follow/LATEST, horseshoe Update Ledger, tone-never-implies-approval guard |
 | R4 | 62 | `9adaec91086f0c994194acd08865fa3797c125a87e1f885d45269d707c9b8112` | multi-GGUF staging/probing/safe switching, adaptive context/inference controls, prompt-budget guard, code-native bounded Swurlzara compiler |
 | R5 | 63 | `88179c35705e845ae9ad8e53ca44408b49471d7728c3a12acba1d9e219bba355` | local SWRLZ self-knowledge resolver, shared Update Ledger retrieval, live model/runtime/context grounding, explicit USER/SWRLZ/SWRLIE/Swurlzara role map |
+| R6 | 64 | `ba1bd057d4fca57e3506d3aefacd5d7d485c657b195e7fdf47288f2f6ae307cf` | Chat machine/status stack with tappable status portals over existing authoritative SERVER/model/node/network/health state |
 
-See `../checkpoints/INT-DOC-AI-040B-R1-R5_SWRLIE_RUNTIME_SYNC.md` and `../architecture/SWRLZ_SWRLIE_RUNTIME_CAPABILITY_AND_SKILLS_EVOLUTION_V1.md`.
+R6 repository Forge commit: `cb073ca4c008109aec9da4ad6f111657d31bc421`.
+
+See `../checkpoints/INT-DOC-AI-040B-R1-R5_SWRLIE_RUNTIME_SYNC.md`, `../checkpoints/INT-DOC-AI-041H_DENSE_CHAT_IDENTITY_MODEL_SYNC.md`, `../architecture/SWRLZ_SWRLIE_RUNTIME_CAPABILITY_AND_SKILLS_EVOLUTION_V1.md`, and `../architecture/SWRLZ_IDENTITY_PROFILE_AND_REASONING_EQUIPMENT_V1.md`.
 
 ### Current evidence boundary
 
-The repository Forge uploads establish exact candidate source transport/checksum identities. R1/R2 uploads also include candidate-manifest evidence. R3-R5 repository transport commits do not contain their separately packaged candidate manifests.
+The repository Forge uploads establish exact candidate source transport/checksum identities. R1/R2 uploads also include candidate-manifest evidence. R3-R6 repository transport commits do not contain their separately packaged candidate manifests.
 
-Do not infer Android compile, APK build, device behavior, integration, promotion, release, deployment, or installation from source transport presence alone.
+Project-owner/operator evidence separately reports a successful R5 Android build. A later user-supplied device screenshot shows SERVER CFv2.1.9 VC64 and the current Chat/Command Center surface. That screenshot is device-visible working-state evidence for VC64, but it does not by itself establish exact R6 source-SHA → CI workflow → APK provenance or promotion.
 
-The R1-R5 candidate architecture preserves the rule that SWRLZ owns Truth Firewall, approvals, command/tool routing, node/file/mission/Forge authority, provenance, and execution policy; SWRLIE remains advisory reasoning and Swurlzara remains identity/expression.
+Do not infer promotion, release, deployment, or installation authority from source transport or operator/device working-state evidence.
+
+The R1-R6 candidate architecture preserves the rule that SWRLZ owns intrinsic Truth Firewall behavior, approvals, command/tool routing, node/file/mission/Forge authority, provenance, and execution policy. SWRLIE remains advisory reasoning. The selected LLM is a replaceable reasoning engine, and Swurlzara is a replaceable expression/profile lens rather than the SWRLZ primary identity.
+
+### Current Chat UX follow-up
+
+The current VC64 Chat surface still has a large status/Command Center footprint. A later consolidated proposal, `INT-CHAT-041G`, would compact status, move commands behind a dragon-triggered vertical popup, and expose real operational Response Processing stages without fake percentage completion or private chain-of-thought disclosure. That source implementation is not claimed by this documentation update.
 
 ## Historical implementation analysis from Documentation Rebuild v2
 
