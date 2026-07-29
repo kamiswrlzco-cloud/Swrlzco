@@ -17,6 +17,7 @@
 - `architecture/SWRLZ_ARCHIVE_LINEAGE_AND_FILE_ORGANIZATION_EXTENSION_V1.md` — archive inspection, extracted-tree lineage detection, package clustering, divergence handling, cleanup planning, and archive-safety extension for INT-FILE-039M
 - `architecture/SWRLZ_DISTRIBUTED_INTELLIGENCE_ARCHITECTURE_V1.md` — canonical distributed CLIENT/SERVER/SWRLIE architecture, LOCAL/LAN/ONLINE modes, SERVER network/Forge authority direction, model independence, model lifecycle, node hosting, telemetry, and implementation-status boundaries
 - `architecture/SWRLZ_SWRLIE_RUNTIME_CAPABILITY_AND_SKILLS_EVOLUTION_V1.md` — R1-R5 SWRLIE runtime evolution, SWRLZ Skills placement, behavioral baseline/model tiers, grounding, personality-control direction, efficiency/density, hardware tiers, and future Simulation Forge/media specialists
+- `architecture/SWRLZ_IDENTITY_PROFILE_AND_REASONING_EQUIPMENT_V1.md` — canonical SWRLZ primary identity, LLM-as-replaceable-reasoning-engine, Swurlzara-as-profile-lens, intrinsic Truth Firewall, self-reflection semantics, and model/profile swap invariants
 - `architecture/SWRLZ_RUNTIME_AND_LIVE_PACK_UPDATE_ARCHITECTURE_V1.md` — companion architecture for stable runtime products, SERVER-owned live-pack discovery, SWRLIE base-plus-modules evolution, incremental/content-addressed fetch, hot activation generations, rollback, and separate signed APK runtime updates
 
 ## Contracts
@@ -49,6 +50,7 @@
 
 ## Checkpoints and engineering evidence
 
+- `checkpoints/INT-DOC-AI-041H_DENSE_CHAT_IDENTITY_MODEL_SYNC.md` — docs-only synchronization of CLIENT CFv2.1.22 R1, SERVER CFv2.1.9 R6/VC64 lineage, corrected SWRLZ/LLM/Swurlzara identity semantics, intrinsic Truth Firewall, Behavioral-EQ v2 direction, operator-reported Q4_K_M/Q8_0 benchmark state, feedback-ledger/plugin direction, and conversation-first Chat requirements; no promotion or implementation authority change
 - `checkpoints/INT-DOC-AI-040B-R1-R5_SWRLIE_RUNTIME_SYNC.md` — docs-only synchronization of SERVER CFv2.1.9 SWRLIE candidate R1-R5 source lineage, exact SHAs/Forge commits, feature progression, and evidence boundaries; no authority promotion
 - `checkpoints/INT-DOC-UPD-040C-040D_UPDATE_ARCHITECTURE_SYNC.md` — docs-only integration record for game-like SWRLZ live packs, modular SWRLIE delivery, SERVER-owned update discovery, and separate runtime/APK update supervision; 040C/040D remain planned implementation checkpoints
 - `checkpoints/INT-DOC-AI-040A_DISTRIBUTED_INTELLIGENCE_ARCHITECTURE_SYNC.md` — docs-only integration record for the distributed intelligence architecture; no source/build/promotion authority change
