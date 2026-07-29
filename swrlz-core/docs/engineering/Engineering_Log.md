@@ -1,5 +1,46 @@
 # CLIENT Engineering Log
 
+## 2026-07-29 — INT-DOC-AI-040B-R1-R5 SWRLIE runtime synchronization
+
+### Repository evidence reviewed
+
+After the 2026-07-28 architecture/update documentation sync, SWRLZ Forge uploaded five SERVER CFv2.1.9 SWRLIE candidate revisions to `main` as verified chunk transports:
+
+- R1 / VC59 / SHA `988eb4bb108bdc0b762e20bb65c25baab014f9bab424dd7d1d5eea01b0b296f9` / Forge commit `55654e3bca3b80445bb0873d545966a8a7131a29`;
+- R2 / VC60 / SHA `fe2b547ede3b16521c8a2f41cedbe00e408232d2efbb6124404bc64a7eaa1fd6` / Forge commit `2ea339f972178e71819225def7f7a0d33c48636e`;
+- R3 / VC61 / SHA `8012a32decc24260ed3978ead0520fa26277fea7712f71a26faadd37772bc955` / Forge commit `54c64be91e0fdc0bf229a1389518707eec150356`;
+- R4 / VC62 / SHA `9adaec91086f0c994194acd08865fa3797c125a87e1f885d45269d707c9b8112` / Forge commit `e4955c8e0e81773fdb3583d7da5654ca20e0cbc1`;
+- R5 / VC63 / SHA `88179c35705e845ae9ad8e53ca44408b49471d7728c3a12acba1d9e219bba355` / Forge commit `f158d75cba7553b7eb8a4f6d0c5ac3307f8b9be7`.
+
+R1/R2 repository transport includes candidate-manifest evidence. R3-R5 transport commits prove the source ZIP identity/checksum represented by the transport but do not include the separately packaged candidate manifests.
+
+### Candidate progression documented
+
+R1 establishes model-independent local SWRLIE inference/no-model fallback and the external exact Q4_0 bootstrap target. R2 adds first-class SERVER Chat and settings hierarchy. R3 adds local startup auto-load/recovery, adaptive/copyable Chat, Update Ledger and tone-never-implies-approval. R4 adds multi-GGUF staging/safe switching, adaptive context/inference controls, prompt budgeting, and code-native Swurlzara compilation. R5 adds local self-knowledge, shared Update Ledger retrieval, and live model/runtime/context grounding.
+
+### Architecture decisions synchronized
+
+Maintained docs now also record:
+
+- SWRLZ Skills belong upstream of any LLM/profile and survive model swaps;
+- Skills, Memory, and Self Knowledge are distinct systems;
+- the smallest certified model should establish the behavioral floor while heavier models extend capability;
+- model quality is evaluated against latency/RAM/storage/context/energy, not size alone;
+- personality controls may expand beyond named profiles but remain subordinate to Truth Firewall/approval/provenance/execution authority;
+- Android, PC, and dedicated-node packs share one SWRLZ architecture with different capability envelopes;
+- dynamic simulations should use validated structured state/DSL rather than arbitrary model-generated executable code;
+- INT-FILE-039M should recognize archive/extracted-tree lineage, modified descendants, and multiple exploded package families before proposing cleanup.
+
+### Authority boundary
+
+This documentation synchronization does not change `docs/CURRENT_AUTHORITY.md`. SERVER CFv2.1.9 R1-R5 remain candidate/evidence lineage. No Android build, device/integration acceptance, promotion, release, deployment, installation, Skills implementation, web enablement, model training, or device file operation is claimed by this docs checkpoint.
+
+See:
+
+- `docs/checkpoints/INT-DOC-AI-040B-R1-R5_SWRLIE_RUNTIME_SYNC.md`
+- `docs/architecture/SWRLZ_SWRLIE_RUNTIME_CAPABILITY_AND_SKILLS_EVOLUTION_V1.md`
+- `docs/architecture/SWRLZ_ARCHIVE_LINEAGE_AND_FILE_ORGANIZATION_EXTENSION_V1.md`
+
 ## 2026-07-28 — INT-FORGE-039F + INT-FORGE-039N repository CI application
 
 ### Applied repository behavior
