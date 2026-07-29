@@ -5,7 +5,7 @@
 **Last policy synchronization:** 2026-07-28 — INT-FORGE-039F + INT-FORGE-039N  
 **Last distributed architecture synchronization:** 2026-07-28 — INT-DOC-AI-040A  
 **Last update architecture synchronization:** 2026-07-28 — INT-DOC-UPD-040C-040D  
-**Last SWRLIE runtime/candidate synchronization:** 2026-07-29 — INT-DOC-AI-040B-R1-R5
+**Last SWRLIE runtime/candidate synchronization:** 2026-07-29 — INT-DOC-AI-041H
 
 ## Current promoted source baseline
 
@@ -16,6 +16,14 @@
 
 Later source candidates do not alter this table until an explicit promotion checkpoint succeeds.
 
+## Latest CLIENT candidate lineage in repository transport
+
+| Candidate | VC | SHA-256 | Repository Forge commit | Promotion |
+|---|---:|---|---|---|
+| CLIENT CFv2.1.22 R1 | 120 | `49284e9a57d30a2b37912c32ac9a85fbb333d4a6ed620687c855469363d0ecd5` | `1d3fa542db0f700a1f35256be9317393d25bbc8c` | not verified |
+
+CLIENT CFv2.1.22 R1 repository transport includes both checksum and candidate-manifest evidence. The manifest records source/static verification, Android compile blocked before compilation because Gradle 8.7 was unavailable and `services.gradle.org` was unreachable, and APK build pending. This is candidate evidence only and does not replace promoted CLIENT CFv2.1.9.
+
 ## Latest SERVER SWRLIE candidate lineage in repository transport
 
 | Candidate | VC | SHA-256 | Repository Forge commit | Promotion |
@@ -25,10 +33,13 @@ Later source candidates do not alter this table until an explicit promotion chec
 | SERVER CFv2.1.9 R3 | 61 | `8012a32decc24260ed3978ead0520fa26277fea7712f71a26faadd37772bc955` | `54c64be91e0fdc0bf229a1389518707eec150356` | not verified |
 | SERVER CFv2.1.9 R4 | 62 | `9adaec91086f0c994194acd08865fa3797c125a87e1f885d45269d707c9b8112` | `e4955c8e0e81773fdb3583d7da5654ca20e0cbc1` | not verified |
 | SERVER CFv2.1.9 R5 | 63 | `88179c35705e845ae9ad8e53ca44408b49471d7728c3a12acba1d9e219bba355` | `f158d75cba7553b7eb8a4f6d0c5ac3307f8b9be7` | not verified |
+| SERVER CFv2.1.9 R6 | 64 | `ba1bd057d4fca57e3506d3aefacd5d7d485c657b195e7fdf47288f2f6ae307cf` | `cb073ca4c008109aec9da4ad6f111657d31bc421` | not verified |
 
 The transport/checksum records prove the repository presence and exact candidate ZIP identity represented by those Forge commits. They do not by themselves prove Android compilation, APK build, device behavior, integration, release, deployment, or promotion.
 
-R1 and R2 Forge uploads include candidate-manifest evidence in their transport evidence sets. R3-R5 Forge uploads recorded checksum + transport identity but did not add the separately packaged candidate manifest files to repository transport evidence. Documentation must not silently treat absent repository manifests as present.
+R1 and R2 Forge uploads include candidate-manifest evidence in their transport evidence sets. R3-R6 Forge uploads recorded checksum + transport identity but did not add the separately packaged candidate manifest files to repository transport evidence. Documentation must not silently treat absent repository manifests as present.
+
+Project-owner/operator evidence separately reports a successful R5 Android build. A later user-supplied device screenshot shows SERVER CFv2.1.9 VC64 and the current Chat/Command Center surface. That screenshot is device-visible working-state evidence for VC64 but not exact source-SHA → CI → APK provenance and not promotion evidence.
 
 ## Counting policy
 
@@ -91,7 +102,24 @@ It synchronizes maintained documentation with SERVER CFv2.1.9 R1-R5 source-candi
 
 It also records design decisions that remain planned: SWRLZ Skills upstream of the LLM/profile, monotonic model capability tiers, personality control plane, hardware-tier packs, structured Simulation Forge/LLMware, specialist media models, and archive-lineage-aware file organization.
 
-This synchronization does not alter `CURRENT_AUTHORITY.md`, promote R1-R5, add model weights, execute workflows/builds, enable web access, train models, or authorize device file changes.
+### INT-DOC-AI-041H — dense-chat identity/model synchronization
+
+`INT-DOC-AI-041H` adds:
+
+- `../architecture/SWRLZ_IDENTITY_PROFILE_AND_REASONING_EQUIPMENT_V1.md`
+- `../checkpoints/INT-DOC-AI-041H_DENSE_CHAT_IDENTITY_MODEL_SYNC.md`
+
+It catches documentation up through CLIENT CFv2.1.22 R1 and SERVER CFv2.1.9 R6/VC64 candidate lineage and records the corrected identity law:
+
+- SWRLZ/Swurlz is the persistent primary identity;
+- the LLM is a replaceable reasoning engine;
+- Swurlzara is a replaceable expression/profile lens;
+- SWRLIE is the first-party reasoning/provider interface;
+- Truth Firewall is intrinsic SWRLZ epistemic/authority behavior, not replaceable equipment.
+
+The checkpoint also records the approved Behavioral-EQ v2 evaluation direction, operator-reported Q4_K_M/Q8_0 benchmark outcome, proposed local Response Feedback Ledger, planned feature-plugin direction, and conversation-first Chat requirements. Those planned items are documentation/evaluation direction only unless separately implemented and evidenced.
+
+This synchronization does not promote any candidate, add model weights, trigger workflows/builds, enable web access, train models, or authorize device file changes.
 
 ## Version and build-input policy
 
@@ -105,6 +133,6 @@ A successful build from ZIP-only or reconstructed chunk transport does not by it
 
 CLIENT CFv2.1.9 package verification and CI debug build are evidenced under `../evidence/INT-THEME-035D_CI_BUILD_EVIDENCE.md`. Device testing and runtime acceptance remain evidence-gated.
 
-The SERVER promoted row remains CFv2.1.0. SERVER CFv2.1.9 R1-R5 are candidate/evidence lineage only until a separate promotion checkpoint changes authority.
+The promoted rows remain CLIENT CFv2.1.9 and SERVER CFv2.1.0. CLIENT CFv2.1.22 R1 and SERVER CFv2.1.9 R1-R6 are candidate/evidence lineage only until a separate promotion checkpoint changes authority.
 
 Repository CI transport/build-input policy application is recorded in `../checkpoints/INT-FORGE-039F-039N_CI_APPLICATION.md`; it does not alter the source-baseline table above.
