@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "component": "SERVER",
+  "checkpoint": "INT-AI-040B-R2",
+  "candidate_revision": "R2",
+  "version_code": 60,
+  "version_name": "2.1.9-swrlie-server-chat-settings-ia-candidate-r2",
+  "parent_zip": "SERVER_CFv2.1.9_SWRLZ_CANDIDATE_R1.zip",
+  "parent_sha256": "988eb4bb108bdc0b762e20bb65c25baab014f9bab424dd7d1d5eea01b0b296f9",
+  "zip": "SERVER_CFv2.1.9_SWRLZ_CANDIDATE_R2.zip",
+  "sha256": "fe2b547ede3b16521c8a2f41cedbe00e408232d2efbb6124404bc64a7eaa1fd6",
+  "size_bytes": 40351601,
+  "verified": true,
+  "promotion_verified": false,
+  "evidence_class": [
+    "source_static",
+    "exact_model_fixture",
+    "production_kotlin_gguf_reader_fixture",
+    "server_chat_settings_ia_static"
+  ],
+  "android_compile_verified": false,
+  "apk_build_verified": false,
+  "device_verified": false,
+  "integration_verified": false,
+  "release_verified": false,
+  "deployment_verified": false,
+  "source_file_count": 493,
+  "source_directory_count": 126,
+  "model_target": {
+    "file": "LFM2.5-350M-Q4_0.gguf",
+    "sha256": "85e32858daafad55b7bcd6b97a1343ee0661188e8036f9862d14d6b563142f50",
+    "size_bytes": 219309792,
+    "architecture": "lfm2",
+    "quantization": "Q4_0",
+    "bundled_in_source": false
+  },
+  "r2_scope": {
+    "first_class_server_chat": true,
+    "chat_provider_mesh_reasoning": true,
+    "command_center_composer_insertion": true,
+    "settings_nested_chat_commands": true,
+    "settings_nested_nodes_connections": true,
+    "android_back_hierarchy_static": true,
+    "standalone_groups_user_tab_removed": true,
+    "swrlz_control_plane_preserved": true,
+    "remote_provider_auto_authorization_added": false
+  },
+  "validation": {
+    "source_static": "PASS",
+    "exact_uploaded_gguf_fixture": "PASS",
+    "production_kotlin_gguf_reader_fixture": "PASS",
+    "r2_chat_settings_contract_static": "PASS",
+    "zip_integrity": "PASS",
+    "deterministic_repack_equality": "PASS",
+    "embedded_gguf_count": 0,
+    "gradle_android_compile": "NOT_RUN_SOURCE_CANDIDATE_ONLY"
+  },
+  "changed_from_parent": [
+    "CHANGELOG.md",
+    "ReleaseNotes.md",
+    "app/build.gradle.kts",
+    "app/src/main/java/sh/swrlz/nodehost/ui/ServerChatScreen.kt",
+    "app/src/main/java/sh/swrlz/nodehost/ui/ServerCommandCenterPanel.kt",
+    "app/src/main/java/sh/swrlz/nodehost/ui/SwurlzerUserScreen.kt",
+    "docs/checkpoints/INT-AI-040B-R2_SERVER_CHAT_SETTINGS_IA.md",
+    "scripts/verify_int_ai_040b.py"
+  ],
+  "notes": "Immutable source candidate R2. No GGUF weights, Android compile, APK build, GitHub upload/push, workflow, promotion, release, deployment, installation, first-run automatic model bootstrap, live-pack updater, or runtime self-update is claimed."
+}
