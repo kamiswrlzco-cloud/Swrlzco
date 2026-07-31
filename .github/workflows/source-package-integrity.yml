@@ -4,16 +4,21 @@ on:
   push:
     branches: [main]
     paths:
-      - 'swrlz-core/sources/**/*.zip'
-      - 'swrlz-core/sources/**/*.sha256'
-      - 'swrlz-core/sources/**/*.sha'
-      - 'swrlz-core/sources/**/*.txt'
-      - 'swrlz-core/sources/**/*.manifest.json'
+      - 'swrlz-core/sources/client/*.zip'
+      - 'swrlz-core/sources/client/*.sha256'
+      - 'swrlz-core/sources/client/*.sha'
+      - 'swrlz-core/sources/client/*.txt'
+      - 'swrlz-core/sources/client/*.manifest.json'
+      - 'swrlz-core/sources/server/*.zip'
+      - 'swrlz-core/sources/server/*.sha256'
+      - 'swrlz-core/sources/server/*.sha'
+      - 'swrlz-core/sources/server/*.txt'
+      - 'swrlz-core/sources/server/*.manifest.json'
 
   workflow_dispatch:
     inputs:
       source_zip:
-        description: Repository-relative path to a source ZIP under swrlz-core/sources
+        description: Repository-relative lane-root source ZIP under swrlz-core/sources/client or server
         required: true
         type: string
 
@@ -43,13 +48,30 @@ jobs:
           list="$RUNNER_TEMP/swrlz-zips.txt"
           : > "$list"
 
+          add_source_zip() {
+            local candidate="$1"
+            case "$candidate" in
+              swrlz-core/sources/client/*.zip|swrlz-core/sources/server/*.zip) ;;
+              *) echo "Refusing non-lane-root source candidate: $candidate" >&2; exit 64 ;;
+            esac
+            if [[ "$candidate" == */.transport/* || "$candidate" == */*/*/*/*.zip ]]; then
+              echo "Refusing nested transport/evidence ZIP candidate: $candidate" >&2
+              exit 64
+            fi
+            [[ -f "$candidate" ]] || {
+              echo "Source sidecar selected a missing lane-root ZIP: $candidate" >&2
+              exit 66
+            }
+            printf '%s\n' "$candidate" >> "$list"
+          }
+
           if [[ "${{ github.event_name }}" == 'workflow_dispatch' ]]; then
             source='${{ inputs.source_zip }}'
-            case "$source" in
-              swrlz-core/sources/client/*.zip|swrlz-core/sources/server/*.zip) ;;
-              *) echo "source_zip must point to CLIENT or SERVER source lane: $source" >&2; exit 64 ;;
-            esac
-            printf '%s\n' "$source" >> "$list"
+            if [[ ! "$source" =~ ^swrlz-core/sources/(client|server)/[^/]+\.zip$ ]]; then
+              echo "source_zip must point to a lane-root CLIENT or SERVER source ZIP: $source" >&2
+              exit 64
+            fi
+            add_source_zip "$source"
           else
             BEFORE='${{ github.event.before }}'
             AFTER='${{ github.sha }}'
@@ -63,25 +85,38 @@ jobs:
 
             while IFS= read -r path; do
               [[ -n "$path" ]] || continue
-              [[ "$path" == swrlz-core/sources/client/* || "$path" == swrlz-core/sources/server/* ]] || continue
 
+              # Only lane-root source identities/evidence are eligible here. Forge
+              # transport chunks and their nested evidence live below .transport/
+              # and are verified by the APK Router resolver during reconstruction.
+              if [[ ! "$path" =~ ^swrlz-core/sources/(client|server)/[^/]+$ ]]; then
+                continue
+              fi
+
+              candidate=''
               case "$path" in
                 *.zip)
-                  printf '%s\n' "$path" >> "$list"
+                  candidate="$path"
+                  ;;
+                *.sha256.txt)
+                  candidate="${path%.sha256.txt}.zip"
                   ;;
                 *.sha256)
-                  printf '%s.zip\n' "${path%.sha256}" >> "$list"
+                  candidate="${path%.sha256}.zip"
                   ;;
                 *.sha)
-                  printf '%s.zip\n' "${path%.sha}" >> "$list"
-                  ;;
-                *.txt)
-                  printf '%s.zip\n' "${path%.txt}" >> "$list"
+                  candidate="${path%.sha}.zip"
                   ;;
                 *.manifest.json)
-                  printf '%s.zip\n' "${path%.manifest.json}" >> "$list"
+                  candidate="${path%.manifest.json}.zip"
+                  ;;
+                *.txt)
+                  candidate="${path%.txt}.zip"
                   ;;
               esac
+
+              [[ -n "$candidate" ]] || continue
+              add_source_zip "$candidate"
             done < "$changed"
           fi
 
@@ -94,7 +129,7 @@ jobs:
         run: |
           set -euo pipefail
           list='${{ steps.sources.outputs.list }}'
-          [[ -s "$list" ]] || { echo 'No source packages selected.'; exit 0; }
+          [[ -s "$list" ]] || { echo 'No lane-root source packages selected.'; exit 0; }
 
           while IFS= read -r zip; do
             [[ -n "$zip" ]] || continue
