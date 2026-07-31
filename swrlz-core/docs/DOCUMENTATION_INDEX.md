@@ -62,6 +62,8 @@ Patch notes are lineage/navigation evidence. They do not outrank canonical sourc
 ## Checkpoints and engineering evidence
 
 - `checkpoints/INT-CI-061A_ROUTER_DOCUMENTATION_PATCHNOTE_SYNC.md` — 2026-07-31 Source Package Integrity fix for nested chunk-transport evidence, APK Router lane-root/BOTH hardening, current candidate accounting, and mandatory CLIENT/SERVER patch-note synchronization; no workflow dispatch/build/promotion/release/deployment/install claim
+- `engineering/Engineering_Log_2026-07-31.md` — current engineering-log extension covering INT-FORGE-054A-R2, INT-FILE-059A, INT-AI-060A, INT-CI-061A, the 059A/060A source-identity collision, and the locked patch-note accounting contract
+- `engineering/Engineering_Log.md` — earlier maintained engineering history
 - `checkpoints/INT-DOC-AI-041H_DENSE_CHAT_IDENTITY_MODEL_SYNC.md` — CLIENT CFv2.1.22 R1 / SERVER CFv2.1.9 R6 lineage plus corrected SWRLZ/LLM/Swurlzara identity semantics and intrinsic Truth Firewall
 - `checkpoints/INT-DOC-AI-040B-R1-R5_SWRLIE_RUNTIME_SYNC.md` — SERVER CFv2.1.9 R1-R5 source-candidate progression and evidence boundaries
 - `checkpoints/INT-DOC-UPD-040C-040D_UPDATE_ARCHITECTURE_SYNC.md` — live-pack/runtime update architecture; separately implementation-gated
@@ -71,7 +73,6 @@ Patch notes are lineage/navigation evidence. They do not outrank canonical sourc
 - `checkpoints/INT-DOC-FILE-039M_ENGINEERING_SYNC.md` — Precheck/Promotion Gate plus Forge/File Organizer requirements
 - `checkpoints/INT-THEME-035D_CLIENT_PACKAGE_PAIR_REPAIR.md`
 - `checkpoints/INT-THEME-035C_CLIENT_THEME_CHROME_RUNTIME_REPAIR.md`
-- `engineering/Engineering_Log.md`
 - `evidence/INT-THEME-035C_PROGRESS_GEOMETRY_PREVIEW.jpg`
 - `handoffs/INT-THEME-035D_SOURCE_HANDOFF.md`
 - `evidence/INT-THEME-035D_CI_BUILD_EVIDENCE.md`
