@@ -10,8 +10,9 @@ on:
         options:
           - CLIENT
           - SERVER
+          - BOTH
       source_zip:
-        description: Optional explicit repository-relative ZIP path inside the selected source lane
+        description: Optional explicit lane-root source identity (.zip or .transport.json); single-component dispatch only
         required: false
         default: ""
         type: string
@@ -24,7 +25,7 @@ on:
           - debug
           - release
       commit_release_artifacts:
-        description: Commit built files and latest-component manifest to swrlz-core/releases
+        description: Commit built files and latest-component manifest to swrlz-core/releases (single component only)
         required: true
         default: false
         type: boolean
@@ -35,8 +36,16 @@ on:
     paths:
       - 'swrlz-core/sources/client/*.zip'
       - 'swrlz-core/sources/client/*.transport.json'
+      - 'swrlz-core/sources/client/*.sha256'
+      - 'swrlz-core/sources/client/*.sha'
+      - 'swrlz-core/sources/client/*.txt'
+      - 'swrlz-core/sources/client/*.manifest.json'
       - 'swrlz-core/sources/server/*.zip'
       - 'swrlz-core/sources/server/*.transport.json'
+      - 'swrlz-core/sources/server/*.sha256'
+      - 'swrlz-core/sources/server/*.sha'
+      - 'swrlz-core/sources/server/*.txt'
+      - 'swrlz-core/sources/server/*.manifest.json'
       - 'swrlz-core/requests/000_CURRENT.request'
 
 permissions:
@@ -65,7 +74,10 @@ jobs:
 
       - name: Run resolver unit tests
         working-directory: swrlz-core/tools/ci
-        run: python3 test_resolve_swrlz_source.py
+        run: |
+          set -euo pipefail
+          python3 test_resolve_swrlz_source.py
+          python3 test_resolve_changed_source_identities.py
 
   prepare:
     name: Determine component route
@@ -89,7 +101,9 @@ jobs:
           BEFORE_SHA: ${{ github.event.before }}
           AFTER_SHA: ${{ github.sha }}
           MANUAL_COMPONENT: ${{ inputs.component || '' }}
+          MANUAL_SOURCE_IDENTITY: ${{ inputs.source_zip || '' }}
           MANUAL_VARIANT: ${{ inputs.build_variant || 'debug' }}
+          MANUAL_COMMIT_RELEASE: ${{ inputs.commit_release_artifacts || false }}
           REQUEST_FILE: swrlz-core/requests/000_CURRENT.request
         run: |
           set -euo pipefail
@@ -98,7 +112,11 @@ jobs:
           import json, os, subprocess
           from pathlib import Path
 
-          allowed = {"CLIENT", "SERVER"}
+          single_components = {"CLIENT", "SERVER"}
+          manual_components = {"CLIENT", "SERVER", "BOTH"}
+          source_signal_suffixes = (
+              ".zip", ".transport.json", ".sha256", ".sha", ".txt", ".manifest.json"
+          )
 
           def parse_request(path: Path) -> dict[str, str]:
               values = {}
@@ -112,15 +130,39 @@ jobs:
                   values[key.strip()] = value.strip()
               return values
 
+          def changed_component(path: str) -> str | None:
+              lane_prefixes = {
+                  "swrlz-core/sources/client/": "CLIENT",
+                  "swrlz-core/sources/server/": "SERVER",
+              }
+              for prefix, component in lane_prefixes.items():
+                  if not path.startswith(prefix):
+                      continue
+                  relative = path[len(prefix):]
+                  if "/" in relative:
+                      return None
+                  if relative.lower().endswith(source_signal_suffixes):
+                      return component
+              return None
+
           event = os.environ["EVENT_NAME"]
-          components = set()
+          components: set[str] = set()
           variant = "debug"
 
           if event == "workflow_dispatch":
               component = os.environ.get("MANUAL_COMPONENT", "").upper()
-              if component not in allowed:
+              source_identity = os.environ.get("MANUAL_SOURCE_IDENTITY", "").strip()
+              commit_release = os.environ.get("MANUAL_COMMIT_RELEASE", "false").lower() == "true"
+              if component not in manual_components:
                   raise SystemExit(f"Unsupported manual component: {component!r}")
-              components.add(component)
+              if component == "BOTH":
+                  if source_identity:
+                      raise SystemExit("BOTH dispatch cannot use one explicit source identity; leave source_zip empty.")
+                  if commit_release:
+                      raise SystemExit("BOTH dispatch cannot commit release artifacts concurrently; build artifacts remain downloadable.")
+                  components.update(single_components)
+              else:
+                  components.add(component)
               variant = os.environ.get("MANUAL_VARIANT", "debug").lower()
           else:
               before = os.environ.get("BEFORE_SHA", "")
@@ -133,22 +175,17 @@ jobs:
                   if line.strip()
               }
 
-              lane_prefixes = {
-                  "swrlz-core/sources/client/": "CLIENT",
-                  "swrlz-core/sources/server/": "SERVER",
-              }
               for path in changed:
-                  for prefix, component in lane_prefixes.items():
-                      if path.startswith(prefix):
-                          components.add(component)
-                          break
+                  component = changed_component(path)
+                  if component is not None:
+                      components.add(component)
 
               request_path = os.environ["REQUEST_FILE"]
               if request_path in changed:
                   request = parse_request(Path(request_path))
                   if request.get("enabled", "false").lower() == "true":
                       target = request.get("target", "").upper()
-                      if target not in allowed:
+                      if target not in single_components:
                           raise SystemExit(f"Enabled build request has invalid target: {target!r}")
                       components.add(target)
                       variant = request.get("build_variant", "debug").lower()
