@@ -1,4 +1,4 @@
-# Current Authority — 2026-07-29
+# Current Authority — 2026-07-31
 
 ## Official repository
 
@@ -26,9 +26,25 @@
 - versionCode: `50`
 - versionName: `2.1.0-forge-parity-portable-repository-v1`
 
-## Later candidate lineage — not promoted authority
+## Current candidate pointer — not promoted authority
 
-The repository also contains later candidate/evidence lineage. These entries are intentionally separated from promoted source authority.
+Current post-041H CLIENT/SERVER candidate lineage is maintained in `reference/CURRENT_CANDIDATE_LINEAGE.md`, with component-level history in:
+
+- `patch-notes/CLIENT_PATCH_NOTES.md`
+- `patch-notes/SERVER_PATCH_NOTES.md`
+
+As of 2026-07-31, repository Forge commit `ac6e58c642d6ad58cc2f806cdb93794d0a4bf4af` carries the current INT-AI-060A transport identities:
+
+- CLIENT CFv2.1.27 R1 — SHA-256 `28074d8f2e97bec734b460e944399972920a32309ba21222a6a240642c35b433`;
+- SERVER CFv2.1.25 R1 transport filename `SERVER_CFv2.1.25_SWRLZ_CANDIDATE_R1-1.transport.json` — SHA-256 `5aa743e47c0e5474120e907f5dc2440b9333aa40245c9832e2b4e700a0a27798`.
+
+INT-FILE-059A previously packaged different source bytes under the same external CLIENT CFv2.1.27 R1 / SERVER CFv2.1.25 R1 identifiers. That identity collision is documented explicitly in `reference/CURRENT_CANDIDATE_LINEAGE.md`; the sources must not be conflated. The next candidate must advance version and/or revision.
+
+None of this changes the promoted rows above.
+
+## Later candidate lineage — historical 041H baseline, not promoted authority
+
+The repository also contains earlier candidate/evidence lineage. These entries are intentionally separated from promoted source authority.
 
 ### CLIENT CFv2.1.22 candidate
 
@@ -65,7 +81,7 @@ Theme selection remains local and presentation-only. SERVER, protocol, trust, Tr
 
 The CLIENT CFv2.1.9 source package, SHA-256 receipt, and manifest pass both local and repository package-pair verification. Automatic Source Package Integrity run `30223152048` and APK Router run `30223152052` passed. The resulting debug APK has SHA-256 `0f7312dd346c6eb587b0ec44ab28b9dd30e9371799c26dbbe657fdc354fba419`.
 
-Its source-behavior diff from CFv2.1.8 is limited to build/package identity and documentation. The promoted SERVER authority entry above remains CFv2.1.0; later CLIENT CFv2.1.22 R1 and SERVER CFv2.1.9 R1-R6 candidates are documented separately and are not promoted by this authority synchronization.
+Its source-behavior diff from CFv2.1.8 is limited to build/package identity and documentation. The promoted SERVER authority entry above remains CFv2.1.0; later candidate lineage is documented separately and is not promoted by this authority synchronization.
 
 Device behavior, release signing, distribution, installation, and deployment success are **not** claimed unless separately evidenced for the applicable candidate/version.
 
