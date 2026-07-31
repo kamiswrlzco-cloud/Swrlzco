@@ -10,8 +10,9 @@ on:
         options:
           - CLIENT
           - SERVER
+          - BOTH
       source_zip:
-        description: Optional explicit repository-relative ZIP path inside the selected source lane
+        description: Optional explicit repository-relative ZIP path inside one selected source lane; leave blank for BOTH
         required: false
         default: ""
         type: string
@@ -35,8 +36,16 @@ on:
     paths:
       - 'swrlz-core/sources/client/*.zip'
       - 'swrlz-core/sources/client/*.transport.json'
+      - 'swrlz-core/sources/client/*.sha256'
+      - 'swrlz-core/sources/client/*.sha'
+      - 'swrlz-core/sources/client/*.txt'
+      - 'swrlz-core/sources/client/*.manifest.json'
       - 'swrlz-core/sources/server/*.zip'
       - 'swrlz-core/sources/server/*.transport.json'
+      - 'swrlz-core/sources/server/*.sha256'
+      - 'swrlz-core/sources/server/*.sha'
+      - 'swrlz-core/sources/server/*.txt'
+      - 'swrlz-core/sources/server/*.manifest.json'
       - 'swrlz-core/requests/000_CURRENT.request'
 
 permissions:
@@ -89,6 +98,7 @@ jobs:
           BEFORE_SHA: ${{ github.event.before }}
           AFTER_SHA: ${{ github.sha }}
           MANUAL_COMPONENT: ${{ inputs.component || '' }}
+          MANUAL_SOURCE_ZIP: ${{ inputs.source_zip || '' }}
           MANUAL_VARIANT: ${{ inputs.build_variant || 'debug' }}
           REQUEST_FILE: swrlz-core/requests/000_CURRENT.request
         run: |
@@ -98,7 +108,41 @@ jobs:
           import json, os, subprocess
           from pathlib import Path
 
-          allowed = {"CLIENT", "SERVER"}
+          build_components = {"CLIENT", "SERVER"}
+          route_targets = {"CLIENT", "SERVER", "BOTH"}
+          source_suffixes = (
+              ".zip",
+              ".transport.json",
+              ".sha256",
+              ".sha",
+              ".sha256.txt",
+              ".txt",
+              ".manifest.json",
+          )
+          lane_prefixes = {
+              "swrlz-core/sources/client/": "CLIENT",
+              "swrlz-core/sources/server/": "SERVER",
+          }
+
+          def expand_target(raw: str, label: str) -> set[str]:
+              target = raw.upper()
+              if target not in route_targets:
+                  raise SystemExit(f"Unsupported {label} target: {target!r}")
+              return set(build_components) if target == "BOTH" else {target}
+
+          def source_component(path: str) -> str | None:
+              for prefix, component in lane_prefixes.items():
+                  if not path.startswith(prefix):
+                      continue
+                  relative = path[len(prefix):]
+                  # Only lane-root source identities/evidence may select a build.
+                  # .transport chunks/evidence are subordinate to their lane-root
+                  # transport manifest and must never create their own route.
+                  if not relative or "/" in relative:
+                      return None
+                  if relative.endswith(source_suffixes):
+                      return component
+              return None
 
           def parse_request(path: Path) -> dict[str, str]:
               values = {}
@@ -113,14 +157,17 @@ jobs:
               return values
 
           event = os.environ["EVENT_NAME"]
-          components = set()
+          components: set[str] = set()
           variant = "debug"
 
           if event == "workflow_dispatch":
-              component = os.environ.get("MANUAL_COMPONENT", "").upper()
-              if component not in allowed:
-                  raise SystemExit(f"Unsupported manual component: {component!r}")
-              components.add(component)
+              manual = os.environ.get("MANUAL_COMPONENT", "").upper()
+              components.update(expand_target(manual, "manual component"))
+              explicit_source = os.environ.get("MANUAL_SOURCE_ZIP", "").strip()
+              if manual == "BOTH" and explicit_source:
+                  raise SystemExit(
+                      "source_zip cannot be used with BOTH; leave it blank so each component resolves its own latest verified source."
+                  )
               variant = os.environ.get("MANUAL_VARIANT", "debug").lower()
           else:
               before = os.environ.get("BEFORE_SHA", "")
@@ -133,24 +180,16 @@ jobs:
                   if line.strip()
               }
 
-              lane_prefixes = {
-                  "swrlz-core/sources/client/": "CLIENT",
-                  "swrlz-core/sources/server/": "SERVER",
-              }
               for path in changed:
-                  for prefix, component in lane_prefixes.items():
-                      if path.startswith(prefix):
-                          components.add(component)
-                          break
+                  component = source_component(path)
+                  if component is not None:
+                      components.add(component)
 
               request_path = os.environ["REQUEST_FILE"]
               if request_path in changed:
                   request = parse_request(Path(request_path))
                   if request.get("enabled", "false").lower() == "true":
-                      target = request.get("target", "").upper()
-                      if target not in allowed:
-                          raise SystemExit(f"Enabled build request has invalid target: {target!r}")
-                      components.add(target)
+                      components.update(expand_target(request.get("target", ""), "request"))
                       variant = request.get("build_variant", "debug").lower()
                       if request.get("commit_release_artifacts", "false").lower() != "false":
                           raise SystemExit(
