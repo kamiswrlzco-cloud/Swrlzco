@@ -43,8 +43,9 @@ Patch notes are lineage/navigation evidence. They do not outrank canonical sourc
 ## Reference
 
 - `reference/CURRENT_CANDIDATE_LINEAGE.md`
+- `reference/FEATURE_REGISTRY_CURRENT_2026-07-31.md` — current post-041H feature overlay for Forge conveyor, File Lab/Cartographer, Truth Core, CI routing, patch-note accounting, parity and fast-path state
 - `reference/evidence-classification.md`
-- `reference/feature-registry.md`
+- `reference/feature-registry.md` — historical/broader registry retained for lineage
 - `reference/module-map.md` — updated through current candidates and CI router synchronization
 - `reference/status-matrix.md` — updated through current Forge File Lab / Truth Core / CI lineage
 - `reference/documentation-manifest.md`
