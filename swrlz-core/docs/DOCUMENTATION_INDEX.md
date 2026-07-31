@@ -2,10 +2,17 @@
 
 ## Current authority and migration
 
-- `CURRENT_AUTHORITY.md` — current repository, source packages, hashes, and evidence boundary
+- `CURRENT_AUTHORITY.md` — current promoted repository/source authority, later candidate lineage, hashes, and evidence boundary
 - `reference/source-of-truth.md` — authority hierarchy
 - `reference/documentation-manifest.md` — package accounting, source-authority evidence, ZIP-only build eligibility, chunk-transport policy, and documentation synchronization history
 - `architecture/repository-migration-foundation.md` — selected repository layout
+
+## Component patch notes
+
+- `client/PATCH_NOTES.md` — maintained CLIENT candidate/update ledger; every accepted CLIENT implementation checkpoint must be represented here before documentation is complete
+- `server/PATCH_NOTES.md` — maintained SERVER candidate/update ledger; every accepted SERVER implementation checkpoint must be represented here before documentation is complete
+
+Patch notes are lineage/navigation evidence and do not outrank canonical source ZIP/SHA, accepted contracts/manifests, or stronger build/device/promotion evidence. Shared checkpoints that change both apps update both ledgers.
 
 ## Architecture
 
@@ -50,6 +57,7 @@
 
 ## Checkpoints and engineering evidence
 
+- `checkpoints/INT-CI-DOC-060A_ROUTER_INTEGRITY_AND_PATCH_NOTES_SYNC.md` — 2026-07-31 repair record for Source Package Integrity nested-transport evidence misrouting, APK Router lane-root/BOTH hardening, current candidate/documentation synchronization, and the mandatory per-component patch-note rule; branch-only until explicit merge approval
 - `checkpoints/INT-DOC-AI-041H_DENSE_CHAT_IDENTITY_MODEL_SYNC.md` — docs-only synchronization of CLIENT CFv2.1.22 R1, SERVER CFv2.1.9 R6/VC64 lineage, corrected SWRLZ/LLM/Swurlzara identity semantics, intrinsic Truth Firewall, Behavioral-EQ v2 direction, operator-reported Q4_K_M/Q8_0 benchmark state, feedback-ledger/plugin direction, and conversation-first Chat requirements; no promotion or implementation authority change
 - `checkpoints/INT-DOC-AI-040B-R1-R5_SWRLIE_RUNTIME_SYNC.md` — docs-only synchronization of SERVER CFv2.1.9 SWRLIE candidate R1-R5 source lineage, exact SHAs/Forge commits, feature progression, and evidence boundaries; no authority promotion
 - `checkpoints/INT-DOC-UPD-040C-040D_UPDATE_ARCHITECTURE_SYNC.md` — docs-only integration record for game-like SWRLZ live packs, modular SWRLIE delivery, SERVER-owned update discovery, and separate runtime/APK update supervision; 040C/040D remain planned implementation checkpoints
@@ -64,6 +72,13 @@
 - `handoffs/INT-THEME-035D_SOURCE_HANDOFF.md`
 - `evidence/INT-THEME-035D_CI_BUILD_EVIDENCE.md`
 - `handoffs/INT-THEME-035C_SOURCE_HANDOFF.md`
+
+## Recent candidate / approved-scope synchronization
+
+- CLIENT CFv2.1.26 R1 / VC124 / `INT-FORGE-054A-R2`: shared Forge conveyor parity, configurable SAF lanes, build ledger, artifact/log download policy, Chat/Settings catch-up while preserving CLIENT-only Missions/legacy Dev Mode; source SHA `7b0202c01ea2ffbf7c7a3cb50f1e635c1eb6658299abb63de78b2b78502589eb`
+- SERVER CFv2.1.24 R1 / VC82 / `INT-FORGE-054A-R2`: shared Forge conveyor/lineage foundation while preserving SERVER-specific runtime/inference authority; source SHA `e5baafa58e0b71d87f7a1042db5c7c8b287d3978aca9445ad1d35661469abe00`
+- Latest repository transports from Forge commit `ac6e58c642d6ad58cc2f806cdb93794d0a4bf4af`: CLIENT CFv2.1.27 R1 SHA `28074d8f2e97bec734b460e944399972920a32309ba21222a6a240642c35b433`; SERVER CFv2.1.25 R1-1 SHA `5aa743e47c0e5474120e907f5dc2440b9333aa40245c9832e2b4e700a0a27798`; transport identity only unless stronger evidence is linked
+- `INT-FILE-059A`: approved shared CLIENT/SERVER Forge File Lab + Archive Cartographer scope, but approval is not implementation/package evidence
 
 ## Historical rebuild records
 
