@@ -4,16 +4,12 @@ on:
   push:
     branches: [main]
     paths:
-      - 'swrlz-core/sources/**/*.zip'
-      - 'swrlz-core/sources/**/*.sha256'
-      - 'swrlz-core/sources/**/*.sha'
-      - 'swrlz-core/sources/**/*.txt'
-      - 'swrlz-core/sources/**/*.manifest.json'
+      - 'swrlz-core/sources/**'
 
   workflow_dispatch:
     inputs:
       source_zip:
-        description: Repository-relative path to a source ZIP under swrlz-core/sources
+        description: Repository-relative lane-root source identity (.zip or .transport.json)
         required: true
         type: string
 
@@ -22,6 +18,7 @@ permissions:
 
 env:
   SWRLZ_SOURCE_ROOT: swrlz-core/sources
+  SWRLZ_CI_ROOT: swrlz-core/tools/ci
   SWRLZ_VERIFY_TOOL: swrlz-core/tools/ci/verify_swrlz_package_pair.py
 
 jobs:
@@ -35,68 +32,77 @@ jobs:
         with:
           fetch-depth: 2
 
-      - name: Resolve changed or selected source packages
+      - name: Resolve changed or selected source identities
         id: sources
         shell: bash
         run: |
           set -euo pipefail
-          list="$RUNNER_TEMP/swrlz-zips.txt"
-          : > "$list"
+          changed="$RUNNER_TEMP/swrlz-changed-source-paths.txt"
+          identities="$RUNNER_TEMP/swrlz-source-identities.tsv"
+          : > "$changed"
 
           if [[ "${{ github.event_name }}" == 'workflow_dispatch' ]]; then
-            source='${{ inputs.source_zip }}'
-            case "$source" in
-              swrlz-core/sources/client/*.zip|swrlz-core/sources/server/*.zip) ;;
-              *) echo "source_zip must point to CLIENT or SERVER source lane: $source" >&2; exit 64 ;;
-            esac
-            printf '%s\n' "$source" >> "$list"
+            printf '%s\n' '${{ inputs.source_zip }}' > "$changed"
           else
             BEFORE='${{ github.event.before }}'
             AFTER='${{ github.sha }}'
-            changed="$RUNNER_TEMP/swrlz-changed.txt"
-
             if [[ -z "$BEFORE" || "$BEFORE" =~ ^0+$ ]]; then
               git show --pretty= --name-only "$AFTER" > "$changed"
             else
               git diff --name-only "$BEFORE" "$AFTER" > "$changed"
             fi
-
-            while IFS= read -r path; do
-              [[ -n "$path" ]] || continue
-              [[ "$path" == swrlz-core/sources/client/* || "$path" == swrlz-core/sources/server/* ]] || continue
-
-              case "$path" in
-                *.zip)
-                  printf '%s\n' "$path" >> "$list"
-                  ;;
-                *.sha256)
-                  printf '%s.zip\n' "${path%.sha256}" >> "$list"
-                  ;;
-                *.sha)
-                  printf '%s.zip\n' "${path%.sha}" >> "$list"
-                  ;;
-                *.txt)
-                  printf '%s.zip\n' "${path%.txt}" >> "$list"
-                  ;;
-                *.manifest.json)
-                  printf '%s.zip\n' "${path%.manifest.json}" >> "$list"
-                  ;;
-              esac
-            done < "$changed"
           fi
 
-          sort -u -o "$list" "$list"
-          cat "$list"
-          echo "list=$list" >> "$GITHUB_OUTPUT"
+          python3 "$SWRLZ_CI_ROOT/resolve_changed_source_identities.py" \
+            --repo-root . \
+            --changed-list "$changed" \
+            --output "$identities"
 
-      - name: Verify final ZIP checksum and optional manifest
+          echo "identities=$identities" >> "$GITHUB_OUTPUT"
+          if [[ ! -s "$identities" ]]; then
+            echo 'No CLIENT/SERVER source identities were selected.'
+          fi
+
+      - name: Verify resolved source packages
         shell: bash
+        env:
+          IDENTITIES_FILE: ${{ steps.sources.outputs.identities }}
         run: |
           set -euo pipefail
-          list='${{ steps.sources.outputs.list }}'
-          [[ -s "$list" ]] || { echo 'No source packages selected.'; exit 0; }
+          [[ -s "$IDENTITIES_FILE" ]] || { echo 'No source packages selected.'; exit 0; }
 
-          while IFS= read -r zip; do
-            [[ -n "$zip" ]] || continue
-            python3 "$SWRLZ_VERIFY_TOOL" "$zip"
-          done < "$list"
+          python3 - <<'PY'
+          from __future__ import annotations
+
+          import os
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          ci_root = Path("swrlz-core/tools/ci").resolve()
+          sys.path.insert(0, str(ci_root))
+          from resolve_swrlz_source import resolve_source
+
+          repo_root = Path(".").resolve()
+          verify_tool = ci_root / "verify_swrlz_package_pair.py"
+          identities = Path(os.environ["IDENTITIES_FILE"])
+
+          for ordinal, raw in enumerate(identities.read_text(encoding="utf-8").splitlines(), 1):
+              if not raw.strip():
+                  continue
+              component, identity = raw.split("\t", 1)
+              work_dir = Path(os.environ["RUNNER_TEMP"]) / "swrlz-integrity" / component / str(ordinal)
+              result = resolve_source(repo_root, component, identity, work_dir)
+
+              args = [sys.executable, str(verify_tool), str(result["selected_source"])]
+              if result["checksum_file"]:
+                  args += ["--checksum", str(result["checksum_file"])]
+              if result["manifest_file"]:
+                  args += ["--manifest", str(result["manifest_file"])]
+
+              print(
+                  f"Verifying {component}: {identity} -> {result['canonical_filename']} "
+                  f"[{result['source_sha256']}]"
+              )
+              subprocess.run(args, check=True)
+          PY
