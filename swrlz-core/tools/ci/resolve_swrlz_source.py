@@ -431,6 +431,16 @@ def resolve(repo_root: Path, component: str, explicit: str = "", work_dir: Path 
     return result
 
 
+def resolve_source(
+    repo_root: Path,
+    component: str,
+    explicit_source: str | None = None,
+    work_dir: Path | None = None,
+) -> dict:
+    """Stable compatibility surface for workflow and external resolver callers."""
+    return resolve(repo_root, component, explicit_source or "", work_dir)
+
+
 def write_outputs(path: Path, result: dict) -> None:
     keys = (
         "component", "source_kind", "metadata_mode", "source_description", "build_description",
