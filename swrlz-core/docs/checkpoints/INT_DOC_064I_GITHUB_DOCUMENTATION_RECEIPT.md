@@ -3,7 +3,7 @@
 Date: 2026-08-01  
 Repository: `kamiswrlzco-cloud/Swrlzco`  
 Branch: `main`  
-Final documentation commit observed: `a38e2d3b0356121bad4146e17625dd2912d2e553`
+Documentation chain through the migration index: `a38e2d3b0356121bad4146e17625dd2912d2e553`
 
 ## Documentation commits
 
@@ -15,6 +15,8 @@ Final documentation commit observed: `a38e2d3b0356121bad4146e17625dd2912d2e553`
 | `swrlz-core/docs/standards/SWRLZ_UPDATE_RESPONSE_AND_APPROVAL_FORMAT_V1.md` | `e4cda72bc9baca7d1041d247ad90143e9681c15f` |
 | `swrlz-core/docs/checkpoints/INT_DOC_064I_THREAD_MIGRATION_DOCUMENTATION_SYNC.md` | `b0760a26a88be37c1897b1434174c78604dabe51` |
 | `swrlz-core/docs/THREAD_MIGRATION_INDEX_2026-08-01.md` | `a38e2d3b0356121bad4146e17625dd2912d2e553` |
+
+The receipt itself was added after the indexed documentation chain; its own commit is intentionally not used as a self-referential authority field.
 
 ## Scope applied
 
