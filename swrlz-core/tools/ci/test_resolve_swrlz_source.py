@@ -7,8 +7,14 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from unittest import mock
 
 import resolve_swrlz_source as resolver
+
+
+CLIENT_R6_IDENTITY = "swrlz-core/sources/client/CLIENT_CFv2.1.26_SWRLZ_CANDIDATE_R6.zip"
+CLIENT_R6_SHA256 = "09d221ffff66feb56971525d039904a0e7cd135dfc89e65d3a13c5be2e0f3136"
+CLIENT_R6_METADATA_SHA256 = "39021fb0efc77de30369417655326f695d276029873a78c3d3d3326982733eb6"
 
 
 def sha(path: Path) -> str:
@@ -77,6 +83,22 @@ def make_chunked_v2(repo: Path, component: str, revision: int, version_code: int
 
 
 class ResolverTests(unittest.TestCase):
+    def test_resolve_source_compatibility_wrapper_delegates(self):
+        repo = Path("/tmp/repo")
+        work = Path("/tmp/work")
+        sentinel = {"verified": True}
+        with mock.patch.object(resolver, "resolve", return_value=sentinel) as delegated:
+            self.assertIs(resolver.resolve_source(repo, "CLIENT", None, work), sentinel)
+        delegated.assert_called_once_with(repo, "CLIENT", "", work)
+
+    def test_resolve_source_preserves_explicit_identity(self):
+        repo = Path("/tmp/repo")
+        work = Path("/tmp/work")
+        explicit = "swrlz-core/sources/client/example.zip"
+        with mock.patch.object(resolver, "resolve", return_value={}) as delegated:
+            resolver.resolve_source(repo, "CLIENT", explicit, work)
+        delegated.assert_called_once_with(repo, "CLIENT", explicit, work)
+
     def test_direct_bundle(self):
         with tempfile.TemporaryDirectory() as temp:
             repo = Path(temp)
@@ -84,6 +106,18 @@ class ResolverTests(unittest.TestCase):
             result = resolver.resolve(repo, "CLIENT", work_dir=repo / "work")
             self.assertEqual(result["source_kind"], "direct-bundle")
             self.assertEqual(result["revision"], "R5")
+
+    def test_compatibility_wrapper_verifies_direct_bundle(self):
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp)
+            source, _ = make_direct(repo, "CLIENT", 6, 129)
+            identity = source.relative_to(repo).as_posix()
+            result = resolver.resolve_source(repo, "CLIENT", identity, repo / "work")
+            self.assertEqual(result["canonical_filename"], source.name)
+            self.assertEqual(result["version_code"], 129)
+            self.assertEqual(result["revision"], "R6")
+            self.assertEqual(result["selection_reason"], "explicit-source")
+            self.assertTrue(result["verified"])
 
     def test_chunked_v2_bundle(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -119,6 +153,26 @@ class ResolverTests(unittest.TestCase):
             bad.write_text('{"schema":99,"transport":"future","component":"SERVER"}', encoding="utf-8")
             with self.assertRaises(Exception):
                 resolver.discover(repo, "SERVER", repo / "work", strict_paths={bad})
+
+    def test_repository_client_r6_source_and_metadata_verify_when_present(self):
+        repo = Path(__file__).resolve().parents[3]
+        source = repo / CLIENT_R6_IDENTITY
+        metadata = source.with_name(f"{source.stem}_METADATA.zip")
+        if not source.is_file() or not metadata.is_file():
+            self.skipTest("Repository CLIENT R6 source/metadata fixture is not present")
+        with tempfile.TemporaryDirectory() as temp:
+            result = resolver.resolve_source(
+                repo,
+                "CLIENT",
+                CLIENT_R6_IDENTITY,
+                Path(temp),
+            )
+        self.assertEqual(result["source_sha256"], CLIENT_R6_SHA256)
+        self.assertEqual(result["metadata_bundle_sha256"], CLIENT_R6_METADATA_SHA256)
+        self.assertEqual(result["version_code"], 129)
+        self.assertEqual(result["revision"], "R6")
+        self.assertEqual(result["selection_reason"], "explicit-source")
+        self.assertTrue(result["verified"])
 
 
 if __name__ == "__main__":
