@@ -43,6 +43,53 @@ class ChangedSourceIdentityTests(unittest.TestCase):
         changed = "swrlz-core/sources/client/CLIENT_CFv9.0.0_SWRLZ.zip"
         self.assertEqual(map_changed_path(self.root, changed), ("CLIENT", changed))
 
+    def test_metadata_zip_maps_to_existing_direct_zip(self):
+        lane = self.root / "swrlz-core/sources/client"
+        stem = "CLIENT_CFv2.1.26_SWRLZ_CANDIDATE_R6"
+        (lane / f"{stem}.zip").write_bytes(b"zip")
+        changed = f"swrlz-core/sources/client/{stem}_METADATA.zip"
+        self.assertEqual(
+            map_changed_path(self.root, changed),
+            ("CLIENT", f"swrlz-core/sources/client/{stem}.zip"),
+        )
+
+    def test_metadata_zip_maps_to_existing_chunked_transport(self):
+        lane = self.root / "swrlz-core/sources/server"
+        stem = "SERVER_CFv2.1.26_SWRLZ_CANDIDATE_R9"
+        (lane / f"{stem}.transport.json").write_text("{}", encoding="utf-8")
+        changed = f"swrlz-core/sources/server/{stem}_METADATA.zip"
+        self.assertEqual(
+            map_changed_path(self.root, changed),
+            ("SERVER", f"swrlz-core/sources/server/{stem}.transport.json"),
+        )
+
+    def test_source_and_metadata_zip_deduplicate_to_one_identity(self):
+        lane = self.root / "swrlz-core/sources/client"
+        stem = "CLIENT_CFv2.1.26_SWRLZ_CANDIDATE_R6"
+        (lane / f"{stem}.zip").write_bytes(b"zip")
+        changed = [
+            f"swrlz-core/sources/client/{stem}.zip",
+            f"swrlz-core/sources/client/{stem}_METADATA.zip",
+        ]
+        self.assertEqual(
+            map_changed_paths(self.root, changed),
+            [("CLIENT", f"swrlz-core/sources/client/{stem}.zip")],
+        )
+
+    def test_metadata_zip_direct_and_chunked_ambiguity_fails_closed(self):
+        lane = self.root / "swrlz-core/sources/client"
+        stem = "CLIENT_CFv2.1.26_SWRLZ_CANDIDATE_R6"
+        (lane / f"{stem}.zip").write_bytes(b"zip")
+        (lane / f"{stem}.transport.json").write_text("{}", encoding="utf-8")
+        changed = f"swrlz-core/sources/client/{stem}_METADATA.zip"
+        with self.assertRaisesRegex(IdentityMappingError, "ambiguous"):
+            map_changed_path(self.root, changed)
+
+    def test_orphan_metadata_zip_fails_closed(self):
+        changed = "swrlz-core/sources/client/CLIENT_CFv9.0.0_SWRLZ_METADATA.zip"
+        with self.assertRaisesRegex(IdentityMappingError, "no source identity"):
+            map_changed_path(self.root, changed)
+
     def test_root_checksum_maps_to_existing_direct_zip(self):
         lane = self.root / "swrlz-core/sources/client"
         (lane / "CLIENT_CFv9.0.0_SWRLZ.zip").write_bytes(b"zip")
@@ -60,6 +107,15 @@ class ChangedSourceIdentityTests(unittest.TestCase):
             map_changed_path(self.root, changed),
             ("SERVER", "swrlz-core/sources/server/SERVER_CFv9.0.0_SWRLZ.transport.json"),
         )
+
+    def test_root_sidecar_direct_and_chunked_ambiguity_fails_closed(self):
+        lane = self.root / "swrlz-core/sources/server"
+        stem = "SERVER_CFv9.0.0_SWRLZ"
+        (lane / f"{stem}.zip").write_bytes(b"zip")
+        (lane / f"{stem}.transport.json").write_text("{}", encoding="utf-8")
+        changed = f"swrlz-core/sources/server/{stem}.sha256"
+        with self.assertRaisesRegex(IdentityMappingError, "ambiguous"):
+            map_changed_path(self.root, changed)
 
     def test_missing_transport_identity_fails_closed(self):
         changed = "swrlz-core/sources/client/.transport/missing/evidence/missing.sha256"
