@@ -3,7 +3,8 @@
 
 This is deliberately transport-aware. Files below .transport/<bundle>/... are evidence
 or chunks for the lane-root <bundle>.transport.json identity; they are never treated
-as sibling ZIPs. Direct ZIPs and root sidecars remain supported.
+as sibling ZIPs. Metadata ZIPs and loose sidecars resolve to their exact direct or
+chunked source identity and never become independent build inputs.
 """
 from __future__ import annotations
 
@@ -16,6 +17,7 @@ LANES = {
     "SERVER": Path("swrlz-core/sources/server"),
 }
 SIDECAR_SUFFIXES = (".manifest.json", ".sha256", ".sha", ".txt")
+METADATA_SUFFIX = "_metadata.zip"
 
 
 class IdentityMappingError(RuntimeError):
@@ -38,6 +40,27 @@ def _lane_for(path: Path) -> tuple[str, Path, Path] | None:
         except ValueError:
             continue
     return None
+
+
+def _resolve_exact_identity(
+    repo_root: Path,
+    lane: Path,
+    stem: str,
+    changed: str,
+    evidence_class: str,
+) -> Path:
+    candidates = [
+        lane / f"{stem}.zip",
+        lane / f"{stem}.transport.json",
+    ]
+    existing = [path for path in candidates if (repo_root / path).is_file()]
+    if len(existing) > 1:
+        raise IdentityMappingError(
+            f"{evidence_class} is ambiguous between direct and chunked source identities: {changed}"
+        )
+    if len(existing) == 1:
+        return existing[0]
+    raise IdentityMappingError(f"{evidence_class} has no source identity: {changed}")
 
 
 def map_changed_path(repo_root: Path, changed: str) -> tuple[str, str] | None:
@@ -67,28 +90,35 @@ def map_changed_path(repo_root: Path, changed: str) -> tuple[str, str] | None:
         return None
     name = parts[0]
     lower = name.lower()
-    if lower.endswith(".zip") or lower.endswith(".transport.json"):
+
+    # Metadata bundles are evidence for exactly one source identity. This branch
+    # must run before generic ZIP handling so metadata is never built separately.
+    if lower.endswith(METADATA_SUFFIX):
+        stem = name[: -len(METADATA_SUFFIX)]
+        identity = _resolve_exact_identity(
+            repo_root,
+            lane,
+            stem,
+            changed,
+            "Metadata ZIP",
+        )
+        return component, identity.as_posix()
+
+    if lower.endswith(".transport.json") or lower.endswith(".zip"):
         return component, (lane / name).as_posix()
 
     stem = _strip_sidecar(name)
     if stem is None:
         return None
 
-    candidates = [
-        lane / f"{stem}.zip",
-        lane / f"{stem}.transport.json",
-    ]
-    existing = [p for p in candidates if (repo_root / p).is_file()]
-    if len(existing) > 1:
-        raise IdentityMappingError(
-            f"Root sidecar is ambiguous between direct and chunked source identities: {changed}"
-        )
-    if len(existing) == 1:
-        return component, existing[0].as_posix()
-
-    # A deleted/moved source identity may leave a sidecar change with no target. Fail
-    # closed rather than inventing a nested or nonexistent ZIP path.
-    raise IdentityMappingError(f"Root source sidecar has no source identity: {changed}")
+    identity = _resolve_exact_identity(
+        repo_root,
+        lane,
+        stem,
+        changed,
+        "Root source sidecar",
+    )
+    return component, identity.as_posix()
 
 
 def map_changed_paths(repo_root: Path, changed_paths: Iterable[str]) -> list[tuple[str, str]]:
