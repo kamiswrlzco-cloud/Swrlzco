@@ -1,0 +1,38 @@
+{
+  "schema_version": 3,
+  "checkpoint": "INT-FIX-064F-SERVER-R8",
+  "component": "SERVER",
+  "candidate": "SERVER_CFv2.1.26_SWRLZ_CANDIDATE_R8",
+  "status": "SOURCE_CANDIDATE",
+  "parent": {
+    "name": "SERVER_CFv2.1.26_SWRLZ_CANDIDATE_R7.zip",
+    "sha256": "3feb9ceeb4afe925cc17c33bd51368bebe7c171ab4f441b41ad2df7bdec88caf",
+    "version": "CFv2.1.26",
+    "versionCode": 90,
+    "versionName": "2.1.26-ci-bootstrap-shield-r7",
+    "relationship": "BYTE_EXACT_DIRECT_PARENT"
+  },
+  "android_identity": {
+    "version_code": 91,
+    "version_name": "2.1.26-forge-package-namespace-fix-r8"
+  },
+  "changes": [
+    "correct ForgeAutomatedBuildRunner package declaration from sh.swurlz.nodehost.forge to sh.swrlz.nodehost.forge",
+    "correct ForgeBuildMonitor package declaration from sh.swurlz.nodehost.forge to sh.swrlz.nodehost.forge",
+    "add package-path regression verification",
+    "preserve all Forge behavior from SERVER R7"
+  ],
+  "validation": {
+    "android_compile": "PENDING_AUTHORIZED_GITHUB_WORKFLOW",
+    "focused_static": "9/9 PASS",
+    "focused_kotlin_parse": "2/2 PASS",
+    "source_manifest": "723/723 PASS"
+  },
+  "repository_writes": true,
+  "workflow_dispatch": true,
+  "apk_build": "AUTHORIZED_GITHUB_WORKFLOW_ONLY",
+  "installation": false,
+  "promotion": false,
+  "release_or_deployment": false,
+  "lineage_quality": "BYTE_EXACT_DIRECT_PARENT"
+}
