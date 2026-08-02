@@ -20,7 +20,6 @@ if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
 
-
 GRANDFATHERED_DEBT: dict[str, set[str]] = {
     "5b47857ef039609966669b039042bc69eba64dca48774107db353faeb7419912": {
         "ReleaseNotes.md",
@@ -57,8 +56,7 @@ class AuditResult:
     def debt(self, message: str) -> None:
         self.warnings.append(message)
         if self.status != "FAIL":
-            self.status = "DEBT_RECORDD"
-
+            self.status = "DEBT_RECORDED"
 
     def as_dict(self) -> dict:
         return {
@@ -309,7 +307,7 @@ def main(argv: list[str] | None = None) -> int:
     payload = {
         "schema": "swrlz-patch-accounting-audit-v1",
         "status": "FAIL" if any(item.status == "FAIL" for item in results) else (
-            "DEBT_RECORDED" if any(item.status == "DEBT_RECORDD" for item in results) else "PASS"
+            "DEBT_RECORDED" if any(item.status == "DEBT_RECORDED" for item in results) else "PASS"
         ),
         "results": [item.as_dict() for item in results],
     }
