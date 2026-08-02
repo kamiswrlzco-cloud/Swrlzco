@@ -1,0 +1,78 @@
+name: SWRLZ Patch Note Accounting
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'swrlz-core/sources/client/**'
+      - 'swrlz-core/sources/server/**'
+      - 'swrlz-core/docs/patch-notes/**'
+      - 'swrlz-core/docs/reference/CURRENT_CANDIDATE_LINEAGE.md'
+      - 'swrlz-core/docs/CURRENT_AUTHORITY.md'
+      - 'swrlz-core/docs/contracts/SWRLZ_PATCH_NOTE_AND_LINEAGE_ACCOUNTING_V1.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout8v4
+        with:
+          fetch-depth: 2
+
+      - name: Run patch-accounting regression tests
+        working-directory: swrlz-core/tools/ci
+        run: python3 -m unittest -v test_verify_patch_note_accounting.py
+
+      - name: Resolve changed source identities
+        id: identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          changed="$RUNNER_TEMP/swrlz-patch-accounting-changed.txt"
+          identities="$RUNNER_TEMP/swrlz-patch-accounting-identities.tsv"
+          : > "$changed"
+          : > "$identities"
+
+          if [[ "${{ github.event_name }}" == 'push' ]]; then
+            BEFORE='${{ github.event.before }}'
+            AFTER='${{ github.sha }}'
+            if [[ -z "$BEFORE" || "$BEFORE" =~ ^0+$ ]]; then
+              git show --pretty= --name-only "$AFTER" > "$changed"
+            else
+              git diff --name-only "$BEFORE" "$AFTER" > "$changed"
+            fi
+
+            python3 swrlz-core/tools/ci/resolve_changed_source_identities.py \
+              --repo-root . \
+              --changed-list "$changed" \
+              --output "$identities"
+          fi
+
+          echo "identities=$identities" >> "$GITHUB_OUTPUT"
+
+      - name: Audit package and repository patch accounting
+        shell: bash
+        env:
+          IDENTITIES_FILE: ${{ steps.identities.outputs.identities }}
+        run: |
+          set -euo pipefail
+          result="$RUNNER_TEMP/swrlz-patch-accounting.json"
+          python3 swrlz-core/tools/ci/verify_patch_note_accounting.py \
+            --repo-root . \
+            --identity-file "$IDENTITIES_FILE" \
+            --json-output "$result"
+
+          {
+            echo '## SWRLZ Patch Note Accounting'
+            echo
+            echo '```json'
+            cat "$result"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
