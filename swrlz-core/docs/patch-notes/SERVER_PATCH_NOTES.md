@@ -7,6 +7,46 @@ Patch notes do not imply Android compilation, installation, device acceptance, p
 
 ## Current repository candidate — 2026-08-03
 
+### CFv2.1.26 R34 — SWYRLZ-SERVER-UI-HANDOFF-001-B
+
+- canonical candidate: `SERVER_CFv2.1.26_SWRLZ_CANDIDATE_R34`
+- versionCode: `117`
+- versionName: `2.1.26-chat-interface-cleanup-r34`
+- source SHA-256: `9cafb443adfcf8dc250eefc7e8894c50190418f9604de7e151356a0e6a12f9cb`
+- metadata SHA-256: `34cf10cdcdea4c2beeb5c39b91067743dab74019f3d5eafa0d7962a2551569e3`
+- checkpoint: `SWYRLZ-SERVER-UI-HANDOFF-001-B`
+- direct parent: `SERVER_CFv2.1.26_SWRLZ_CANDIDATE_R33.zip`
+- Forge transport commit: `c92e124656fd1d9b0c2b039d29c8b508a54de309`
+- repository identity: `sources/server/SERVER_CFv2.1.26_SWRLZ_CANDIDATE_R34.transport.json`
+- promotion: not promoted
+
+Changes:
+
+- replaces the generic Chat header with the active thread title at upper left and an evidence-derived LLM state at upper right;
+- adds functional New Chat, Chat History, Pinned Chats, and Bookmarked Chats navigation;
+- replaces the full-width Send control with a compact translucent composer containing the dragon action and send icon;
+- makes the dragon menu open upward with Commands, Pinned Responses, and Bookmarked Responses;
+- places GitHub Actions first among Forge operational dialogs and expands it by default;
+- reports approved local-link unavailability on mobile data while preserving truthful loopback availability;
+- begins the visible `Swyrlz` / `Swyrler` display transition while preserving compatibility-sensitive internal identifiers;
+- preserves R33 Core semantics, R32 capability-bearing mission routing, R31 persistent admin registry and `server-root`, tunnel isolation/lifecycle, identity, trust, Truth Firewall, offline-first behavior, and protocol discipline.
+
+Repository transport proves exact R34 package identity. The supplied APK Router run was canceled during GitHub checkout before component routing or Android compilation; no R34 build result is inferred from that run.
+
+## Recent direct-successor progression
+
+| Candidate | VC | Checkpoint | Source SHA-256 | Evidence state |
+|---|---:|---|---|---|
+| CFv2.1.26 R30 | 113 | INT-CONTROL-069A | `d07e814ab986491c2035854310630fe2638d5693ce9bd463ed665c82eeb19414` | authorized operator/correlation control plane; Forge transported |
+| CFv2.1.26 R31 | 114 | INT-CONTROL-069B | `2ff51a057917d8280bab5e1142a964925b767e87e879e74a64dfce887ef2f5a2` | persistent admin registry and internal server-root; Forge transported |
+| CFv2.1.26 R32 | 115 | INT-CONTROL-069C | `c7a947803d2b29d3bef9f0ca4622c24b5cfd90357fc504635e77aa77944d6a15` | capability-bearing messages and mission route; Forge transported |
+| CFv2.1.26 R33 | 116 | SWRLZ-SERVER-UI-HANDOFF-001-A | `5a725d0d827b871e8f7b44d954fbe140c1d5dc857afe9be447deac9f809a020c` | truthful Core status/layout checkpoint; Forge transported |
+| CFv2.1.26 R34 | 117 | SWYRLZ-SERVER-UI-HANDOFF-001-B | `9cafb443adfcf8dc250eefc7e8894c50190418f9604de7e151356a0e6a12f9cb` | current repository candidate; Chat interface cleanup and visible terminology transition |
+
+## Preserved historical accounting snapshot
+
+The detailed R30/R31 and earlier lineage below is retained as historical accounting context. The canonical current pointer above supersedes the earlier snapshot’s former “current” labels without rewriting its historical evidence.
+
 ### CFv2.1.26 R30 — INT-CONTROL-069A
 
 - canonical candidate: `SERVER_CFv2.1.26_SWRLZ_CANDIDATE_R30`
@@ -20,17 +60,7 @@ Patch notes do not imply Android compilation, installation, device acceptance, p
 - repository identity: `sources/server/SERVER_CFv2.1.26_SWRLZ_CANDIDATE_R30.transport.json`
 - promotion: not promoted
 
-Changes:
-
-- introduced proof-bound, trust-scoped `SWRLZ_ADMIN_OPERATOR` authorization for `client-swurlz`;
-- validated caller role, caller capability, target policy, requested capability, approval mode, and trust state before dispatch;
-- added durable message/correlation/conversation tracking and result-return routing;
-- added redacted control-plane audit events and Room migration `8 -> 9`;
-- preserved target-node capability truth, approval gates, identity, trust, Truth Firewall, offline-first behavior, NODE_HOST, MCP, model, and tunnel boundaries.
-
-Repository transport proves exact R30 package identity. It does not by itself prove Android build success, installation, device acceptance, promotion, release, or deployment.
-
-## Prepared direct successor — not yet repository transported
+R30 introduced proof-bound, trust-scoped `SWRLZ_ADMIN_OPERATOR` authorization, durable message/correlation/conversation tracking, result-return routing, redacted audit events, and Room migration `8 -> 9` while preserving target capability truth and approval gates.
 
 ### CFv2.1.26 R31 — INT-CONTROL-069B
 
@@ -40,37 +70,8 @@ Repository transport proves exact R30 package identity. It does not by itself pr
 - source SHA-256: `2ff51a057917d8280bab5e1142a964925b767e87e879e74a64dfce887ef2f5a2`
 - metadata SHA-256: `ae57111b8f00b3c5cc13327d39b6e84f2381ff39d40316565d75a47257dc5685`
 - checkpoint: `INT-CONTROL-069B`
-- direct parent: `SERVER_CFv2.1.26_SWRLZ_CANDIDATE_R30.zip`
-- Forge transport: pending
-- promotion: not promoted
 
-Changes:
-
-- defines the non-spoofable internal principal `server-root`, type `SERVER_INTERNAL`, authority `ROOT_CONTROL_PLANE`, and `externallyAssignable=false`;
-- preserves approval policy for destructive or consequential operations even when enforced by server-root;
-- adds persistent registry fields for node admin role, state, granted capabilities, grant time, and granting principal;
-- adds Room migration `9 -> 10` and indexed admin role/state fields;
-- adds Nodes-screen actions **Promote device to admin** and **Remove admin status**, each with confirmation and redacted audit evidence;
-- requires active registration, protocol 2, confirmed identity, bound proof, nonblank proof hash, non-archived lineage, and server-owned policy approval before durable admin promotion;
-- prevents client self-promotion and preserves explicit revocation or suspended reapproval state;
-- permits active registry admins to use only their granted capabilities; trust never fabricates target capability;
-- embeds `SWRLZ_ADMIN_NODE_CONTROL_PLANE_HANDOFF_v1.0.0_2026-08-03.docx` and the checkpoint evidence inside the source package.
-
-Source verification recorded for R31: focused verifier `30/30`, core Kotlin policy compile with bounded stubs PASS, changed-Kotlin bracket screen `6/6`, Room migration SQL harness PASS, internal source manifest `1013/1013`, source/metadata ZIP CRC and path safety PASS. Android project compilation was attempted but Gradle 8.9 could not be downloaded in the offline environment; no APK build is claimed.
-
-## Recent direct-successor progression
-
-| Candidate | VC | Checkpoint | Source SHA-256 | Evidence state |
-|---|---:|---|---|---|
-| CFv2.1.26 R23 | 106 | INT-STABILITY-063A | `39c1708021c76a0bf5346fa16dffe70cb6a0923b89d0a6083c22c323e973fd17` | model/startup stability; Forge transported |
-| CFv2.1.26 R24 | 107 | INT-STABILITY-065A | `20af0c617c5b8f96708fffc27d73ac6d81e473af4401aafcb170d0ec0057293f` | launch crash-loop breaker; Forge transported |
-| CFv2.1.26 R25 | 108 | INT-STABILITY-066A | `5f195ae4c3e8f73cba974f81f8591f93c706fe546e0ed9b9af046df810602101` | isolated tunnel-process firewall; local source identity retained |
-| CFv2.1.26 R26 | 109 | update-delivery protocol | `1088e51b8c559733b73a18abac7961bb51b14b58596725058f2a10b25e7f1b2c` | embedded two-package handoff; Forge transported |
-| CFv2.1.26 R27 | 110 | INT-STABILITY-068A | `0549e79d5d89b6833b234dfa56a3bc219b5dbe681e9cc4f48d7e02d3e00a2eb1` | generation-safe tunnel lifecycle; Forge transported |
-| CFv2.1.26 R28 | 111 | INT-DOC-068B | `2187eaf0dd1f071ced561d823f169a52f185c6986f158652572a367fc62b31d0` | accounting/handoff successor; Forge transported |
-| CFv2.1.26 R29 | 112 | INT-FIX-068C | `12517439d2bf4da501a2e0efa260d38a41ab00a8ca6a7e4586a9693737f01fc8` | Binder `Unit` compile repair; Forge transported and owner-reported successful build |
-| CFv2.1.26 R30 | 113 | INT-CONTROL-069A | `d07e814ab986491c2035854310630fe2638d5693ce9bd463ed665c82eeb19414` | current repository candidate; authorized operator/correlation control plane |
-| CFv2.1.26 R31 | 114 | INT-CONTROL-069B | `2ff51a057917d8280bab5e1142a964925b767e87e879e74a64dfce887ef2f5a2` | prepared persistent admin registry/server-root successor |
+R31 defined the non-spoofable internal `server-root` principal, persistent node-admin state, Room migration `9 -> 10`, proof/trust-gated admin promotion and revocation, and redacted audit evidence.
 
 ## Preserved earlier active lineage
 
@@ -90,6 +91,13 @@ Source verification recorded for R31: focused verifier `30/30`, core Kotlin poli
 | CFv2.1.26 R20 | 103 | INT-FIX-060N | `b18aa2cbf9940a63e8c67ea98dc37f549bf95322301efba60ffa3fde271f8f28` | Android-resolved control-plane egress |
 | CFv2.1.26 R21 | 104 | INT-FIX-060P | `9b1695b46513229ec1937c5f070b1cada9be4af2abaf78f8b8d417460ee80d0c` | raw NODE_HOST loopback transport |
 | CFv2.1.26 R22 | 105 | INT-DOC-060P-REPAIR | `3f730f70da5e5dbedc4cd97cfda94c5ff098c0eaa697786e2f632488d8d5ed52` | package-internal accounting repair |
+| CFv2.1.26 R23 | 106 | INT-STABILITY-063A | `39c1708021c76a0bf5346fa16dffe70cb6a0923b89d0a6083c22c323e973fd17` | model/startup stability |
+| CFv2.1.26 R24 | 107 | INT-STABILITY-065A | `20af0c617c5b8f96708fffc27d73ac6d81e473af4401aafcb170d0ec0057293f` | launch crash-loop breaker |
+| CFv2.1.26 R25 | 108 | INT-STABILITY-066A | `5f195ae4c3e8f73cba974f81f8591f93c706fe546e0ed9b9af046df810602101` | isolated tunnel-process firewall |
+| CFv2.1.26 R26 | 109 | update-delivery protocol | `1088e51b8c559733b73a18abac7961bb51b14b58596725058f2a10b25e7f1b2c` | embedded two-package handoff |
+| CFv2.1.26 R27 | 110 | INT-STABILITY-068A | `0549e79d5d89b6833b234dfa56a3bc219b5dbe681e9cc4f48d7e02d3e00a2eb1` | generation-safe tunnel lifecycle |
+| CFv2.1.26 R28 | 111 | INT-DOC-068B | `2187eaf0dd1f071ced561d823f169a52f185c6986f158652572a367fc62b31d0` | accounting/handoff successor |
+| CFv2.1.26 R29 | 112 | INT-FIX-068C | `12517439d2bf4da501a2e0efa260d38a41ab00a8ca6a7e4586a9693737f01fc8` | Binder `Unit` compile repair |
 
 ## Pinned tunnel-runtime evidence
 
@@ -97,17 +105,6 @@ Source verification recorded for R31: focused verifier `30/30`, core Kotlin poli
 - size: `18,546,850` bytes
 - runtime: tunnel-client `v0.0.10`, arm64-v8a
 
-## Authority and accounting boundaries
-
-- The internal `server-root` principal is SERVER runtime authority, not a promoted source-package declaration.
-- A node marked admin remains a client principal and cannot claim `server-root`.
-- Connected state, node label, or client-supplied role text never grants trust or admin authority.
-- Promotion to node admin is a consequential registry write and must be server-owned, audited, proof-gated, and user-confirmed.
-- Destructive execution remains policy/approval-gated.
-- Repository transport proves package identity only.
-- Android build success does not prove installation, device acceptance, promotion, release, or deployment.
-- Promoted authority changes only through an explicit promotion checkpoint.
-
 ## Mandatory accounting rule
 
-Every later SERVER source candidate must update package-internal `ReleaseNotes.md`, `CHANGELOG.md`, and `SWRLZ_PATCH_LINEAGE_INDEX_V1.json`, plus this repository file, `../reference/CURRENT_CANDIDATE_LINEAGE.md`, and the non-promoted candidate section of `../CURRENT_AUTHORITY.md`. The Patch Note Accounting workflow is independent from source integrity and Android builds; one gate can pass while another fails.
+Every later SERVER source candidate must update package-internal `ReleaseNotes.md`, `CHANGELOG.md`, and `SWRLZ_PATCH_LINEAGE_INDEX_V1.json`, plus this repository file, `../reference/CURRENT_CANDIDATE_LINEAGE.md`, and the non-promoted candidate section of `../CURRENT_AUTHORITY.md`. The Patch Note Accounting workflow remains independent from source integrity and Android builds.
