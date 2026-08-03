@@ -7,19 +7,25 @@ This file tracks repository-transported candidates independently from promoted a
 | Component | Logical candidate | VC | Source SHA-256 | Metadata SHA-256 | Checkpoint | Forge commit | Repository identity |
 |---|---|---:|---|---|---|---|---|
 | CLIENT | CFv2.1.26 R8 | 131 | `5b47857ef039609966669b039042bc69eba64dca48774107db353faeb7419912` | `6f246527543d28c010a67a019879ec4280706a6011a66f119c9a2fa366341391` | INT-FIX-060C | `d2e54ff07759cbc74d15a88a987dd0dc1ffc6f4b` | `sources/client/CLIENT_CFv2.1.26_SWRLZ_CANDIDATE_R8.zip` |
-| SERVER | CFv2.1.26 R30 | 113 | `d07e814ab986491c2035854310630fe2638d5693ce9bd463ed665c82eeb19414` | `9d91109df048f87eada46f4737ca701ed7397ef4a7e0ff6ff38428e4889689da` | INT-CONTROL-069A | `2d21cd6ae0516dbfea8f69f144e8313f93822fef` | `sources/server/SERVER_CFv2.1.26_SWRLZ_CANDIDATE_R30.transport.json` |
+| SERVER | CFv2.1.26 R34 | 117 | `9cafb443adfcf8dc250eefc7e8894c50190418f9604de7e151356a0e6a12f9cb` | `34cf10cdcdea4c2beeb5c39b91067743dab74019f3d5eafa0d7962a2551569e3` | SWYRLZ-SERVER-UI-HANDOFF-001-B | `c92e124656fd1d9b0c2b039d29c8b508a54de309` | `sources/server/SERVER_CFv2.1.26_SWRLZ_CANDIDATE_R34.transport.json` |
 
-The SERVER transport uses chunked Git blobs. The lane-root `.transport.json` is the repository source identity; chunks and the metadata bundle are evidence members, not independent source candidates.
+The SERVER transport uses chunked Git blobs. The lane-root `.transport.json` is the repository source identity; chunks, metadata, and bounded accounting receipts are evidence members, not independent source candidates.
 
-R30 is the current non-promoted repository SERVER candidate. Repository transport does not establish Android compilation, installation, device acceptance, promotion, release, or deployment.
+R34 is the current non-promoted repository SERVER candidate. Repository transport establishes exact package identity only; it does not prove Android compilation, installation, device acceptance, promotion, release, or deployment.
 
-## Prepared direct successor — pending Forge transport
+## R34 implementation relationship
 
-| Component | Candidate | VC | Source SHA-256 | Metadata SHA-256 | Checkpoint | State |
-|---|---|---:|---|---|---|---|
-| SERVER | CFv2.1.26 R31 | 114 | `2ff51a057917d8280bab5e1142a964925b767e87e879e74a64dfce887ef2f5a2` | `ae57111b8f00b3c5cc13327d39b6e84f2381ff39d40316565d75a47257dc5685` | INT-CONTROL-069B | persistent admin registry and internal server-root authority; source/static verification complete; Forge/build/device evidence pending |
+R34 is the direct interface-cleanup successor to R33 and implements checkpoint `SWYRLZ-SERVER-UI-HANDOFF-001-B`:
 
-R31 does not replace the current repository pointer until Forge establishes its exact transport identity. It does not change promoted authority.
+- truthful active-thread and LLM-status Chat header;
+- New Chat, Chat History, Pinned Chats, and Bookmarked Chats navigation;
+- compact translucent composer with embedded dragon and send controls;
+- upward dragon menu with Commands, Pinned Responses, and Bookmarked Responses;
+- GitHub Actions first in Forge operational ordering;
+- precise mobile-data approved-local-link wording while loopback remains active;
+- visible `Swyrlz` / `Swyrler` terminology migration on primary SERVER surfaces while internal compatibility identifiers remain unchanged.
+
+The supplied APK Router run `30846388177` was canceled during GitHub checkout before component route determination or compilation. That run is transport/runner evidence, not a source failure.
 
 ## Active direct-successor progression
 
@@ -51,31 +57,22 @@ R31 does not replace the current repository pointer until Forge establishes its 
 | CFv2.1.26 R22 | 105 | INT-DOC-060P-REPAIR | `3f730f70da5e5dbedc4cd97cfda94c5ff098c0eaa697786e2f632488d8d5ed52` | package-internal accounting repair |
 | CFv2.1.26 R23 | 106 | INT-STABILITY-063A | `39c1708021c76a0bf5346fa16dffe70cb6a0923b89d0a6083c22c323e973fd17` | model/startup stability; Forge transported |
 | CFv2.1.26 R24 | 107 | INT-STABILITY-065A | `20af0c617c5b8f96708fffc27d73ac6d81e473af4401aafcb170d0ec0057293f` | launch crash-loop breaker; Forge transported |
-| CFv2.1.26 R25 | 108 | INT-STABILITY-066A | `5f195ae4c3e8f73cba974f81f8591f93c706fe546e0ed9b9af046df810602101` | isolated tunnel process; local identity retained |
+| CFv2.1.26 R25 | 108 | INT-STABILITY-066A | `5f195ae4c3e8f73cba974f81f8591f93c706fe546e0ed9b9af046df810602101` | isolated tunnel process |
 | CFv2.1.26 R26 | 109 | update-delivery protocol | `1088e51b8c559733b73a18abac7961bb51b14b58596725058f2a10b25e7f1b2c` | two-package handoff; Forge transported |
 | CFv2.1.26 R27 | 110 | INT-STABILITY-068A | `0549e79d5d89b6833b234dfa56a3bc219b5dbe681e9cc4f48d7e02d3e00a2eb1` | generation-safe tunnel lifecycle; Forge transported |
 | CFv2.1.26 R28 | 111 | INT-DOC-068B | `2187eaf0dd1f071ced561d823f169a52f185c6986f158652572a367fc62b31d0` | accounting/handoff successor; Forge transported |
 | CFv2.1.26 R29 | 112 | INT-FIX-068C | `12517439d2bf4da501a2e0efa260d38a41ab00a8ca6a7e4586a9693737f01fc8` | Binder callback compile repair; Forge transported and owner-reported build success |
-| CFv2.1.26 R30 | 113 | INT-CONTROL-069A | `d07e814ab986491c2035854310630fe2638d5693ce9bd463ed665c82eeb19414` | authorized operator and correlated result control plane; current repository candidate |
-| CFv2.1.26 R31 | 114 | INT-CONTROL-069B | `2ff51a057917d8280bab5e1142a964925b767e87e879e74a64dfce887ef2f5a2` | prepared persistent admin registry/server-root successor |
+| CFv2.1.26 R30 | 113 | INT-CONTROL-069A | `d07e814ab986491c2035854310630fe2638d5693ce9bd463ed665c82eeb19414` | authorized operator and correlated result control plane |
+| CFv2.1.26 R31 | 114 | INT-CONTROL-069B | `2ff51a057917d8280bab5e1142a964925b767e87e879e74a64dfce887ef2f5a2` | persistent admin registry/server-root |
+| CFv2.1.26 R32 | 115 | INT-CONTROL-069C | `c7a947803d2b29d3bef9f0ca4622c24b5cfd90357fc504635e77aa77944d6a15` | capability-bearing messages and mission route |
+| CFv2.1.26 R33 | 116 | SWRLZ-SERVER-UI-HANDOFF-001-A | `5a725d0d827b871e8f7b44d954fbe140c1d5dc857afe9be447deac9f809a020c` | truthful Core status semantics and layout |
+| CFv2.1.26 R34 | 117 | SWYRLZ-SERVER-UI-HANDOFF-001-B | `9cafb443adfcf8dc250eefc7e8894c50190418f9604de7e151356a0e6a12f9cb` | current repository candidate; Chat interface cleanup |
 
-## R31 authority relationship
+## Authority and package-accounting boundary
 
-- `server-root` is an internal SERVER principal, not a client node and not externally assignable.
-- Nodes may be promoted to `SWRLZ_ADMIN_OPERATOR` only by an authenticated server-owned registry action after proof, identity, registration, lineage, trust/policy, and confirmation checks.
-- Promoted node-admin status is durable registry state with granted capability scope, grant time, granting principal, and audit history.
-- Node admin authority does not convert a target device into server-root and does not bypass approval policy for destructive actions.
-- Trust does not fabricate capabilities; target operations remain limited to advertised, implemented, permissionable, and policy-authorized capabilities.
-
-## Package-internal accounting boundary
-
-R30 and R31 package-internal `CHANGELOG.md`, `ReleaseNotes.md`, checkpoint receipt, and `SWRLZ_PATCH_LINEAGE_INDEX_V1.json` identify their own exact candidate/checkpoint/version lineage. Repository documents must also name the exact transported source SHA, candidate, and checkpoint. This file pre-registers R31 identity without claiming transport.
-
-## Evidence boundary
-
-- Repository transport/checksum proves source identity, not Android compilation.
-- Android build success does not prove installation or device acceptance.
-- Installation does not elevate trust or promote a candidate.
-- Source/static validation does not prove runtime survival.
-- Internal server-root authority does not change promoted package authority.
-- Candidate lineage changes do not promote, release, or deploy software.
+- `server-root` remains an internal SERVER principal, not a client node and not externally assignable.
+- A node may hold bounded `SWRLZ_ADMIN_OPERATOR` registry state without becoming server-root.
+- Target capabilities remain implementation- and policy-bound; trust does not fabricate capabilities.
+- R34 package-internal `CHANGELOG.md`, `ReleaseNotes.md`, checkpoint record, and `SWRLZ_PATCH_LINEAGE_INDEX_V1.json` identify R34/VC117/checkpoint B.
+- Repository documentation must also name the exact transported source SHA, candidate, and checkpoint.
+- Candidate pointer changes do not promote, release, or deploy software.
