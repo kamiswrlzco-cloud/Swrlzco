@@ -14,7 +14,7 @@ The promoted rows below are intentionally unchanged. A newer candidate, successf
 
 - File: `sources/client/CLIENT_CFv2.1.9_SWRLZ.zip`
 - SHA-256: `87a09a5032751dbf74f5a277a6d9b0e1f9bc48e38e48006c50d0c107cd3d30ac`
-- Android applicationId: `sh.swurlz.core`
+- Android applicationId: `sh.swrlz.core`
 - versionCode: `107`
 - versionName: `2.1.9-package-pair-repair-v1`
 - Checkpoint: `INT-THEME-035D`
@@ -35,28 +35,37 @@ The current repository-transported Forge candidate lineage is maintained in `ref
 | Component | Candidate | VC | Source SHA-256 | Metadata SHA-256 | Repository transport | Status boundary |
 |---|---|---:|---|---|---|---|
 | CLIENT | CFv2.1.26 R8 | 131 | `5b47857ef039609966669b039042bc69eba64dca48774107db353faeb7419912` | `6f246527543d28c010a67a019879ec4280706a6011a66f119c9a2fa366341391` | commit `d2e54ff07759cbc74d15a88a987dd0dc1ffc6f4b` | owner-reported Android build success; not promoted |
-| SERVER | CFv2.1.26 R30 | 113 | `d07e814ab986491c2035854310630fe2638d5693ce9bd463ed665c82eeb19414` | `9d91109df048f87eada46f4737ca701ed7397ef4a7e0ff6ff38428e4889689da` | commit `2d21cd6ae0516dbfea8f69f144e8313f93822fef` | INT-CONTROL-069A; repository transported; not promoted |
+| SERVER | CFv2.1.26 R34 | 117 | `9cafb443adfcf8dc250eefc7e8894c50190418f9604de7e151356a0e6a12f9cb` | `34cf10cdcdea4c2beeb5c39b91067743dab74019f3d5eafa0d7962a2551569e3` | commit `c92e124656fd1d9b0c2b039d29c8b508a54de309` | `SWYRLZ-SERVER-UI-HANDOFF-001-B`; repository transported; build result pending; not promoted |
 
-R30 replaces the prior non-promoted SERVER candidate pointer because its exact chunked Forge transport is established. It does not change promoted SERVER authority.
+R34 replaces the prior non-promoted SERVER candidate pointer because its exact chunked Forge transport is established. It does not change promoted SERVER authority.
 
-## Prepared SERVER successor — no repository pointer change yet
+## Current SERVER candidate interpretation
 
-- Candidate: `SERVER_CFv2.1.26_SWRLZ_CANDIDATE_R31`
-- Logical identity: `CFv2.1.26 R31`
-- versionCode: `114`
-- versionName: `2.1.26-persistent-admin-registry-r31`
-- checkpoint: `INT-CONTROL-069B`
-- source SHA-256: `2ff51a057917d8280bab5e1142a964925b767e87e879e74a64dfce887ef2f5a2`
-- metadata SHA-256: `ae57111b8f00b3c5cc13327d39b6e84f2381ff39d40316565d75a47257dc5685`
-- direct parent: R30
-- Forge transport/build/device evidence: pending
+- Candidate: `SERVER_CFv2.1.26_SWRLZ_CANDIDATE_R34`
+- Logical identity: `CFv2.1.26 R34`
+- versionCode: `117`
+- versionName: `2.1.26-chat-interface-cleanup-r34`
+- checkpoint: `SWYRLZ-SERVER-UI-HANDOFF-001-B`
+- source SHA-256: `9cafb443adfcf8dc250eefc7e8894c50190418f9604de7e151356a0e6a12f9cb`
+- metadata SHA-256: `34cf10cdcdea4c2beeb5c39b91067743dab74019f3d5eafa0d7962a2551569e3`
+- repository identity: `sources/server/SERVER_CFv2.1.26_SWRLZ_CANDIDATE_R34.transport.json`
+- Forge transport commit: `c92e124656fd1d9b0c2b039d29c8b508a54de309`
 - promotion: not promoted
 
-R31 does not replace the R30 repository pointer until Forge establishes its exact transport identity.
+R34 implements the bounded Chat-interface cleanup and related presentation amendments: active-thread and LLM-status header, functional thread navigation, compact composer, upward dragon menu, GitHub Actions first in Forge, precise mobile-data/local-link wording, and visible `Swyrlz` / `Swyrler` terminology on primary SERVER surfaces.
+
+R34 preserves package names, protocol identifiers, database identifiers, source filenames, capability IDs, lineage, `server-root`, the persistent node-admin registry, capability-bearing mission routing, tunnel process isolation/lifecycle, identity, trust, Truth Firewall, offline-first behavior, and protocol discipline.
+
+## Build and workflow evidence boundary
+
+- Forge transport of R34 succeeded and established exact source identity.
+- Patch Note Accounting run `30846388129` failed because the three repository accounting documents still stopped at an older SERVER candidate; this document, `reference/CURRENT_CANDIDATE_LINEAGE.md`, and `patch-notes/SERVER_PATCH_NOTES.md` now carry the exact R34 source SHA, candidate, and checkpoint.
+- APK Router run `30846388177` was canceled during GitHub checkout after approximately five minutes. It did not reach component routing, source resolution, Gradle configuration, Kotlin compilation, APK packaging, or artifact upload.
+- Therefore the canceled APK Router run is not evidence of an R34 source defect and is not a failed Android build result.
 
 ## SERVER runtime authority boundary
 
-R31 defines a permanent SERVER-owned internal principal:
+The permanent SERVER-owned internal principal remains:
 
 - principal ID: `server-root`
 - principal type: `SERVER_INTERNAL`
@@ -64,47 +73,26 @@ R31 defines a permanent SERVER-owned internal principal:
 - externally assignable: `false`
 - source of proof: process identity plus SERVER installation identity
 
-`server-root` is authoritative over the SERVER registry and policy engine. It may read/write registry state, evaluate policy, assign or revoke trust/admin state, dispatch authorized routes, append audit evidence, create/resolve approvals, and complete correlation records.
-
-This internal authority is not a public client role and cannot be claimed through a client header, request payload, node label, or advertised capability. All server-root writes are audited. Destructive or consequential operations remain policy- or user-approval-gated.
-
-## Node-admin registry boundary
-
-R31 adds a user-facing node action to **Promote device to admin** and its corresponding revocation action. The resulting `SWRLZ_ADMIN_OPERATOR` role is durable registry state, not self-asserted client metadata.
-
-Promotion requires server-owned evaluation of:
-
-- active registration and supported protocol;
-- confirmed identity;
-- bound proof with retained proof hash;
-- non-archived installation lineage;
-- policy/trust eligibility;
-- explicit user confirmation;
-- bounded granted capabilities;
-- immutable audit linkage to `server-root`.
-
-A promoted admin node remains a client principal. It does not become `server-root`, cannot grant itself authority, cannot fabricate target capabilities, and cannot bypass approval policy for destructive execution.
+`server-root` remains authoritative over registry and policy enforcement, but destructive or consequential operations remain policy- or user-approval-gated. A promoted node-admin remains a bounded client principal and never becomes server-root.
 
 ## Current evidence interpretation
 
 - CLIENT R8 remains the current repository CLIENT candidate.
-- SERVER R30 is the current repository SERVER candidate by exact Forge transport identity.
-- R30 implements proof/trust/capability/approval validation plus correlated node request/result routing.
-- R31 prepares persistent admin promotion/revocation and the internal server-root principal while preserving R30 control-plane boundaries.
-- R31 source/static verification does not prove Android compilation, installation, persistence across an actual app upgrade, device acceptance, promotion, release, or deployment.
+- SERVER R34 is the current repository SERVER candidate by exact Forge transport identity.
+- R31 established persistent admin promotion/revocation and internal server-root authority.
+- R32 established capability-bearing message/mission routing.
+- R33 established truthful Core status semantics and accepted Core ordering.
+- R34 established the bounded Chat-interface cleanup and visible terminology transition.
+- Source transport and repository accounting do not establish Android build success, installation, runtime acceptance, promotion, release, or deployment.
 
 ## Candidate documentation entry points
 
-- `reference/CURRENT_CANDIDATE_LINEAGE.md` — current and prepared candidate identities;
+- `reference/CURRENT_CANDIDATE_LINEAGE.md` — current and historical candidate identities;
 - `patch-notes/CLIENT_PATCH_NOTES.md` — CLIENT candidate history;
-- `patch-notes/SERVER_PATCH_NOTES.md` — SERVER candidate and control-plane history;
+- `patch-notes/SERVER_PATCH_NOTES.md` — SERVER candidate and implementation history;
 - `contracts/SWRLZ_PATCH_NOTE_AND_LINEAGE_ACCOUNTING_V1.md` — mandatory documentation accounting;
 - package-internal `SWRLZ_SERVER_UPDATE_DELIVERY_PROTOCOL.md` — two-package handoff and standing log-repair workflow;
-- package-internal `SWRLZ_ADMIN_NODE_CONTROL_PLANE_HANDOFF_v1.0.0_2026-08-03.docx` — authorized admin-node design and acceptance contract.
-
-## Historical evidence boundary
-
-Earlier candidate and evidence lineages remain preserved in repository history and the applicable documents under `docs/checkpoints/`, `docs/rebuild-v2/`, `docs/handoffs/`, `docs/reference/`, and `docs/patch-notes/`. Exact source SHA-256 and checkpoint provenance decide identity. Historical records are not rewritten into false current parentage.
+- package-internal `SWRLZ_SERVER_INTERFACE_FORGE_MEMORY_HANDOFF_v1.0.docx` — controlling interface/Forge/memory/permission requirements.
 
 ## Validation boundary
 
