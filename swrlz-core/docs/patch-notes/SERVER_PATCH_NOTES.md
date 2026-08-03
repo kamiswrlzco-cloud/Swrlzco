@@ -39,10 +39,8 @@ Source-only verification recorded for R27: focused lifecycle verifier `41/41`, g
 | CFv2.1.26 R23 | 106 | INT-STABILITY-063A | `39c1708021c76a0bf5346fa16dffe70cb6a0923b89d0a6083c22c323e973fd17` | startup/model stability source successor; Forge transported |
 | CFv2.1.26 R24 | 107 | INT-STABILITY-065A | `20af0c617c5b8f96708fffc27d73ac6d81e473af4401aafcb170d0ec0057293f` | launch crash-loop breaker; Forge transported |
 | CFv2.1.26 R25 | 108 | INT-STABILITY-066A | `5f195ae4c3e8f73cba974f81f8591f93c706fe546e0ed9b9af046df810602101` | isolated tunnel-process firewall; local source identity retained |
-| CFv2.1.26 R26 | 109 | update-delivery protocol | `68a9f3b0d2cd9f8db04d5cd64995c82ade69810d` | Forge transport commit shown here for continuity; documentation/delivery protocol successor |
+| CFv2.1.26 R26 | 109 | update-delivery protocol | `1088e51b8c559733b73a18abac7961bb51b14b58596725058f2a10b25e7f1b2c` | documentation/delivery protocol successor; Forge transported at `68a9f3b0d2cd9f8db04d5cd64995c82ade69810d` |
 | CFv2.1.26 R27 | 110 | INT-STABILITY-068A | `0549e79d5d89b6833b234dfa56a3bc219b5dbe681e9cc4f48d7e02d3e00a2eb1` | current repository candidate; generation-safe tunnel lifecycle |
-
-> Accounting note: the R26 row above records its Forge transport commit as continuity evidence because the source SHA was not needed by the R27 accounting failure. Exact R26 source identity remains in its transport record.
 
 ## Prior repository candidate — 2026-08-02
 
