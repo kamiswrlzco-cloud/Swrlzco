@@ -1,4 +1,4 @@
-# Current Authority — 2026-08-02
+# Current Authority — 2026-08-03
 
 ## Official repository
 
@@ -35,37 +35,40 @@ The current repository-transported Forge candidate lineage is maintained in `ref
 | Component | Candidate | VC | Source SHA-256 | Metadata SHA-256 | Repository transport | Status boundary |
 |---|---|---:|---|---|---|---|
 | CLIENT | CFv2.1.26 R8 | 131 | `5b47857ef039609966669b039042bc69eba64dca48774107db353faeb7419912` | `6f246527543d28c010a67a019879ec4280706a6011a66f119c9a2fa366341391` | commit `d2e54ff07759cbc74d15a88a987dd0dc1ffc6f4b` | owner-reported Android build success; not promoted |
-| SERVER | CFv2.1.26 R21 | 104 | `9b1695b46513229ec1937c5f070b1cada9be4af2abaf78f8b8d417460ee80d0c` | `7f7f0e1baf8ff80837797aa132fd86587e31cc990d870796feb0cb28968e54f2` | commit `dbfeed2e8edd95d06bf7e6a775b3afd237a47989` | Android build succeeded; remote MCP invocation evidence; not promoted |
+| SERVER | CFv2.1.26 R27 | 110 | `0549e79d5d89b6833b234dfa56a3bc219b5dbe681e9cc4f48d7e02d3e00a2eb1` | `10ace6898df22bb8ed53b99cf563edf8bec05cd66db6fc453bff1e17d497da6a` | commit `1e48e2e4d6652fe9c9c0e1f25c32362b0051f677` | INT-STABILITY-068A; repository transported; Android build/device acceptance pending; not promoted |
 
-### Prepared SERVER successors — no repository pointer change
+R27 replaces the prior non-promoted SERVER candidate pointer because its exact chunked Forge transport is established. It does not change promoted SERVER authority.
 
-- R22 / VC105 / source SHA `3f730f70da5e5dbedc4cd97cfda94c5ff098c0eaa697786e2f632488d8d5ed52` / metadata SHA `2ffdcde47c3cad22258ace69932021ae06623905459279b3f0f0c76285d26681` — documentation-only accounting repair; no Forge transport established.
-- R23 / VC106 / source SHA `39c1708021c76a0bf5346fa16dffe70cb6a0923b89d0a6083c22c323e973fd17` / metadata SHA `670211b8d50b7d53673ee3840c5432ab626027c9d7ee6cc3c8ed6ae6f3b95fb0` — source-only startup/background-stability successor; Forge/build/device evidence pending.
+## Current SERVER candidate interpretation
 
-R22 and R23 do not replace the non-promoted repository pointer until Forge establishes their exact transport identity. Neither changes promoted authority.
+- R27 is `SERVER_CFv2.1.26_SWRLZ_CANDIDATE_R27`, VC110, checkpoint `INT-STABILITY-068A`.
+- Exact source SHA-256: `0549e79d5d89b6833b234dfa56a3bc219b5dbe681e9cc4f48d7e02d3e00a2eb1`.
+- Exact metadata SHA-256: `10ace6898df22bb8ed53b99cf563edf8bec05cd66db6fc453bff1e17d497da6a`.
+- Repository identity: `sources/server/SERVER_CFv2.1.26_SWRLZ_CANDIDATE_R27.transport.json`.
+- Forge transport commit: `1e48e2e4d6652fe9c9c0e1f25c32362b0051f677`.
+- R27 repairs generation races across tunnel status query, STOP, restart, retry, Binder death, delayed callbacks, and remote-process evidence handling.
+- The private `:swrlz_tunnel` process boundary, bounded resources, explicit activation, encrypted credentials, MCP, NODE_HOST, models, identity, trust, Truth Firewall, offline-first behavior, and local/remote distinctions remain preserved.
+- Source/static verification does not prove Android build success, installation, device survival, promotion, release, or deployment.
 
 ## Current evidence interpretation
 
-- CLIENT R8 remains the current repository CLIENT candidate byte-exact during INT-STABILITY-063A.
-- SERVER R21 is the current repository SERVER candidate and has Android-build evidence.
-- Device/plugin evidence established that ChatGPT reached the native SERVER MCP tools; that route evidence did not elevate identity, trust, proof, mission, approval, Forge, or deployment authority.
-- The supplied R21 stability diagnostic and operator report show repeated whole-process startup loss while multiple models were being probed and a later background-process loss. The exact Android kill mechanism remains unproven.
-- R23 is intended to remove duplicate fleet startup, gate selected-model preload, add crash-loop safe mode, unload under memory pressure, and capture stability evidence. Source/static validation does not establish device survival.
+- CLIENT R8 remains the current repository CLIENT candidate.
+- SERVER R27 is the current repository SERVER candidate by exact Forge transport identity.
+- Earlier device/plugin evidence established that ChatGPT reached native SERVER MCP tools; route evidence did not elevate identity, trust, proof, mission, approval, Forge, release, or deployment authority.
+- R23-R27 progressively addressed startup model loading, launch crash loops, tunnel process isolation, update-delivery continuity, and generation-safe tunnel query/restart lifecycle behavior.
+- The reported tunnel query/off-on/retry crash is the device defect targeted by R27. Actual device acceptance remains pending until the exact R27 APK is built, installed, and tested.
 
 ## Candidate documentation entry points
 
 - `reference/CURRENT_CANDIDATE_LINEAGE.md` — exact current and parent candidate identities;
 - `patch-notes/CLIENT_PATCH_NOTES.md` — CLIENT candidate history;
 - `patch-notes/SERVER_PATCH_NOTES.md` — SERVER candidate and tunnel/MCP/stability history;
-- `handoffs/SWRLZ_CORE_CONTINUITY_HANDOFF_2026-08-02.md` — current migration handoff;
-- `handoffs/SWRLZ_THREE_DEEP_ANALYSES_HANDOFF_DECLARATION_2026-08-02.md` — three-analysis continuity declaration;
-- `checkpoints/INT_STABILITY_063A_SERVER_MODEL_STARTUP_STABILITY.md` — R23 source-only stability checkpoint;
-- `THREAD_CONTINUITY_INDEX_2026-08-02.md` — current navigation index;
-- `contracts/SWRLZ_PATCH_NOTE_AND_LINEAGE_ACCOUNTING_V1.md` — mandatory documentation accounting.
+- `contracts/SWRLZ_PATCH_NOTE_AND_LINEAGE_ACCOUNTING_V1.md` — mandatory documentation accounting;
+- package-internal `SWRLZ_SERVER_UPDATE_DELIVERY_PROTOCOL.md` — two-package handoff and standing log-repair workflow carried by current SERVER sources.
 
 ## Historical candidate evidence
 
-Earlier candidate/evidence lineages—including the INT-AI-060A / INT-FILE-059A external identity collision, the 041H baseline, SWRLIE R1-R6 progression, Documentation Rebuild v2, CFv2.1.0 handoff, and R9-R20 SERVER progression—remain preserved in repository history and the applicable documents under `docs/checkpoints/`, `docs/rebuild-v2/`, `docs/handoffs/`, `docs/reference/`, and `docs/patch-notes/`.
+Earlier candidate/evidence lineages—including the INT-AI-060A / INT-FILE-059A external identity collision, the 041H baseline, SWRLIE R1-R6 progression, Documentation Rebuild v2, CFv2.1.0 handoff, and R9-R26 SERVER progression—remain preserved in repository history and the applicable documents under `docs/checkpoints/`, `docs/rebuild-v2/`, `docs/handoffs/`, `docs/reference/`, and `docs/patch-notes/`.
 
 Exact source SHA-256 and checkpoint provenance decide identity. Historical records are not rewritten into false current parentage.
 
