@@ -1,4 +1,4 @@
-# Current CLIENT / SERVER Candidate Lineage — 2026-08-02
+# Current CLIENT / SERVER Candidate Lineage — 2026-08-03
 
 This file tracks the newest repository-transported source candidates independently from promoted authority. `../CURRENT_AUTHORITY.md` remains the promotion authority until an explicit promotion checkpoint changes it.
 
@@ -7,18 +7,11 @@ This file tracks the newest repository-transported source candidates independent
 | Component | Logical candidate | VC | Source SHA-256 | Metadata SHA-256 | Checkpoint | Forge commit | Repository identity |
 |---|---|---:|---|---|---|---|---|
 | CLIENT | CFv2.1.26 R8 | 131 | `5b47857ef039609966669b039042bc69eba64dca48774107db353faeb7419912` | `6f246527543d28c010a67a019879ec4280706a6011a66f119c9a2fa366341391` | INT-FIX-060C | `d2e54ff07759cbc74d15a88a987dd0dc1ffc6f4b` | `sources/client/CLIENT_CFv2.1.26_SWRLZ_CANDIDATE_R8.zip` |
-| SERVER | CFv2.1.26 R21 | 104 | `9b1695b46513229ec1937c5f070b1cada9be4af2abaf78f8b8d417460ee80d0c` | `7f7f0e1baf8ff80837797aa132fd86587e31cc990d870796feb0cb28968e54f2` | INT-FIX-060P | `dbfeed2e8edd95d06bf7e6a775b3afd237a47989` | `sources/server/SERVER_CFv2.1.26_SWRLZ_CANDIDATE_R21.transport.json` |
+| SERVER | CFv2.1.26 R27 | 110 | `0549e79d5d89b6833b234dfa56a3bc219b5dbe681e9cc4f48d7e02d3e00a2eb1` | `10ace6898df22bb8ed53b99cf563edf8bec05cd66db6fc453bff1e17d497da6a` | INT-STABILITY-068A | `1e48e2e4d6652fe9c9c0e1f25c32362b0051f677` | `sources/server/SERVER_CFv2.1.26_SWRLZ_CANDIDATE_R27.transport.json` |
 
 The SERVER transport uses the repository's chunked transport identity. The lane-root `.transport.json` is the repository source identity; chunks and metadata are evidence members, not independent source candidates.
 
-## Prepared local successors — not repository candidates
-
-| Component | Candidate | VC | Source SHA-256 | Metadata SHA-256 | Checkpoint | State |
-|---|---|---:|---|---|---|---|
-| SERVER | CFv2.1.26 R22 | 105 | `3f730f70da5e5dbedc4cd97cfda94c5ff098c0eaa697786e2f632488d8d5ed52` | `2ffdcde47c3cad22258ace69932021ae06623905459279b3f0f0c76285d26681` | INT-DOC-060P-REPAIR | documentation-only successor; no Forge transport established |
-| SERVER | CFv2.1.26 R23 | 106 | `39c1708021c76a0bf5346fa16dffe70cb6a0923b89d0a6083c22c323e973fd17` | `670211b8d50b7d53673ee3840c5432ab626027c9d7ee6cc3c8ed6ae6f3b95fb0` | INT-STABILITY-063A | source-only stability successor; Forge/build/device evidence pending |
-
-Prepared local source does not replace a repository candidate. The current SERVER pointer remains R21 until Forge establishes the exact R23 transport identity.
+R27 is the current non-promoted repository SERVER candidate. Repository transport does not establish Android compilation, installation, device acceptance, promotion, release, or deployment.
 
 ## Active direct-successor progression
 
@@ -46,9 +39,13 @@ Prepared local source does not replace a repository candidate. The current SERVE
 | CFv2.1.26 R18 | 101 | `0bf66150022ba2f35943accfb55ee03f135b936c2e441c1e0fa6cb70696ae404` | direct successor of R17 | PID compile repair |
 | CFv2.1.26 R19 | 102 | `356f501da34946896829d82342068318d0327ce5bf6cdf96f8649a0703e52efb` | direct successor of R18 | local MCP/tunnel/CA READY proof; credential retention |
 | CFv2.1.26 R20 | 103 | `b18aa2cbf9940a63e8c67ea98dc37f549bf95322301efba60ffa3fde271f8f28` | direct successor of R19 | Android-resolved control-plane egress and truthful readiness |
-| CFv2.1.26 R21 | 104 | `9b1695b46513229ec1937c5f070b1cada9be4af2abaf78f8b8d417460ee80d0c` | direct successor of R20 | current repository candidate; Android build succeeded; remote MCP invocation evidence |
-| CFv2.1.26 R22 | 105 | `3f730f70da5e5dbedc4cd97cfda94c5ff098c0eaa697786e2f632488d8d5ed52` | documentation-only direct successor of R21 | package-internal accounting repair; local only |
-| CFv2.1.26 R23 | 106 | `39c1708021c76a0bf5346fa16dffe70cb6a0923b89d0a6083c22c323e973fd17` | direct successor of R22 | source-only model-startup/background-stability repair; transport/build/device pending |
+| CFv2.1.26 R21 | 104 | `9b1695b46513229ec1937c5f070b1cada9be4af2abaf78f8b8d417460ee80d0c` | direct successor of R20 | prior repository candidate; Android build succeeded; remote MCP invocation evidence |
+| CFv2.1.26 R22 | 105 | `3f730f70da5e5dbedc4cd97cfda94c5ff098c0eaa697786e2f632488d8d5ed52` | documentation-only direct successor of R21 | package-internal accounting repair |
+| CFv2.1.26 R23 | 106 | `39c1708021c76a0bf5346fa16dffe70cb6a0923b89d0a6083c22c323e973fd17` | direct successor of R22 | model-startup/background-stability repair; Forge transported |
+| CFv2.1.26 R24 | 107 | `20af0c617c5b8f96708fffc27d73ac6d81e473af4401aafcb170d0ec0057293f` | direct successor of R23 | launch crash-loop breaker; Forge transported |
+| CFv2.1.26 R25 | 108 | `5f195ae4c3e8f73cba974f81f8591f93c706fe546e0ed9b9af046df810602101` | direct successor of R24 | isolated tunnel-process firewall; source prepared locally |
+| CFv2.1.26 R26 | 109 | `1088e51b8c559733b73a18abac7961bb51b14b58596725058f2a10b25e7f1b2c` | direct successor of R25 | update-delivery protocol embedded; Forge transported at `68a9f3b0d2cd9f8db04d5cd64995c82ade69810d` |
+| CFv2.1.26 R27 | 110 | `0549e79d5d89b6833b234dfa56a3bc219b5dbe681e9cc4f48d7e02d3e00a2eb1` | direct successor of R26 | generation-safe tunnel query/stop/restart lifecycle; current repository candidate |
 
 ## Capability progression in the active line
 
@@ -59,19 +56,23 @@ Prepared local source does not replace a repository candidate. The current SERVE
 - SERVER R14-R16 established native MCP-before-tunnel startup, Termux-proven MCP compatibility, and explicit IPv4 binding.
 - SERVER R17-R19 added redacted diagnostics, repaired PID compilation, replaced internal loopback `HttpURLConnection`, retained encrypted credentials, and reached local tunnel readiness.
 - SERVER R20-R21 added Android-resolved control-plane egress, truthful remote-state separation, raw NODE_HOST loopback transport, and direct route evidence.
-- SERVER R23 removes redundant automatic fleet model loading and adds startup/background memory protection and a stability ledger.
+- SERVER R23 reduced duplicate automatic model loading and added startup/background memory protection and a stability ledger.
+- SERVER R24 made launch core-first, removed automatic native GGUF loading, and contained tunnel/startup workers.
+- SERVER R25 moved tunnel execution, egress, probes, and output handling into the private `:swrlz_tunnel` process with bounded resources and no automatic retry.
+- SERVER R26 embedded the two-package update-delivery and thread-transfer protocol without changing runtime behavior.
+- SERVER R27 made tunnel query, stop, restart, and retry generation-safe; moved teardown off the main looper; and bounded IPC status snapshots.
 
 ## Build and device evidence boundary
 
 - CLIENT R8: project owner reported successful Android build through Forge; device acceptance and promotion remain separate.
-- SERVER R21: supplied workflow evidence established Android build success. Device/plugin evidence showed ChatGPT reaching native MCP and exposed the final MCP-to-NODE_HOST cleartext transport defect repaired in R21 source.
-- SERVER R23: source/static verification only. No Android compile, Forge transport, installation, background-survival proof, or promotion is asserted.
+- SERVER R21: supplied workflow evidence established Android build success. Device/plugin evidence showed ChatGPT reaching native MCP and exposed the MCP-to-NODE_HOST cleartext transport defect repaired in R21 source.
+- SERVER R23-R27: repository transport and source/static evidence do not by themselves prove Android compilation, installation, device acceptance, runtime survival, promotion, release, or deployment. Exact later build/device evidence must be recorded separately.
 
 ## Package-internal patch-history boundary
 
 - CLIENT R8 remains grandfathered by exact SHA for historical package-local documentation debt.
-- SERVER R21's immutable package notes lack the exact canonical candidate/checkpoint/VC identity required by the live accounting verifier. Repository docs now identify R21 correctly, but accounting can become fully current only after a synchronized successor such as R23 is transported.
-- R23 package-internal `CHANGELOG.md`, `ReleaseNotes.md`, and `SWRLZ_PATCH_LINEAGE_INDEX_V1.json` are synchronized to R23/VC106/INT-STABILITY-063A.
+- SERVER R21's immutable package notes lacked the exact canonical candidate/checkpoint/VC identity required by the live accounting verifier; that remains historical debt.
+- R23-R27 package-internal patch notes and lineage records were intended to advance with their candidate identities. Repository accounting must still name the exact transported source SHA, candidate, and checkpoint.
 
 ## Divergent historical lineage
 
