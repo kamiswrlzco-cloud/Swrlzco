@@ -5,7 +5,46 @@
 
 Patch notes do not imply build, installation, device acceptance, promotion, release, or deployment unless separate evidence is named.
 
-## Current repository candidate — 2026-08-02
+## Current repository candidate — 2026-08-03
+
+### CFv2.1.26 R27 — INT-STABILITY-068A
+
+- canonical candidate: `SERVER_CFv2.1.26_SWRLZ_CANDIDATE_R27`
+- versionCode: `110`
+- versionName: `2.1.26-tunnel-generation-lifecycle-r27`
+- source SHA-256: `0549e79d5d89b6833b234dfa56a3bc219b5dbe681e9cc4f48d7e02d3e00a2eb1`
+- metadata SHA-256: `10ace6898df22bb8ed53b99cf563edf8bec05cd66db6fc453bff1e17d497da6a`
+- direct parent: `SERVER_CFv2.1.26_SWRLZ_CANDIDATE_R26.zip`
+- Forge transport commit: `1e48e2e4d6652fe9c9c0e1f25c32362b0051f677`
+- repository identity: `sources/server/SERVER_CFv2.1.26_SWRLZ_CANDIDATE_R27.transport.json`
+- Android build/device evidence: pending
+- promotion: not promoted
+
+Changes:
+
+- assigns every isolated-tunnel attempt a unique generation and binding identity;
+- prevents stale Binder callbacks, delayed unbinds, process-death callbacks, status events, and delayed evidence callbacks from affecting newer tunnel generations;
+- requires confirmed STOP completion before restart and suppresses duplicate transition commands;
+- moves tunnel START/STOP teardown work off the service main looper;
+- coalesces tunnel status into one bounded IPC snapshot instead of multi-message diagnostic bursts;
+- guards private tunnel-process memory callbacks from primary-process model and stability systems;
+- preserves the pinned tunnel runtime, encrypted credentials, MCP, NODE_HOST, models, identity, trust, Truth Firewall, offline-first behavior, and process-isolation boundary.
+
+Source-only verification recorded for R27: focused lifecycle verifier `41/41`, generation-policy harness PASS, targeted Kotlin compile PASS, compiler-regression precheck PASS, source manifest `985/985`, and source/metadata ZIP structure PASS. No Android build, installation, device acceptance, promotion, release, or deployment is asserted here.
+
+## Recent direct-successor progression
+
+| Candidate | VC | Checkpoint | Source SHA-256 | Evidence state |
+|---|---:|---|---|---|
+| CFv2.1.26 R23 | 106 | INT-STABILITY-063A | `39c1708021c76a0bf5346fa16dffe70cb6a0923b89d0a6083c22c323e973fd17` | startup/model stability source successor; Forge transported |
+| CFv2.1.26 R24 | 107 | INT-STABILITY-065A | `20af0c617c5b8f96708fffc27d73ac6d81e473af4401aafcb170d0ec0057293f` | launch crash-loop breaker; Forge transported |
+| CFv2.1.26 R25 | 108 | INT-STABILITY-066A | `5f195ae4c3e8f73cba974f81f8591f93c706fe546e0ed9b9af046df810602101` | isolated tunnel-process firewall; local source identity retained |
+| CFv2.1.26 R26 | 109 | update-delivery protocol | `68a9f3b0d2cd9f8db04d5cd64995c82ade69810d` | Forge transport commit shown here for continuity; documentation/delivery protocol successor |
+| CFv2.1.26 R27 | 110 | INT-STABILITY-068A | `0549e79d5d89b6833b234dfa56a3bc219b5dbe681e9cc4f48d7e02d3e00a2eb1` | current repository candidate; generation-safe tunnel lifecycle |
+
+> Accounting note: the R26 row above records its Forge transport commit as continuity evidence because the source SHA was not needed by the R27 accounting failure. Exact R26 source identity remains in its transport record.
+
+## Prior repository candidate — 2026-08-02
 
 ### CFv2.1.26 R21 — INT-FIX-060P
 
@@ -32,9 +71,9 @@ Device/plugin evidence established that ChatGPT reached the native MCP tool impl
 
 ### Patch-accounting boundary for R21
 
-The R21 Android build can succeed while Patch Note Accounting fails because the workflows are independent. R21's immutable package-internal `CHANGELOG.md` and `ReleaseNotes.md` did not contain the exact canonical candidate/checkpoint/VC token combination required by the live accounting verifier. Repository documentation has now been synchronized to R21, but those immutable package-internal bytes remain historical debt. The prepared R23 package contains synchronized exact internal accounting identity; the repository accounting gate can become current only after an exact successor such as R23 is Forge-transported.
+The R21 Android build can succeed while Patch Note Accounting fails because the workflows are independent. R21's immutable package-internal `CHANGELOG.md` and `ReleaseNotes.md` did not contain the exact canonical candidate/checkpoint/VC token combination required by the live accounting verifier. Repository documentation has now been synchronized beyond R21. Those immutable package-internal bytes remain historical debt only.
 
-## Prepared local successors — not current repository candidates
+## Preserved prepared-successor history
 
 ### CFv2.1.26 R22 — INT-DOC-060P-REPAIR
 
@@ -44,7 +83,7 @@ The R21 Android build can succeed while Patch Note Accounting fails because the 
 - source SHA-256: `3f730f70da5e5dbedc4cd97cfda94c5ff098c0eaa697786e2f632488d8d5ed52`
 - metadata SHA-256: `2ffdcde47c3cad22258ace69932021ae06623905459279b3f0f0c76285d26681`
 - direct parent: R21
-- repository transport: none established
+- repository transport: none established at preparation time
 
 R22 is a documentation-only direct successor that adds exact package-internal accounting identity. It does not change Kotlin, Java, XML, native runtime, MCP, NODE_HOST, tunnel, credential, trust, or protocol behavior.
 
@@ -56,14 +95,13 @@ R22 is a documentation-only direct successor that adds exact package-internal ac
 - source SHA-256: `39c1708021c76a0bf5346fa16dffe70cb6a0923b89d0a6083c22c323e973fd17`
 - metadata SHA-256: `670211b8d50b7d53673ee3840c5432ab626027c9d7ee6cc3c8ed6ae6f3b95fb0`
 - direct parent: R22
-- repository transport: pending
-- Android build/device evidence: pending
+- Forge transport commit: `eda264d24c681dc663eab5b90da3da969efe2438`
 
 R23 makes `NodeHostService` the sole automatic model-runtime startup owner, changes normal startup to discovery-only indexing, moves fleet-wide native probing behind **PROBE ALL ENABLED**, preloads only the selected model when `keepModelLoaded` is enabled and memory admission passes, serializes heavy model startup after tunnel startup settles, adds unclean-start safe mode, memory/trim unload protection, and a redacted SERVER Stability Ledger with capture. It preserves model bytes, MCP, NODE_HOST, tunnel, TLS, credentials, trust, Truth Firewall, identity, and protocol boundaries.
 
-Source-only verification recorded for R23: focused stability `32/32`, pure Kotlin policy harness PASS, parser screen zero syntax-class diagnostics, compiler-regression precheck PASS, source manifest `928/928`, package verification PASS. No Android build or device survival is claimed.
+Source-only verification recorded for R23: focused stability `32/32`, pure Kotlin policy harness PASS, parser screen zero syntax-class diagnostics, compiler-regression precheck PASS, source manifest `928/928`, package verification PASS.
 
-## Active direct-successor progression
+## Active direct-successor progression — historical R9 through R23
 
 | Candidate | VC | Checkpoint | Source SHA-256 | Evidence state |
 |---|---:|---|---|---|
@@ -79,9 +117,9 @@ Source-only verification recorded for R23: focused stability `32/32`, pure Kotli
 | CFv2.1.26 R18 | 101 | INT-FIX-060L | `0bf66150022ba2f35943accfb55ee03f135b936c2e441c1e0fa6cb70696ae404` | Process PID compile repair |
 | CFv2.1.26 R19 | 102 | INT-FIX-060M | `356f501da34946896829d82342068318d0327ce5bf6cdf96f8649a0703e52efb` | raw MCP preflight, credential retention, local tunnel READY proof |
 | CFv2.1.26 R20 | 103 | INT-FIX-060N | `b18aa2cbf9940a63e8c67ea98dc37f549bf95322301efba60ffa3fde271f8f28` | Android-resolved control-plane egress/truthful readiness |
-| CFv2.1.26 R21 | 104 | INT-FIX-060P | `9b1695b46513229ec1937c5f070b1cada9be4af2abaf78f8b8d417460ee80d0c` | current repository candidate; build succeeded |
-| CFv2.1.26 R22 | 105 | INT-DOC-060P-REPAIR | `3f730f70da5e5dbedc4cd97cfda94c5ff098c0eaa697786e2f632488d8d5ed52` | local documentation-only successor |
-| CFv2.1.26 R23 | 106 | INT-STABILITY-063A | `39c1708021c76a0bf5346fa16dffe70cb6a0923b89d0a6083c22c323e973fd17` | prepared source-only stability successor |
+| CFv2.1.26 R21 | 104 | INT-FIX-060P | `9b1695b46513229ec1937c5f070b1cada9be4af2abaf78f8b8d417460ee80d0c` | prior repository candidate; build succeeded |
+| CFv2.1.26 R22 | 105 | INT-DOC-060P-REPAIR | `3f730f70da5e5dbedc4cd97cfda94c5ff098c0eaa697786e2f632488d8d5ed52` | documentation-only successor |
+| CFv2.1.26 R23 | 106 | INT-STABILITY-063A | `39c1708021c76a0bf5346fa16dffe70cb6a0923b89d0a6083c22c323e973fd17` | model-startup/background-stability successor |
 
 ## Pinned tunnel-runtime evidence
 
