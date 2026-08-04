@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "record_type": "ci_incident_and_patch_evidence",
-  "recorded_at_utc": "2026-08-04T14:55:00Z",
+  "recorded_at_utc": "2026-08-04T15:09:00Z",
   "repository": "kamiswrlzco-cloud/Swrlzco",
   "workflow": ".github/workflows/swrlz-apk-router.yml",
   "incident": {
@@ -17,26 +17,34 @@
   },
   "patch": {
     "branch": "fix/apk-router-checkout-timeout-20260804",
+    "pull_request": 4,
     "workflow_commit": "6050ade3441acc821f58b7dcf75cbba3f27bce4d",
-    "patch_notes_commit": "5977a5959f85a35866ffe65c40bce2f71cd3d93a",
+    "validation_request_commit": "2a1d06772cbb1f2ee10f0730d4757a2a45974852",
+    "patch_notes_commit": "3c99bae07c1ba48436a333dc2f8d095d9a39a2e0",
     "changes": [
       "increase lightweight job timeout budgets from 5 to 20 minutes",
       "use blobless sparse partial fetches for resolver and routing jobs",
       "limit build checkout to the selected component lane and required CI/release paths",
       "remove full repository history fetch from the Android build job",
-      "preserve existing build, signing, provenance, upload, and release behavior"
+      "preserve existing build, signing, provenance, upload, and release behavior",
+      "refresh the enabled SERVER R7 request so the merge triggers a patched validation run"
     ]
   },
   "validation": {
-    "status": "pending",
+    "status": "queued_for_merge_trigger",
+    "request_id": "INT-CI-065-SERVER-R7-CHECKOUT-REPAIR",
+    "target": "SERVER",
+    "source_identity": "swrlz-core/sources/server/SERVER_CFv2.1.26_SWRLZ_CANDIDATE_R7.transport.json",
+    "build_variant": "debug",
+    "commit_release_artifacts": false,
     "required_checks": [
       "GitHub accepts the workflow syntax",
       "resolver tests complete",
-      "route matrix resolves the requested component",
+      "route matrix resolves SERVER",
       "selected source package verifies",
-      "Gradle produces the expected APK",
+      "Gradle produces the expected debug APK",
       "artifact upload completes"
     ]
   },
-  "truth_boundary": "The patch is committed but has not yet produced a successful APK artifact."
+  "truth_boundary": "The repair and validation trigger are committed, but no successful APK artifact is claimed until the merge-triggered workflow run completes."
 }
