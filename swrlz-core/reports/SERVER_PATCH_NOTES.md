@@ -4,10 +4,11 @@ This repository-level log records server, routing, build, deployment, and contin
 
 ## 2026-08-04 — APK Router checkout-timeout repair
 
-**Status:** Implemented on branch; workflow validation pending  
+**Status:** Implemented on branch; merge-triggered SERVER R7 validation queued  
 **Branch:** `fix/apk-router-checkout-timeout-20260804`  
 **Workflow:** `.github/workflows/swrlz-apk-router.yml`  
-**Incident run:** `30919011515`
+**Incident run:** `30919011515`  
+**Validation request:** `INT-CI-065-SERVER-R7-CHECKOUT-REPAIR`
 
 ### Root cause
 
@@ -24,11 +25,22 @@ The repository is approximately 1.6 GB, so a shallow history depth alone does no
 - Limited each Android build matrix lane to its selected CLIENT or SERVER source directory plus CI tools, requests, and release records.
 - Removed the build job's full-history `fetch-depth: 0` behavior.
 - Preserved existing source resolution, checksum verification, Gradle build, optional signing, provenance, artifact upload, and release-commit behavior.
+- Refreshed the existing enabled SERVER R7 request ID so merging the repair PR triggers validation through the patched workflow without modifying the source candidate.
+
+### Validation plan
+
+Merging PR #4 changes `swrlz-core/requests/000_CURRENT.request`, which is already an APK Router push trigger. The resulting run must complete:
+
+1. Resolver unit tests.
+2. SERVER route resolution.
+3. Source and checksum verification for `SERVER_CFv2.1.26_SWRLZ_CANDIDATE_R7.transport.json`.
+4. Gradle debug APK production.
+5. Provenance recording and artifact upload.
 
 ### Truth boundary
 
-This patch addresses the confirmed checkout cancellation. It does not yet prove that the selected Android source compiles or that an APK artifact uploads successfully. Those outcomes require a workflow run using the patched branch or the merged workflow.
+This patch addresses the confirmed checkout cancellation. It does not yet prove that the selected Android source compiles or that an APK artifact uploads successfully. Validation remains pending until the merge-triggered workflow run completes.
 
 ### Rollback
 
-Revert the workflow commit associated with this patch. No source candidate, APK, model, key, or release artifact is modified by the CI checkout repair itself.
+Revert the workflow and validation-request commits associated with this patch. No Android source candidate, APK, model, credential, or release artifact is modified by the CI checkout repair itself.
