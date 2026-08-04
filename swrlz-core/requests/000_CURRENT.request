@@ -5,10 +5,11 @@
 # target: CLIENT or SERVER
 # source_mode=lane_latest uses the current authoritative source lane.
 # source_zip may contain an explicit repository-relative source ZIP path.
+# Validation trigger for the APK Router checkout-timeout repair in PR #4.
 
 schema=2
 enabled=true
-request_id=INT-CI-064E-SERVER-R7-BUILD
+request_id=INT-CI-065-SERVER-R7-CHECKOUT-REPAIR
 target=SERVER
 source_mode=lane_latest
 source_zip=swrlz-core/sources/server/SERVER_CFv2.1.26_SWRLZ_CANDIDATE_R7.transport.json
