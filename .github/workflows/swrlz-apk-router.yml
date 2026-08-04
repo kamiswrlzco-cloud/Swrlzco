@@ -67,10 +67,26 @@ jobs:
   resolver-tests:
     name: Validate source resolver
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Sparse partial checkout for resolver tests
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git config gc.auto 0
+          git sparse-checkout init --cone
+          git sparse-checkout set swrlz-core/tools/ci
+          git -c protocol.version=2 fetch \
+            --no-tags \
+            --prune \
+            --depth=1 \
+            --filter=blob:none \
+            origin \
+            "+${GITHUB_SHA}:refs/remotes/origin/swrlz-ci"
+          git checkout --detach refs/remotes/origin/swrlz-ci
 
       - name: Run resolver unit tests
         working-directory: swrlz-core/tools/ci
@@ -83,16 +99,32 @@ jobs:
     name: Determine component route
     needs: resolver-tests
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
     outputs:
       matrix: ${{ steps.route.outputs.matrix }}
       has_work: ${{ steps.route.outputs.has_work }}
       build_variant: ${{ steps.route.outputs.build_variant }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
+      - name: Sparse partial checkout for route resolution
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git config gc.auto 0
+          git sparse-checkout init --cone
+          git sparse-checkout set \
+            swrlz-core/tools/ci \
+            swrlz-core/requests
+          git -c protocol.version=2 fetch \
+            --no-tags \
+            --prune \
+            --depth=2 \
+            --filter=blob:none \
+            origin \
+            "+${GITHUB_SHA}:refs/remotes/origin/swrlz-ci"
+          git checkout --detach refs/remotes/origin/swrlz-ci
 
       - name: Resolve manual, source-path, or request route
         id: route
@@ -218,10 +250,30 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - name: Sparse partial checkout for selected component
+        env:
+          COMPONENT: ${{ matrix.component }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          LANE="$(printf '%s' "$COMPONENT" | tr '[:upper:]' '[:lower:]')"
+          git init .
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git config gc.auto 0
+          git sparse-checkout init --cone
+          git sparse-checkout set \
+            swrlz-core/tools/ci \
+            swrlz-core/requests \
+            "swrlz-core/sources/$LANE" \
+            swrlz-core/releases
+          git -c protocol.version=2 fetch \
+            --no-tags \
+            --prune \
+            --depth=1 \
+            --filter=blob:none \
+            origin \
+            "+${GITHUB_SHA}:refs/remotes/origin/swrlz-ci"
+          git checkout --detach refs/remotes/origin/swrlz-ci
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
