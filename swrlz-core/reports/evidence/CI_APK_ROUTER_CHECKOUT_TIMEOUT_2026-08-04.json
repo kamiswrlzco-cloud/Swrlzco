@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "record_type": "ci_incident_and_patch_evidence",
+  "recorded_at_utc": "2026-08-04T14:55:00Z",
+  "repository": "kamiswrlzco-cloud/Swrlzco",
+  "workflow": ".github/workflows/swrlz-apk-router.yml",
+  "incident": {
+    "workflow_run_id": 30919011515,
+    "observed_job": "Validate source resolver",
+    "observed_step": "Checkout repository",
+    "fetch_started_utc": "2026-08-04T14:27:19Z",
+    "canceled_utc": "2026-08-04T14:33:19Z",
+    "confirmed_primary_failure": "repository checkout exceeded the five-minute job timeout",
+    "gradle_executed": false,
+    "apk_created": false,
+    "artifact_upload_executed": false
+  },
+  "patch": {
+    "branch": "fix/apk-router-checkout-timeout-20260804",
+    "workflow_commit": "6050ade3441acc821f58b7dcf75cbba3f27bce4d",
+    "patch_notes_commit": "5977a5959f85a35866ffe65c40bce2f71cd3d93a",
+    "changes": [
+      "increase lightweight job timeout budgets from 5 to 20 minutes",
+      "use blobless sparse partial fetches for resolver and routing jobs",
+      "limit build checkout to the selected component lane and required CI/release paths",
+      "remove full repository history fetch from the Android build job",
+      "preserve existing build, signing, provenance, upload, and release behavior"
+    ]
+  },
+  "validation": {
+    "status": "pending",
+    "required_checks": [
+      "GitHub accepts the workflow syntax",
+      "resolver tests complete",
+      "route matrix resolves the requested component",
+      "selected source package verifies",
+      "Gradle produces the expected APK",
+      "artifact upload completes"
+    ]
+  },
+  "truth_boundary": "The patch is committed but has not yet produced a successful APK artifact."
+}
