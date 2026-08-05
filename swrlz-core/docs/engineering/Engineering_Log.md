@@ -57,6 +57,9 @@ multi-commit pushes while retaining bounded shallow checkout.
   17 changed paths resolved; no app source selected; workflow SUCCESS.
 - Patch Note Accounting run `31013714668`: nine tests PASS; exact missing event base
   fetched; 17 changed paths resolved; SERVER R2 PASS; downstream CLIENT audit FAIL.
+- Workflow-evidence commit `eb7cd508...` produced audit run `31014176783`: nine tests
+  PASS; 11-path one-commit range PASS; SERVER R2 PASS; the same CLIENT accounting debt
+  remained the only audit failure.
 
 ### Known issues
 

@@ -49,6 +49,8 @@ That is separate enforcement evidence and is not reclassified as an INT-CI-076A 
 | Patch Note Accounting `31013714668` tests | 9 PASS |
 | Patch Accounting missing-base recovery | fetched exact `3d37cf5e...`; 17 paths; PASS |
 | Patch Accounting downstream audit | FAIL on independent CLIENT debt; SERVER R2 PASS |
+| Workflow-evidence commit | `eb7cd508ad964211fa60ff201958263b84be379e` |
+| Evidence-sync audit `31014176783` | 9 tests PASS; 11-path range PASS; SERVER R2 PASS; same CLIENT debt FAIL |
 
 The downstream CLIENT audit identifies source SHA-256
 `2c43d60454d16defda959e482bd03b40ce29a1898d71a966fa67ef30333aabe5`
@@ -57,6 +59,7 @@ and three missing exact-accounting surfaces: package `ReleaseNotes.md`, reposito
 therefore verified even though the complete enforcement workflow correctly remains red.
 
 Neither repaired job emitted `fatal: bad object` during changed-range resolution.
+The evidence-sync run also completed changed-range resolution without that defect.
 
 ## Non-claims
 

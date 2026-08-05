@@ -101,6 +101,7 @@ and source packages are intentionally unchanged.
 
 - CI implementation commit: `94744cad5cd6e88111f84fee155d026be6dc8836`.
 - Initial documentation commit: `36c2e3f991ecd0dcbba49ebbf38a94631a0cd495`.
+- Workflow-evidence commit: `eb7cd508ad964211fa60ff201958263b84be379e`.
 - One fast-forward moved `main` from `3d37cf5e...` across both commits. With
   `fetch-depth: 2`, the event-base was absent exactly as intended.
 - Source Package Integrity run `31013714578`: SUCCESS. Its 27 tests passed; the helper
@@ -112,6 +113,9 @@ and source packages are intentionally unchanged.
 - That audit reported SERVER R2 PASS and CLIENT CFv2.1.27 R1 FAIL for three exact gaps:
   package `ReleaseNotes.md`, repository `CLIENT_PATCH_NOTES.md`, and
   `CURRENT_CANDIDATE_LINEAGE.md`.
+- Evidence-commit Patch Note Accounting run `31014176783` reconfirmed the boundary:
+  nine tests PASS, 11-path one-commit range PASS, SERVER R2 PASS, and the same three
+  CLIENT accounting gaps FAIL.
 
 No `fatal: bad object` occurred in either repaired range step.
 
