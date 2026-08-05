@@ -18,7 +18,9 @@ multi-commit pushes while retaining bounded shallow checkout.
 
 - `SOURCE IMPLEMENTED` for CI/tooling only.
 - `STATIC VERIFICATION PASS` — 35 tests pass with one absent historical fixture skip.
-- `WORKFLOW NOT TRIGGERED` for INT-CI-076A at initial documentation freeze.
+- `REPOSITORY PUBLISHED` through `94744cad...` and `36c2e3f9...`.
+- `MULTI-COMMIT CHANGED RANGE VERIFIED` in runs `31013714578` and `31013714668`.
+- `FOLLOW-UP REQUIRED` for the separate CLIENT patch-accounting audit failure.
 - Failed runs `30965115656` and `30965115160` prove the original omitted-base defect.
 - Later CLIENT run `30969188766` passed changed-range resolution and failed the audit on
   separate CLIENT patch-history/current-lineage gaps.
@@ -51,12 +53,16 @@ multi-commit pushes while retaining bounded shallow checkout.
 - Full local CI discovery: 35 PASS / 1 absent-fixture skip.
 - Historical failed range: 83 paths and exact SERVER R2 identity resolved.
 - SERVER R2 reconstructed/package-pair verified at its unchanged exact SHA-256.
+- Source Integrity run `31013714578`: 27 tests PASS; exact missing event base fetched;
+  17 changed paths resolved; no app source selected; workflow SUCCESS.
+- Patch Note Accounting run `31013714668`: nine tests PASS; exact missing event base
+  fetched; 17 changed paths resolved; SERVER R2 PASS; downstream CLIENT audit FAIL.
 
 ### Known issues
 
-- Repository push validation remains pending until the authorized publication.
 - CLIENT source SHA `2c43d604...aabe5` has independent patch-accounting debt from run
-  `30969188766`; this checkpoint intentionally leaves that enforcement result armed.
+  `30969188766`, reconfirmed by `31013714668`; this checkpoint intentionally leaves
+  that enforcement result armed.
 
 ### Exclusions
 
@@ -65,8 +71,9 @@ promotion, release, deployment, or CLIENT accounting repair.
 
 ### Follow-up
 
-Publish INT-CI-076A as an intentional two-commit fast-forward, record the two affected
-workflows' exact range-step results, and separate any downstream CLIENT audit failure.
+INT-CI-076A is accepted with the independent CLIENT audit follow-up preserved. Repairing
+that package/repository accounting requires a separately authorized CLIENT
+documentation/source-authority checkpoint.
 
 ## 2026-08-04 — INT-FIX-075A
 

@@ -24,8 +24,10 @@ Start with:
   exact object ID before diffing the declared `before..after` range.
 - Five focused tests directly cover the former multi-commit failure plus one-commit,
   new-branch, invalid, and unavailable boundary behavior.
-- Local CI discovery is 35 PASS with one absent historical fixture skip; repository
-  publication and actual push-triggered validation remain separate evidence.
+- Local CI discovery is 35 PASS with one absent historical fixture skip. The intentional
+  two-commit publication then produced Source Package Integrity run `31013714578`
+  SUCCESS and Patch Note Accounting run `31013714668` with tests/range resolution PASS
+  followed by the independent CLIENT audit failure.
 - The independent CLIENT Patch Note Accounting failure in run `30969188766` remains
   visible and outside this CI-only repair.
 

@@ -76,9 +76,11 @@ R2 removes only that invalid import, preserves both contextual `Modifier.weight(
 - Run `30965115165` produced artifact `SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R2_debug_APK` / artifact ID `8914536222`; contained APK SHA-256 `c9932345cc8f07d110bffa364d4b30d111cf149d78fed789153a63cde9f3d726`.
 - Source Package Integrity run `30965115656` and Patch Note Accounting run `30965115160` failed before source selection/audit because their `fetch-depth: 2` checkout omitted push `before` commit `193fe26155c26c07f77fec9bda212c84d8e7b5f9` from this two-commit push. Their `bad object` failures are CI changed-range defects, not contradictory package or build evidence.
 - INT-CI-076A implements a shared fail-closed changed-range resolver that retains
-  shallow checkout and fetches only a missing exact event-base commit. Its direct
-  depth-2 multi-commit regression and historical 83-path replay pass locally;
-  post-publication workflow evidence remains pending at this documentation freeze.
+  shallow checkout and fetches only a missing exact event-base commit. Source Package
+  Integrity run `31013714578` passed end to end, while Patch Note Accounting run
+  `31013714668` passed its tests and repaired 17-path range step before the downstream
+  CLIENT accounting audit failed. Both jobs fetched the deliberately absent event base;
+  neither range step produced `fatal: bad object`.
 - Patch Note Accounting run `30969188766` for later CLIENT Forge commit `3d37cf5e...`
   passed changed-range resolution and failed in the subsequent audit on separate
   CLIENT package/repository patch-history omissions. INT-CI-076A does not suppress or

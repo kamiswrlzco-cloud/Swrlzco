@@ -37,8 +37,26 @@ That is separate enforcement evidence and is not reclassified as an INT-CI-076A 
 
 ## Publication evidence
 
-`PENDING` — record exact two-commit push, run IDs, helper fetch evidence, downstream
-step results, and final commit only after publication.
+| Evidence | Result |
+|---|---|
+| Implementation commit | `94744cad5cd6e88111f84fee155d026be6dc8836` |
+| Initial documentation head | `36c2e3f991ecd0dcbba49ebbf38a94631a0cd495` |
+| Push range | `3d37cf5e...36c2e3f9`; two commits; 17 CI/tooling/docs paths |
+| Source Package Integrity `31013714578` | SUCCESS |
+| Source Integrity tests | 27 PASS |
+| Source Integrity missing-base recovery | fetched exact `3d37cf5e...`; 17 paths; PASS |
+| Source identities selected | none; application source changes = 0 |
+| Patch Note Accounting `31013714668` tests | 9 PASS |
+| Patch Accounting missing-base recovery | fetched exact `3d37cf5e...`; 17 paths; PASS |
+| Patch Accounting downstream audit | FAIL on independent CLIENT debt; SERVER R2 PASS |
+
+The downstream CLIENT audit identifies source SHA-256
+`2c43d60454d16defda959e482bd03b40ce29a1898d71a966fa67ef30333aabe5`
+and three missing exact-accounting surfaces: package `ReleaseNotes.md`, repository
+`CLIENT_PATCH_NOTES.md`, and `CURRENT_CANDIDATE_LINEAGE.md`. The repaired range step is
+therefore verified even though the complete enforcement workflow correctly remains red.
+
+Neither repaired job emitted `fatal: bad object` during changed-range resolution.
 
 ## Non-claims
 

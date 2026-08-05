@@ -108,8 +108,10 @@ Source Package Integrity run `30965115656` and Patch Note Accounting run `309651
 
 INT-CI-076A preserves the two shallow-checkout failures above as evidence and implements
 their shared changed-range repair without changing SERVER R2. Its local depth-2
-multi-commit regression passes; publication-run evidence is governed by the separate
-INT-CI-076A checkpoint.
+multi-commit regression passes; Source Integrity run `31013714578` passed; and Patch
+Note Accounting run `31013714668` passed the repaired range step, reported SERVER R2
+PASS, then failed only on separate CLIENT accounting debt. Full evidence is governed by
+the separate INT-CI-076A checkpoint.
 
 ## Approval boundary
 

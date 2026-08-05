@@ -37,10 +37,12 @@ Automatic Source Package Integrity run `30965115656` and Patch Note Accounting r
 
 CI-only follow-up INT-CI-076A replaces both workflows' duplicated range logic with a
 shared fail-closed helper that fetches only a missing exact event-base commit and adds
-direct depth-2 multi-commit regression coverage. Local verification passes; actual
-publication-run evidence remains pending at the initial checkpoint freeze. This
-follow-up changes no SERVER source/package bytes, version, behavior, promotion, build,
-device, release, or deployment state.
+direct depth-2 multi-commit regression coverage. Source Package Integrity run
+`31013714578` passed end to end. Patch Note Accounting run `31013714668` passed its nine
+tests and repaired 17-path range step, reported SERVER R2 PASS, and then failed only on
+separately preserved CLIENT patch/lineage debt. This follow-up changes no SERVER
+source/package bytes, version, behavior, promotion, build, device, release, or
+deployment state.
 
 ## Failed direct parent preserved — 2026-08-04
 

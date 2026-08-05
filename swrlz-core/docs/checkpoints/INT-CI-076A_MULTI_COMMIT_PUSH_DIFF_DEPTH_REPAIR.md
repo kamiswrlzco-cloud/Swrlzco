@@ -2,7 +2,7 @@
 
 **Mode:** IMPLEMENT / PUBLISH
 
-**Lifecycle state:** IMPLEMENTATION_VERIFIED / DOCUMENTATION_SYNCED / REPOSITORY_PUBLICATION_PENDING
+**Lifecycle state:** REPOSITORY_PUBLISHED / CHANGED_RANGE_VERIFIED / ACCEPTED_WITH_FOLLOW_UP
 
 **Components:** BUILD / CI / TOOLING / DOCUMENTATION only
 
@@ -92,16 +92,28 @@ and source packages are intentionally unchanged.
 - Current SERVER R2 transport reconstructed and package-pair verified at source SHA-256
   `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86` and metadata
   SHA-256 `65034a407090c80d252361c449f0cc471ad57a7fde3742b9622958a96465a647`.
-- Repository diff and workflow syntax validation remain part of the final prepublication gate.
+- Repository diff, workflow YAML parsing, and bounded-path exclusion gate: PASS.
 
 ## Workflow evidence
 
-**Status:** `WORKFLOW NOT TRIGGERED` for INT-CI-076A at this documentation freeze.
+**Status:** `REPOSITORY PUBLISHED` / `MULTI-COMMIT CHANGED RANGE VERIFIED` /
+`PATCH ACCOUNTING FOLLOW-UP REQUIRED`.
 
-The authorized publication will intentionally move `main` across two commits in one
-fast-forward. That makes the push's previous head the grandparent of the final head and
-directly exercises the repaired missing-base path. Actual run IDs, step conclusions,
-and residual downstream failures will be appended only after GitHub evidence exists.
+- CI implementation commit: `94744cad5cd6e88111f84fee155d026be6dc8836`.
+- Initial documentation commit: `36c2e3f991ecd0dcbba49ebbf38a94631a0cd495`.
+- One fast-forward moved `main` from `3d37cf5e...` across both commits. With
+  `fetch-depth: 2`, the event-base was absent exactly as intended.
+- Source Package Integrity run `31013714578`: SUCCESS. Its 27 tests passed; the helper
+  fetched missing base `3d37cf5e...`, resolved all 17 changed paths, selected no
+  application source identities, and completed the no-source verification path.
+- Patch Note Accounting run `31013714668`: its nine tests and changed-range step passed;
+  the helper fetched the same missing base and resolved all 17 paths. The workflow then
+  failed in the downstream audit on the separately preserved CLIENT accounting debt.
+- That audit reported SERVER R2 PASS and CLIENT CFv2.1.27 R1 FAIL for three exact gaps:
+  package `ReleaseNotes.md`, repository `CLIENT_PATCH_NOTES.md`, and
+  `CURRENT_CANDIDATE_LINEAGE.md`.
+
+No `fatal: bad object` occurred in either repaired range step.
 
 ## Provenance and lineage
 
@@ -119,6 +131,8 @@ and residual downstream failures will be appended only after GitHub evidence exi
   lineage/authority surfaces do not name exact source SHA-256
   `2c43d60454d16defda959e482bd03b40ce29a1898d71a966fa67ef30333aabe5`.
 - INT-CI-076A does not repair or suppress that CLIENT documentation defect.
+- Patch Note Accounting remains red by design until that separately authorized CLIENT
+  package/repository documentation repair is completed.
 - Device/runtime acceptance for SERVER R2 remains pending and unrelated.
 
 ## Exclusions
