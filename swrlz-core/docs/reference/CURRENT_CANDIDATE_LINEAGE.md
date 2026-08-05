@@ -7,7 +7,7 @@ This file tracks repository-transported candidates independently from promoted a
 | Component | Logical candidate | VC | Source SHA-256 | Metadata SHA-256 | Checkpoint | Forge commit | Repository identity |
 |---|---|---:|---|---|---|---|---|
 | CLIENT | CFv2.1.26 R8 | 131 | `5b47857ef039609966669b039042bc69eba64dca48774107db353faeb7419912` | `6f246527543d28c010a67a019879ec4280706a6011a66f119c9a2fa366341391` | INT-FIX-060C | `d2e54ff07759cbc74d15a88a987dd0dc1ffc6f4b` | `sources/client/CLIENT_CFv2.1.26_SWRLZ_CANDIDATE_R8.zip` |
-| SERVER | CFv2.1.27 R2 | 130 | `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86` | `65034a407090c80d252361c449f0cc471ad57a7fde3742b9622958a96465a647` | INT-FIX-075A | publication commit that adds this transport identity | `sources/server/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R2.transport.json` |
+| SERVER | CFv2.1.27 R2 | 130 | `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86` | `65034a407090c80d252361c449f0cc471ad57a7fde3742b9622958a96465a647` | INT-FIX-075A | `ece8bda4ae572fe585e662484c8469e84ad923ef` | `sources/server/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R2.transport.json` |
 
 The SERVER transport uses chunked Git blobs. The lane-root `.transport.json` is the repository source identity; chunks, metadata, and bounded accounting receipts are evidence members, not independent source candidates.
 

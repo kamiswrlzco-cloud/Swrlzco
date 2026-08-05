@@ -35,7 +35,7 @@ The current repository-transported Forge candidate lineage is maintained in `ref
 | Component | Candidate | VC | Source SHA-256 | Metadata SHA-256 | Repository transport | Status boundary |
 |---|---|---:|---|---|---|---|
 | CLIENT | CFv2.1.26 R8 | 131 | `5b47857ef039609966669b039042bc69eba64dca48774107db353faeb7419912` | `6f246527543d28c010a67a019879ec4280706a6011a66f119c9a2fa366341391` | commit `d2e54ff07759cbc74d15a88a987dd0dc1ffc6f4b` | owner-reported Android build success; not promoted |
-| SERVER | CFv2.1.27 R2 | 130 | `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86` | `65034a407090c80d252361c449f0cc471ad57a7fde3742b9622958a96465a647` | INT-FIX-075A publication commit that adds the R2 transport identity | source/static/package verified; automatic exact-SHA Android rebuild pending; not promoted |
+| SERVER | CFv2.1.27 R2 | 130 | `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86` | `65034a407090c80d252361c449f0cc471ad57a7fde3742b9622958a96465a647` | commit `ece8bda4ae572fe585e662484c8469e84ad923ef` | repository transported; source/static/package verified; automatic exact-SHA Android rebuild pending; not promoted |
 
 R2 replaces R1 only as the non-promoted repository SERVER candidate pointer. R1 remains immutable failed-build lineage. Neither repository transport nor the automatic rebuild changes promoted SERVER authority.
 
@@ -50,7 +50,7 @@ R2 replaces R1 only as the non-promoted repository SERVER candidate pointer. R1 
 - metadata SHA-256: `65034a407090c80d252361c449f0cc471ad57a7fde3742b9622958a96465a647`
 - direct parent: `SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R1` / SHA-256 `f14a42f8d809fe4a4c23fc86c2bb193bbf3b51d7f6dc5d023205a875916f41dc`
 - repository identity: `sources/server/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R2.transport.json`
-- repository transport: the INT-FIX-075A publication commit that adds the identity above
+- repository transport: commit `ece8bda4ae572fe585e662484c8469e84ad923ef`
 - promotion: not promoted
 
 R1 introduced the first-party §wyrlz LLM system layer, role-scoped knowledge/training, CLIENT context bridge, and dedicated SERVER LLM Studio. APK Router run `30950003262` selected and verified exact R1, then failed at `:app:compileDebugKotlin` on the explicit internal Compose `foundation.layout.weight` import in `ServerOperationsScreen.kt`.

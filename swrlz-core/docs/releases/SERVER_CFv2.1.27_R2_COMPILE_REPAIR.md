@@ -23,6 +23,7 @@ R2 is the direct SERVER-only repair successor to immutable §wyrlz LLM Studio R1
 - Source SHA-256: `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86`
 - Metadata ZIP SHA-256: `65034a407090c80d252361c449f0cc471ad57a7fde3742b9622958a96465a647`
 - Parent R1 SHA-256: `f14a42f8d809fe4a4c23fc86c2bb193bbf3b51d7f6dc5d023205a875916f41dc`
+- Source-publication commit: `ece8bda4ae572fe585e662484c8469e84ad923ef`
 
 ## Evidence boundary
 

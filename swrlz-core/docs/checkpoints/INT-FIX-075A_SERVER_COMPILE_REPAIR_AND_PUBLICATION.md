@@ -2,7 +2,7 @@
 
 **Mode:** IMPLEMENT / PUBLISH
 
-**Lifecycle state:** IMPLEMENTATION_VERIFIED / DOCUMENTATION_SYNCED / REPOSITORY_PUBLICATION_IN_PROGRESS / BUILD_PENDING
+**Lifecycle state:** IMPLEMENTATION_VERIFIED / DOCUMENTATION_SYNCED / REPOSITORY_TRANSPORTED / BUILD_PENDING
 
 **Component:** SERVER only
 
@@ -31,6 +31,7 @@ Repair the one Kotlin compiler defect proven in immutable R1, close the static-v
 - APK Router run `30950003262` verified R1 and failed at `:app:compileDebugKotlin` on `ServerOperationsScreen.kt:16:43`.
 - R2 source ZIP SHA-256 is `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86`; size is 48,587,996 bytes.
 - R2 metadata ZIP SHA-256 is `65034a407090c80d252361c449f0cc471ad57a7fde3742b9622958a96465a647`.
+- R2 source-publication commit is `ece8bda4ae572fe585e662484c8469e84ad923ef`.
 - The paired INT-AI-074A CLIENT CFv2.1.27 R1 source is unchanged and is not part of this repository publication; the repository CLIENT lane remains separately governed.
 
 ## Requirements
@@ -70,7 +71,9 @@ Architecture, LLM contracts, protocol/schema, capabilities, and CLIENT documenta
 - Internal source manifest: 1,191/1,191 PASS.
 - Immutable package pair: 26/26 PASS.
 - R1→R2 inventory: 7 added / 12 modified / 0 removed.
-- Repository transport reconstruction/package-accounting verification: required before ref update.
+- Repository CI unit suite: 30 tests PASS / one absent-fixture skip.
+- Repository transport reconstruction/package-pair verification: PASS.
+- Repository patch-note accounting for exact R2 identity: PASS.
 
 ## Build evidence
 
@@ -89,7 +92,7 @@ Architecture, LLM contracts, protocol/schema, capabilities, and CLIENT documenta
 
 ## Current disposition
 
-`SOURCE IMPLEMENTED` / `STATIC VERIFICATION PASS` / `DOCUMENTATION SYNCED` / `BUILD PENDING`.
+`SOURCE IMPLEMENTED` / `STATIC VERIFICATION PASS` / `DOCUMENTATION SYNCED` / `REPOSITORY TRANSPORTED` / `BUILD PENDING`.
 
 ## Approval boundary
 

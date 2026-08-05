@@ -20,7 +20,7 @@ Patch notes do not imply Android compilation, installation, device acceptance, p
 - parent transport commit: `193fe26155c26c07f77fec9bda212c84d8e7b5f9`
 - parent workflow: `30950003262` — exact R1 package verified; Kotlin compilation failed on the explicit internal Compose weight import
 - repository identity: `sources/server/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R2.transport.json`
-- repository transport: INT-FIX-075A publication commit that adds the identity above
+- repository transport commit: `ece8bda4ae572fe585e662484c8469e84ad923ef`
 - promotion: not promoted
 
 Changes:
@@ -31,7 +31,7 @@ Changes:
 - preserves the paired INT-AI-074A CLIENT CFv2.1.27 R1 source without publishing or changing the repository CLIENT lane, plus all §wyrlz LLM runtime/Studio behavior and contracts, Room schema 16, identity, trust, Truth Firewall, offline-first behavior, and compatibility identifiers;
 - carries synchronized package `CHANGELOG.md`, `ReleaseNotes.md`, lineage, checkpoint, receipt, evidence, and source manifest.
 
-Verification before repository publication: compiler-regression precheck PASS; paired gate 113/113 PASS; repair gate 28/28 PASS; Kotlin/KTS scan 397 files with zero violations; internal source manifest 1,191/1,191 PASS; immutable package pair 26/26 PASS. Android compilation and APK/device evidence remain pending.
+Verification: compiler-regression precheck PASS; paired gate 113/113 PASS; repair gate 28/28 PASS; Kotlin/KTS scan 397 files with zero violations; internal source manifest 1,191/1,191 PASS; immutable package pair 26/26 PASS; repository CI unit suite 30 tests PASS with one absent-fixture skip; exact chunk reconstruction and repository patch-note accounting PASS. Android compilation and APK/device evidence remain pending.
 
 ## Failed direct parent preserved — 2026-08-04
 

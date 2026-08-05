@@ -20,6 +20,7 @@ Repair the single compiler-evidenced SERVER defect in CFv2.1.27 R1, prevent recu
 - `SOURCE IMPLEMENTED`
 - `STATIC VERIFICATION PASS`
 - `PACKAGE ONLY` before repository publication
+- `REPOSITORY TRANSPORTED` by source-publication commit `ece8bda4ae572fe585e662484c8469e84ad923ef`
 - `BUILD NOT RUN` for R2 before publication
 - `RUNTIME NOT TESTED`
 
@@ -69,7 +70,7 @@ No CLIENT change, manual workflow dispatch/rerun, APK installation, promotion, r
 
 ### Follow-up
 
-After repository publication, bind the exact source-publication commit and automatic workflow evidence to this checkpoint without upgrading pending build/device claims.
+Source-publication commit `ece8bda4ae572fe585e662484c8469e84ad923ef` is bound to this checkpoint. Observe and record automatic workflow evidence separately without upgrading pending build/device claims until exact-SHA results exist.
 
 ## 2026-07-29 — INT-DOC-AI-041H dense-chat identity/model synchronization
 

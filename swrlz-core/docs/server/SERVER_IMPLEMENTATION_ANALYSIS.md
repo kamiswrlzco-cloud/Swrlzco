@@ -11,6 +11,7 @@ Current non-promoted repository transport is INT-FIX-075A SERVER CFv2.1.27 R2:
 - source SHA-256: `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86`;
 - metadata ZIP SHA-256: `65034a407090c80d252361c449f0cc471ad57a7fde3742b9622958a96465a647`;
 - repository transport: `sources/server/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R2.transport.json`;
+- source-publication commit: `ece8bda4ae572fe585e662484c8469e84ad923ef`;
 - direct parent: SERVER CFv2.1.27 R1 / SHA `f14a42f8d809fe4a4c23fc86c2bb193bbf3b51d7f6dc5d023205a875916f41dc`.
 
 R1 introduced the first-party §wyrlz LLM contract/runtime, atomic training store, role-filtered product knowledge, teaching/evaluation paths, proof-bound CLIENT context/chat integration, and dedicated SERVER LLM Studio. R1 transport commit `193fe26155c26c07f77fec9bda212c84d8e7b5f9` and APK Router run `30950003262` prove exact source selection and package verification followed by a Kotlin compile failure at `ServerOperationsScreen.kt:16:43`.
