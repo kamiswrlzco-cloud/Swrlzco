@@ -57,14 +57,14 @@ Patch notes are lineage/navigation evidence. They do not outrank canonical sourc
 ## Releases
 
 - `releases/compatibility-matrix.md`
-- `releases/SERVER_CFv2.1.27_R2_COMPILE_REPAIR.md` — INT-FIX-075A bounded SERVER compile-repair successor; build pending
+- `releases/SERVER_CFv2.1.27_R2_COMPILE_REPAIR.md` — INT-FIX-075A bounded SERVER compile-repair successor; exact-SHA Android debug build successful; device acceptance pending
 - `releases/CLIENT_CFv2.1.9_PACKAGE_PAIR_REPAIR.md`
 - `releases/CLIENT_CFv2.1.8_THEME_CHROME_RUNTIME_REPAIR.md`
 
 ## Checkpoints and engineering evidence
 
-- `checkpoints/INT-FIX-075A_SERVER_COMPILE_REPAIR_AND_PUBLICATION.md` — exact R1 compiler failure, bounded R2 repair, immutable package identities, repository publication boundary, and automatic-build evidence gate
-- `evidence/INT-FIX-075A_STATIC_VERIFICATION.md` — R2 static/package verification and explicit non-claims
+- `checkpoints/INT-FIX-075A_SERVER_COMPILE_REPAIR_AND_PUBLICATION.md` — exact R1 compiler failure, bounded R2 repair, immutable package identities, repository publication, successful exact-SHA build, and remaining device/CI-workflow boundaries
+- `evidence/INT-FIX-075A_STATIC_VERIFICATION.md` — R2 static/package/build verification, APK identity, shallow-checkout gate failures, and explicit non-claims
 - `checkpoints/INT-CI-061A_ROUTER_DOCUMENTATION_PATCHNOTE_SYNC.md` — 2026-07-31 Source Package Integrity fix for nested chunk-transport evidence, APK Router lane-root/BOTH hardening, current candidate accounting, and mandatory CLIENT/SERVER patch-note synchronization; no workflow dispatch/build/promotion/release/deployment/install claim
 - `engineering/Engineering_Log_2026-07-31.md` — current engineering-log extension covering INT-FORGE-054A-R2, INT-FILE-059A, INT-AI-060A, INT-CI-061A, the 059A/060A source-identity collision, and the locked patch-note accounting contract
 - `engineering/Engineering_Log.md` — earlier maintained engineering history

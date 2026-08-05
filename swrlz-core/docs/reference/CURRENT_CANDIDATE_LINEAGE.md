@@ -22,7 +22,7 @@ R2 is the direct SERVER-only repair successor:
 - removes that invalid import while preserving both contextual `Modifier.weight(1f)` calls;
 - makes the established SERVER compiler-regression precheck mandatory in the paired LLM verifier;
 - preserves the paired INT-AI-074A CLIENT source without publishing or changing the repository CLIENT lane, plus the LLM runtime/Studio/contracts, Room schema 16, identity, trust, Truth Firewall, offline-first behavior, and compatibility identifiers;
-- remains build-pending until an automatic or separately authorized run resolves exact R2 SHA-256 `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86` and reports its result.
+- is exact-SHA Android debug build successful in APK Router run `30965115165`; installation and device/runtime acceptance remain pending.
 
 ## Active direct-successor progression
 
@@ -76,7 +76,7 @@ R2 is the direct SERVER-only repair successor:
 | CFv2.1.26 R44 | 127 | INT-SERVER-BUILD-REPAIR-072B | `503fbc1f784621771da43761b842929196cb229060027d254233ccacdbd3a3ce` | malformed ordinary Kotlin string compile repair |
 | CFv2.1.26 R45 | 128 | INT-SERVER-RUNTIME-ACCEPTANCE-073A | `4665ea6d613e2b070597e360ef281392747cdacd1ae670f41355f91ea2c5d226` | Operations/Runtime Acceptance Center; source-only |
 | CFv2.1.27 R1 | 129 | INT-AI-074A | `f14a42f8d809fe4a4c23fc86c2bb193bbf3b51d7f6dc5d023205a875916f41dc` | §wyrlz LLM Studio parent; exact transport; compile failed in run `30950003262` |
-| CFv2.1.27 R2 | 130 | INT-FIX-075A | `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86` | current repository candidate; bounded compile repair; rebuild pending |
+| CFv2.1.27 R2 | 130 | INT-FIX-075A | `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86` | current repository candidate; bounded compile repair; exact-SHA Android debug build succeeded in run `30965115165` |
 
 ## Authority and package-accounting boundary
 

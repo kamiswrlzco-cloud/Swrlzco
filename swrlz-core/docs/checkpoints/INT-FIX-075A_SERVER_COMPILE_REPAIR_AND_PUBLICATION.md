@@ -2,7 +2,7 @@
 
 **Mode:** IMPLEMENT / PUBLISH
 
-**Lifecycle state:** IMPLEMENTATION_VERIFIED / DOCUMENTATION_SYNCED / REPOSITORY_TRANSPORTED / BUILD_PENDING
+**Lifecycle state:** IMPLEMENTATION_VERIFIED / DOCUMENTATION_SYNCED / REPOSITORY_TRANSPORTED / ANDROID_DEBUG_BUILD_SUCCESS / DEVICE_PENDING
 
 **Component:** SERVER only
 
@@ -71,13 +71,23 @@ Architecture, LLM contracts, protocol/schema, capabilities, and CLIENT documenta
 - Internal source manifest: 1,191/1,191 PASS.
 - Immutable package pair: 26/26 PASS.
 - R1→R2 inventory: 7 added / 12 modified / 0 removed.
-- Repository CI unit suite: 30 tests PASS / one absent-fixture skip.
+- Local repository CI unit suite: 30 tests PASS / one absent-fixture skip.
 - Repository transport reconstruction/package-pair verification: PASS.
 - Repository patch-note accounting for exact R2 identity: PASS.
 
 ## Build evidence
 
-**Status:** `BUILD NOT RUN` for R2 before publication. The configured push may start Source Package Integrity, Patch Note Accounting, and APK Router automatically. A later evidence update must record their exact run IDs and results.
+**Status:** `ANDROID DEBUG BUILD SUCCESS`.
+
+- APK Router run: `30965115165` / success.
+- Resolved source: exact R2 SHA-256 `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86`, 48,587,996 bytes, `chunked-git-blobs-v2`, selected by current push.
+- Metadata SHA-256: `65034a407090c80d252361c449f0cc471ad57a7fde3742b9622958a96465a647`; package verification PASS.
+- Gradle task: `:app:assembleDebug`; log result: `BUILD SUCCESSFUL`.
+- Artifact: `SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R2_debug_APK` / ID `8914536222` / archive SHA-256 `2cc1d66f598ae15ac616b13ac7da31f2b2d60d04a0dd6f1d304dfb7aafb79688`.
+- Contained APK: `SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R2_DEBUG.apk` / 58,619,074 bytes / SHA-256 `c9932345cc8f07d110bffa364d4b30d111cf149d78fed789153a63cde9f3d726`.
+- Signing mode record: `runner/default-source-signing`; no stable-development-key claim is made.
+
+Source Package Integrity run `30965115656` and Patch Note Accounting run `30965115160` failed before substantive verification/audit because their shallow checkout omitted event `before` commit `193fe26155c26c07f77fec9bda212c84d8e7b5f9`. APK Router independently verified and built exact R2; the non-build workflow defect remains a separate CI follow-up.
 
 ## Device evidence
 
@@ -92,7 +102,7 @@ Architecture, LLM contracts, protocol/schema, capabilities, and CLIENT documenta
 
 ## Current disposition
 
-`SOURCE IMPLEMENTED` / `STATIC VERIFICATION PASS` / `DOCUMENTATION SYNCED` / `REPOSITORY TRANSPORTED` / `BUILD PENDING`.
+`SOURCE IMPLEMENTED` / `STATIC VERIFICATION PASS` / `DOCUMENTATION SYNCED` / `REPOSITORY TRANSPORTED` / `ANDROID DEBUG BUILD SUCCESS` / `DEVICE PENDING`.
 
 ## Approval boundary
 

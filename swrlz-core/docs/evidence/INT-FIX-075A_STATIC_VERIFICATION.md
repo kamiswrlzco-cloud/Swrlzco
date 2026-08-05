@@ -1,4 +1,4 @@
-# INT-FIX-075A Static and Package Verification
+# INT-FIX-075A Verification and Build Evidence
 
 **Candidate:** `SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R2`
 
@@ -20,7 +20,7 @@
 | Internal source manifest | 1,191/1,191 PASS |
 | Source ZIP CRC/path safety | PASS |
 | Immutable source/metadata package pair | 26/26 PASS |
-| Repository CI unit suite | 30 PASS / 1 absent-fixture skip |
+| Local repository CI unit suite | 30 PASS / 1 absent-fixture skip |
 | Repository chunk reconstruction/package verification | PASS |
 | Repository patch-note accounting for exact R2 identity | PASS |
 
@@ -30,6 +30,21 @@ R1 transport commit `193fe26155c26c07f77fec9bda212c84d8e7b5f9` carried exact par
 
 R2 source-publication commit `ece8bda4ae572fe585e662484c8469e84ad923ef` carries the exact 68-part chunk transport, metadata ZIP, and synchronized documentation. Automatic post-publication workflow results remain separate evidence.
 
+## Post-publication workflow and APK evidence
+
+| Evidence | Result |
+|---|---|
+| APK Router run `30965115165` | SUCCESS |
+| Resolved source | exact R2 SHA `ec1627ad...a86`, 48,587,996 bytes, verified |
+| Metadata/package verification | exact metadata SHA `65034a40...647`, PASS |
+| Gradle task | `:app:assembleDebug`, `BUILD SUCCESSFUL` |
+| Artifact | ID `8914536222`, archive SHA `2cc1d66f...79688`, CRC PASS |
+| APK | 58,619,074 bytes, SHA `c9932345...d726`, CRC PASS |
+| Source Package Integrity `30965115656` | FAILURE before identity resolution: shallow checkout omitted push `before` commit |
+| Patch Note Accounting `30965115160` | FAILURE before audit: same shallow-checkout `bad object` defect |
+
+The downloaded artifact's three expected hashes match their files. Its `.sha256` records contain absolute runner paths, so portable direct `sha256sum -c` remains CI artifact-format debt even though the digest values themselves verify.
+
 ## Non-claims
 
-These results are source/static/package evidence. They are not Android compilation, APK, installation, device, integration, promotion, release, or deployment evidence. Automatic post-publication workflows must be recorded by exact run and resolved source SHA before the evidence state advances.
+Static results remain source/static/package evidence. APK Router run `30965115165` separately establishes Android debug compilation and APK production for exact R2. Neither evidence class establishes installation, device/integration acceptance, promotion, release, or deployment.

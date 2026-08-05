@@ -18,7 +18,9 @@ R1 introduced the first-party §wyrlz LLM contract/runtime, atomic training stor
 
 R2 removes the invalid explicit Compose weight import, retains both contextual weight calls, and makes the established compiler-regression precheck mandatory in the paired verifier. It preserves the paired INT-AI-074A CLIENT source without publishing or changing the repository CLIENT lane, plus LLM behavior/contracts, Room schema 16, proof-bound admin access, identity, trust, Truth Firewall, offline-first behavior, and compatibility identifiers.
 
-R2 has source/static/package evidence only. The configured publication push may start an exact-SHA Android rebuild automatically, but no R2 compile/APK/device result is claimed until the resulting run is observed.
+R2 has source/static/package evidence plus exact-SHA Android debug build evidence. APK Router run `30965115165` resolved source SHA-256 `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86`, verified the metadata/package pair, completed `:app:assembleDebug`, and uploaded artifact ID `8914536222`; the contained APK SHA-256 is `c9932345cc8f07d110bffa364d4b30d111cf149d78fed789153a63cde9f3d726`. Installation/device/runtime acceptance remains untested.
+
+The same push exposed an independent workflow-depth defect: Source Package Integrity run `30965115656` and Patch Note Accounting run `30965115160` used `fetch-depth: 2`, could not access the two-commit push's `before` commit, and failed before source verification/audit. Those failures do not contradict APK Router's exact-R2 verification/build result; their checkout logic remains follow-up work.
 
 ### Preserved 2026-07-31 candidate snapshot
 

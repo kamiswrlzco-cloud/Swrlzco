@@ -22,6 +22,7 @@ Repair the single compiler-evidenced SERVER defect in CFv2.1.27 R1, prevent recu
 - `PACKAGE ONLY` before repository publication
 - `REPOSITORY TRANSPORTED` by source-publication commit `ece8bda4ae572fe585e662484c8469e84ad923ef`
 - `BUILD NOT RUN` for R2 before publication
+- `ANDROID DEBUG BUILD SUCCESS` in APK Router run `30965115165`
 - `RUNTIME NOT TESTED`
 
 ### Requirements
@@ -56,13 +57,17 @@ Repair the single compiler-evidenced SERVER defect in CFv2.1.27 R1, prevent recu
 - Immutable package pair: 26/26 PASS.
 - R1→R2 inventory: 7 added, 12 modified, 0 removed.
 
-### Runtime evidence
+### Build and runtime evidence
 
-R2 Android compilation, APK generation, installation, device acceptance, and integration acceptance remain pending. Publication may automatically start Source Package Integrity, Patch Note Accounting, and APK Router workflows; their actual run IDs and outcomes must be recorded separately.
+- APK Router run `30965115165` resolved exact R2 source SHA-256 `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86`, verified the metadata/package pair, and completed `:app:assembleDebug` successfully.
+- Artifact `SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R2_debug_APK` / ID `8914536222` has archive SHA-256 `2cc1d66f598ae15ac616b13ac7da31f2b2d60d04a0dd6f1d304dfb7aafb79688` and contains APK SHA-256 `c9932345cc8f07d110bffa364d4b30d111cf149d78fed789153a63cde9f3d726`.
+- The downloaded artifact ZIP and APK passed CRC checks; its three embedded expected hashes matched their files when verified by basename.
+- Installation, launch, device acceptance, and integration acceptance remain pending.
 
 ### Known issues
 
-- `FOLLOW-UP REQUIRED` — verify that CI resolves exact R2 SHA-256 `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86` and record the first actual build result.
+- `FOLLOW-UP REQUIRED` — Source Package Integrity run `30965115656` and Patch Note Accounting run `30965115160` failed on `fatal: bad object 193fe261...` because `fetch-depth: 2` omitted the event's `before` commit for this two-commit push. Both failed before package/audit evaluation.
+- Artifact checksum sidecars record absolute runner paths. Their hashes are correct, but portable `sha256sum -c` requires basename/path normalization.
 
 ### Exclusions
 
@@ -70,7 +75,7 @@ No CLIENT change, manual workflow dispatch/rerun, APK installation, promotion, r
 
 ### Follow-up
 
-Source-publication commit `ece8bda4ae572fe585e662484c8469e84ad923ef` is bound to this checkpoint. Observe and record automatic workflow evidence separately without upgrading pending build/device claims until exact-SHA results exist.
+Source-publication commit `ece8bda4ae572fe585e662484c8469e84ad923ef` and successful exact-SHA APK Router run `30965115165` are bound to this checkpoint. Repair the two non-build workflows under a separately approved CI checkpoint; do not upgrade pending device/runtime claims.
 
 ## 2026-07-29 — INT-DOC-AI-041H dense-chat identity/model synchronization
 

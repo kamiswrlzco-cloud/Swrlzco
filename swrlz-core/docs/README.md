@@ -22,7 +22,7 @@ Start with:
 - Exact source SHA-256: `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86`.
 - Exact metadata ZIP SHA-256: `65034a407090c80d252361c449f0cc471ad57a7fde3742b9622958a96465a647`.
 - R1 remains immutable failed-build lineage from workflow run `30950003262`.
-- R2 is source/static/package verified and Android-build pending; it is not promoted, installed, released, or deployed.
+- R2 is source/static/package verified and exact-SHA Android debug build successful in APK Router run `30965115165`; it is not promoted, installed, device-accepted, released, or deployed.
 - CLIENT is unchanged by INT-FIX-075A; use `CURRENT_AUTHORITY.md` and the CLIENT patch notes for its separately governed pointer.
 
 The 2026-07-31 section below is preserved as its dated synchronization snapshot and is superseded for current SERVER-candidate navigation by the R2 records above.

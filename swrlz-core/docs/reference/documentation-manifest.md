@@ -29,7 +29,7 @@ Current component pointers are maintained independently. INT-FIX-075A changes on
 | Component | Candidate | VC | SHA-256 | Checkpoint | Promotion |
 |---|---|---:|---|---|---|
 | CLIENT | CFv2.1.27 R1 | 125 | `28074d8f2e97bec734b460e944399972920a32309ba21222a6a240642c35b433` | INT-AI-060A | candidate only |
-| SERVER | CFv2.1.27 R2 | 130 | `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86` | INT-FIX-075A | current repository candidate; source/static/package verified; build pending; not promoted |
+| SERVER | CFv2.1.27 R2 | 130 | `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86` | INT-FIX-075A | current repository candidate; source/static/package verified; exact-SHA Android debug build succeeded in run `30965115165`; device/runtime pending; not promoted |
 
 SERVER R1 / VC129 / SHA `f14a42f8d809fe4a4c23fc86c2bb193bbf3b51d7f6dc5d023205a875916f41dc` remains preserved failed-build parent lineage. Transport commit `193fe26155c26c07f77fec9bda212c84d8e7b5f9` and run `30950003262` prove exact source selection followed by Kotlin compile failure; they do not establish an APK.
 

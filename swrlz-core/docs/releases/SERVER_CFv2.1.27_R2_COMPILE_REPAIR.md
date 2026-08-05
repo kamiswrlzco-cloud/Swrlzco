@@ -27,4 +27,4 @@ R2 is the direct SERVER-only repair successor to immutable §wyrlz LLM Studio R1
 
 ## Evidence boundary
 
-R1 workflow run `30950003262` verified the parent and proved the compile failure. R2 is source/static/package verified. Android compilation, APK production, installation, device acceptance, promotion, release, and deployment remain pending until separately evidenced.
+R1 workflow run `30950003262` verified the parent and proved the compile failure. R2 is source/static/package verified, and APK Router run `30965115165` resolved exact R2 and completed the Android debug build successfully. Artifact ID `8914536222` contains APK SHA-256 `c9932345cc8f07d110bffa364d4b30d111cf149d78fed789153a63cde9f3d726`. Installation, device acceptance, promotion, release, and deployment remain pending.

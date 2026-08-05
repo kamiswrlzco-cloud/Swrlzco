@@ -35,9 +35,9 @@ The current repository-transported Forge candidate lineage is maintained in `ref
 | Component | Candidate | VC | Source SHA-256 | Metadata SHA-256 | Repository transport | Status boundary |
 |---|---|---:|---|---|---|---|
 | CLIENT | CFv2.1.26 R8 | 131 | `5b47857ef039609966669b039042bc69eba64dca48774107db353faeb7419912` | `6f246527543d28c010a67a019879ec4280706a6011a66f119c9a2fa366341391` | commit `d2e54ff07759cbc74d15a88a987dd0dc1ffc6f4b` | owner-reported Android build success; not promoted |
-| SERVER | CFv2.1.27 R2 | 130 | `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86` | `65034a407090c80d252361c449f0cc471ad57a7fde3742b9622958a96465a647` | commit `ece8bda4ae572fe585e662484c8469e84ad923ef` | repository transported; source/static/package verified; automatic exact-SHA Android rebuild pending; not promoted |
+| SERVER | CFv2.1.27 R2 | 130 | `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86` | `65034a407090c80d252361c449f0cc471ad57a7fde3742b9622958a96465a647` | commit `ece8bda4ae572fe585e662484c8469e84ad923ef` | exact-SHA Android debug build succeeded in run `30965115165`; device/runtime pending; not promoted |
 
-R2 replaces R1 only as the non-promoted repository SERVER candidate pointer. R1 remains immutable failed-build lineage. Neither repository transport nor the automatic rebuild changes promoted SERVER authority.
+R2 replaces R1 only as the non-promoted repository SERVER candidate pointer. R1 remains immutable failed-build lineage. Neither repository transport nor the successful exact-SHA debug build changes promoted SERVER authority.
 
 ## Current SERVER candidate interpretation
 
@@ -61,9 +61,9 @@ R2 removes only that invalid import, preserves both contextual `Modifier.weight(
 
 - R1 transport commit `193fe26155c26c07f77fec9bda212c84d8e7b5f9` established exact source SHA-256 `f14a42f8d809fe4a4c23fc86c2bb193bbf3b51d7f6dc5d023205a875916f41dc`.
 - APK Router run `30950003262` verified that exact R1 source and failed at Kotlin compilation on the explicit internal Compose weight import. It produced no APK and did not build CLIENT.
-- R2 is source/static/package verified at SHA-256 `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86`.
-- Publication of the R2 lane-root transport identity may trigger the configured Source Package Integrity, Patch Note Accounting, and APK Router workflows automatically.
-- No R2 workflow/build result is claimed until a run resolves this exact R2 SHA and reports its actual outcome.
+- APK Router run `30965115165` resolved exact R2 SHA-256 `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86`, verified metadata SHA-256 `65034a407090c80d252361c449f0cc471ad57a7fde3742b9622958a96465a647`, passed package verification, and completed `:app:assembleDebug` successfully.
+- Run `30965115165` produced artifact `SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R2_debug_APK` / artifact ID `8914536222`; contained APK SHA-256 `c9932345cc8f07d110bffa364d4b30d111cf149d78fed789153a63cde9f3d726`.
+- Source Package Integrity run `30965115656` and Patch Note Accounting run `30965115160` failed before source selection/audit because their `fetch-depth: 2` checkout omitted push `before` commit `193fe26155c26c07f77fec9bda212c84d8e7b5f9` from this two-commit push. Their `bad object` failures are CI changed-range defects, not contradictory package or build evidence.
 
 ## SERVER runtime authority boundary
 
@@ -83,7 +83,7 @@ The permanent SERVER-owned internal principal remains:
 - SERVER R2 is the current repository SERVER candidate by exact chunked transport identity.
 - R1 remains preserved as the failed-build §wyrlz LLM Studio parent.
 - R2 is a bounded compile-repair successor; it does not alter the §wyrlz LLM contract or CLIENT.
-- Source transport and repository accounting do not establish Android build success, installation, runtime acceptance, promotion, release, or deployment.
+- Exact APK Router run `30965115165` establishes R2 Android debug build success. It does not establish installation, device/runtime acceptance, promotion, release, or deployment.
 
 ## Candidate documentation entry points
 

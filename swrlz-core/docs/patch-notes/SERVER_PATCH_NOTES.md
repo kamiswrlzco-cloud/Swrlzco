@@ -31,7 +31,9 @@ Changes:
 - preserves the paired INT-AI-074A CLIENT CFv2.1.27 R1 source without publishing or changing the repository CLIENT lane, plus all §wyrlz LLM runtime/Studio behavior and contracts, Room schema 16, identity, trust, Truth Firewall, offline-first behavior, and compatibility identifiers;
 - carries synchronized package `CHANGELOG.md`, `ReleaseNotes.md`, lineage, checkpoint, receipt, evidence, and source manifest.
 
-Verification: compiler-regression precheck PASS; paired gate 113/113 PASS; repair gate 28/28 PASS; Kotlin/KTS scan 397 files with zero violations; internal source manifest 1,191/1,191 PASS; immutable package pair 26/26 PASS; repository CI unit suite 30 tests PASS with one absent-fixture skip; exact chunk reconstruction and repository patch-note accounting PASS. Android compilation and APK/device evidence remain pending.
+Verification: compiler-regression precheck PASS; paired gate 113/113 PASS; repair gate 28/28 PASS; Kotlin/KTS scan 397 files with zero violations; internal source manifest 1,191/1,191 PASS; immutable package pair 26/26 PASS; local repository CI unit suite 30 tests PASS with one absent-fixture skip; exact chunk reconstruction and local repository patch-note accounting PASS. APK Router run `30965115165` resolved exact R2, verified the package, and completed `:app:assembleDebug`; artifact ID `8914536222` contains APK SHA-256 `c9932345cc8f07d110bffa364d4b30d111cf149d78fed789153a63cde9f3d726`. Installation/device evidence remains pending.
+
+Automatic Source Package Integrity run `30965115656` and Patch Note Accounting run `30965115160` failed before their substantive verification/audit steps because `fetch-depth: 2` did not include push `before` commit `193fe26155c26c07f77fec9bda212c84d8e7b5f9` for the two-commit publication. Both reported `fatal: bad object`; this is preserved as CI workflow evidence debt and does not negate the independent APK Router package/build success.
 
 ## Failed direct parent preserved — 2026-08-04
 
@@ -104,7 +106,7 @@ Repository transport proves exact R34 package identity. The supplied APK Router 
 | CFv2.1.26 R33 | 116 | SWRLZ-SERVER-UI-HANDOFF-001-A | `5a725d0d827b871e8f7b44d954fbe140c1d5dc857afe9be447deac9f809a020c` | truthful Core status/layout checkpoint; Forge transported |
 | CFv2.1.26 R34 | 117 | SWYRLZ-SERVER-UI-HANDOFF-001-B | `9cafb443adfcf8dc250eefc7e8894c50190418f9604de7e151356a0e6a12f9cb` | preserved prior repository candidate; Chat interface cleanup and visible terminology transition |
 | CFv2.1.27 R1 | 129 | INT-AI-074A | `f14a42f8d809fe4a4c23fc86c2bb193bbf3b51d7f6dc5d023205a875916f41dc` | exact transport; compile failed in run `30950003262` |
-| CFv2.1.27 R2 | 130 | INT-FIX-075A | `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86` | current repository candidate; exact-SHA Android rebuild pending |
+| CFv2.1.27 R2 | 130 | INT-FIX-075A | `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86` | current repository candidate; exact-SHA Android debug build successful in run `30965115165`; device acceptance pending |
 
 ## Preserved historical accounting snapshot
 
