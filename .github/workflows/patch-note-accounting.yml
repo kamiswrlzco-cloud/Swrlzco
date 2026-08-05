@@ -10,6 +10,12 @@ on:
       - 'swrlz-core/docs/reference/CURRENT_CANDIDATE_LINEAGE.md'
       - 'swrlz-core/docs/CURRENT_AUTHORITY.md'
       - 'swrlz-core/docs/contracts/SWRLZ_PATCH_NOTE_AND_LINEAGE_ACCOUNTING_V1.md'
+      - 'swrlz-core/tools/ci/resolve_changed_source_identities.py'
+      - 'swrlz-core/tools/ci/resolve_push_changed_paths.py'
+      - 'swrlz-core/tools/ci/test_resolve_push_changed_paths.py'
+      - 'swrlz-core/tools/ci/test_verify_patch_note_accounting.py'
+      - 'swrlz-core/tools/ci/verify_patch_note_accounting.py'
+      - '.github/workflows/patch-note-accounting.yml'
   workflow_dispatch:
 
 permissions:
@@ -28,7 +34,10 @@ jobs:
 
       - name: Run patch-accounting regression tests
         working-directory: swrlz-core/tools/ci
-        run: python3 -m unittest -v test_verify_patch_note_accounting.py
+        run: |
+          python3 -m unittest -v \
+            test_resolve_push_changed_paths.py \
+            test_verify_patch_note_accounting.py
 
       - name: Resolve changed source identities
         id: identities
@@ -43,11 +52,11 @@ jobs:
           if [[ "${{ github.event_name }}" == 'push' ]]; then
             BEFORE='${{ github.event.before }}'
             AFTER='${{ github.sha }}'
-            if [[ -z "$BEFORE" || "$BEFORE" =~ ^0+$ ]]; then
-              git show --pretty= --name-only "$AFTER" > "$changed"
-            else
-              git diff --name-only "$BEFORE" "$AFTER" > "$changed"
-            fi
+            python3 swrlz-core/tools/ci/resolve_push_changed_paths.py \
+              --repo-root . \
+              --before "$BEFORE" \
+              --after "$AFTER" \
+              --output "$changed"
 
             python3 swrlz-core/tools/ci/resolve_changed_source_identities.py \
               --repo-root . \

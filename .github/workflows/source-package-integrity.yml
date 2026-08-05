@@ -7,8 +7,10 @@ on:
       - 'swrlz-core/sources/**'
       - 'swrlz-core/tools/ci/resolve_swrlz_source.py'
       - 'swrlz-core/tools/ci/resolve_changed_source_identities.py'
+      - 'swrlz-core/tools/ci/resolve_push_changed_paths.py'
       - 'swrlz-core/tools/ci/test_resolve_swrlz_source.py'
       - 'swrlz-core/tools/ci/test_resolve_changed_source_identities.py'
+      - 'swrlz-core/tools/ci/test_resolve_push_changed_paths.py'
       - '.github/workflows/source-package-integrity.yml'
 
   workflow_dispatch:
@@ -42,7 +44,8 @@ jobs:
         run: |
           python3 -m unittest -v \
             test_resolve_swrlz_source.py \
-            test_resolve_changed_source_identities.py
+            test_resolve_changed_source_identities.py \
+            test_resolve_push_changed_paths.py
 
       - name: Resolve changed or selected source identities
         id: sources
@@ -58,11 +61,11 @@ jobs:
           else
             BEFORE='${{ github.event.before }}'
             AFTER='${{ github.sha }}'
-            if [[ -z "$BEFORE" || "$BEFORE" =~ ^0+$ ]]; then
-              git show --pretty= --name-only "$AFTER" > "$changed"
-            else
-              git diff --name-only "$BEFORE" "$AFTER" > "$changed"
-            fi
+            python3 "$SWRLZ_CI_ROOT/resolve_push_changed_paths.py" \
+              --repo-root . \
+              --before "$BEFORE" \
+              --after "$AFTER" \
+              --output "$changed"
           fi
 
           python3 "$SWRLZ_CI_ROOT/resolve_changed_source_identities.py" \
