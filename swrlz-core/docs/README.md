@@ -6,7 +6,7 @@ This tree is the maintained engineering-documentation root for the official
 Start with:
 
 1. [`CURRENT_AUTHORITY.md`](CURRENT_AUTHORITY.md) — promoted CLIENT/SERVER authority plus current-candidate pointer and evidence boundary
-2. [`DOCUMENTATION_INDEX.md`](DOCUMENTATION_INDEX.md) — maintained documentation map through the current 2026-07-31 CI/candidate synchronization
+2. [`DOCUMENTATION_INDEX.md`](DOCUMENTATION_INDEX.md) — maintained documentation map, including the 2026-08-04 SERVER R2 repair/publication checkpoint
 3. [`reference/CURRENT_CANDIDATE_LINEAGE.md`](reference/CURRENT_CANDIDATE_LINEAGE.md) — current CLIENT/SERVER candidate transport, Forge/File-Lab/Truth-Core progression, and identity-collision accounting
 4. [`patch-notes/CLIENT_PATCH_NOTES.md`](patch-notes/CLIENT_PATCH_NOTES.md) and [`patch-notes/SERVER_PATCH_NOTES.md`](patch-notes/SERVER_PATCH_NOTES.md) — maintained per-component candidate/update ledgers
 5. [`contracts/SWRLZ_PATCH_NOTE_AND_LINEAGE_ACCOUNTING_V1.md`](contracts/SWRLZ_PATCH_NOTE_AND_LINEAGE_ACCOUNTING_V1.md) — active contract requiring every future source update to synchronize package and repository patch-history surfaces
@@ -15,6 +15,17 @@ Start with:
 8. [`reference/module-map.md`](reference/module-map.md) — module map updated through current candidates and CI router synchronization
 9. [`reference/source-of-truth.md`](reference/source-of-truth.md) — authority hierarchy and evidence classes
 10. [`architecture/conversational-artifact-forge-and-file-organization-v1.md`](architecture/conversational-artifact-forge-and-file-organization-v1.md) — Forge transport/lifecycle, Chat artifact discovery, and file-organization architecture
+
+## 2026-08-04 SERVER synchronization boundary
+
+- Current non-promoted SERVER repository candidate: CFv2.1.27 R2 / VC130 / `INT-FIX-075A`.
+- Exact source SHA-256: `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86`.
+- Exact metadata ZIP SHA-256: `65034a407090c80d252361c449f0cc471ad57a7fde3742b9622958a96465a647`.
+- R1 remains immutable failed-build lineage from workflow run `30950003262`.
+- R2 is source/static/package verified and Android-build pending; it is not promoted, installed, released, or deployed.
+- CLIENT is unchanged by INT-FIX-075A; use `CURRENT_AUTHORITY.md` and the CLIENT patch notes for its separately governed pointer.
+
+The 2026-07-31 section below is preserved as its dated synchronization snapshot and is superseded for current SERVER-candidate navigation by the R2 records above.
 
 ## 2026-07-31 synchronization boundary
 

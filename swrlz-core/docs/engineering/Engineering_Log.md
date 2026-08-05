@@ -1,4 +1,75 @@
-# CLIENT Engineering Log
+# SWRLZ Engineering Log
+
+## 2026-08-04 — INT-FIX-075A
+
+### Objective
+
+Repair the single compiler-evidenced SERVER defect in CFv2.1.27 R1, prevent recurrence in the paired §wyrlz LLM verification lane, publish the immutable R2 source/metadata pair, and synchronize repository history.
+
+### Source lineage
+
+- Failed parent: SERVER CFv2.1.27 R1 / VC129 / SHA-256 `f14a42f8d809fe4a4c23fc86c2bb193bbf3b51d7f6dc5d023205a875916f41dc`.
+- R1 repository transport: commit `193fe26155c26c07f77fec9bda212c84d8e7b5f9`.
+- R1 build evidence: GitHub Actions run `30950003262` verified the exact package, reached `:app:compileDebugKotlin`, and failed at `ServerOperationsScreen.kt:16`.
+- Repair successor: SERVER CFv2.1.27 R2 / VC130 / SHA-256 `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86`.
+- Metadata ZIP SHA-256: `65034a407090c80d252361c449f0cc471ad57a7fde3742b9622958a96465a647`.
+- The paired INT-AI-074A CLIENT CFv2.1.27 R1 source remains unchanged and is not part of this repository publication; the repository CLIENT lane remains separately governed.
+
+### Facts
+
+- `SOURCE IMPLEMENTED`
+- `STATIC VERIFICATION PASS`
+- `PACKAGE ONLY` before repository publication
+- `BUILD NOT RUN` for R2 before publication
+- `RUNTIME NOT TESTED`
+
+### Requirements
+
+- Preserve R1 as immutable failed-build lineage.
+- Remove the invalid explicit Compose weight import while retaining contextual weight behavior.
+- Make the established compiler-regression precheck mandatory.
+- Publish only the exact verified R2 package pair and synchronized SERVER documentation.
+- Keep promoted authority, CLIENT, contracts, Room schema, trust, Truth Firewall, and local/remote behavior unchanged.
+
+### Engineering decisions
+
+- Use the repository's accepted `chunked-git-blobs-v2` representation; the lane-root transport manifest remains the source identity and reconstructs the byte-exact 48,587,996-byte ZIP.
+- Treat automatic push-triggered workflows as build/evidence producers, not preexisting success.
+- Record R35–R45 navigation debt while preserving each candidate's original evidence boundary.
+
+### Engineering changes
+
+- Removed `import androidx.compose.foundation.layout.weight` from `ServerOperationsScreen.kt`; both `Modifier.weight(1f)` calls remain.
+- Integrated the compiler-regression precheck into the paired INT-AI-074A verifier.
+- Advanced SERVER identity to VC130 / `2.1.27-swrlz-llm-studio-compile-repair-r2`.
+- Added the exact R2 chunk transport and metadata bundle to the SERVER source lane.
+- Updated current authority, candidate lineage, SERVER patch notes, checkpoint/release/evidence records, and this engineering log.
+
+### Verification performed
+
+- SERVER compiler-regression precheck: PASS.
+- Paired static gate: 113/113 PASS.
+- INT-FIX-075A repair gate: 28/28 PASS.
+- Kotlin/KTS string scan: 397 files, zero violations.
+- Internal source manifest: 1,191/1,191 PASS.
+- Immutable package pair: 26/26 PASS.
+- R1→R2 inventory: 7 added, 12 modified, 0 removed.
+
+### Runtime evidence
+
+R2 Android compilation, APK generation, installation, device acceptance, and integration acceptance remain pending. Publication may automatically start Source Package Integrity, Patch Note Accounting, and APK Router workflows; their actual run IDs and outcomes must be recorded separately.
+
+### Known issues
+
+- `FOLLOW-UP REQUIRED` — verify that CI resolves exact R2 SHA-256 `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86` and record the first actual build result.
+
+### Exclusions
+
+No CLIENT change, manual workflow dispatch/rerun, APK installation, promotion, release, or deployment.
+
+### Follow-up
+
+After repository publication, bind the exact source-publication commit and automatic workflow evidence to this checkpoint without upgrading pending build/device claims.
 
 ## 2026-07-29 — INT-DOC-AI-041H dense-chat identity/model synchronization
 

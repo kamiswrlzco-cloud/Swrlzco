@@ -1,4 +1,4 @@
-# Current Authority — 2026-08-03
+# Current Authority — 2026-08-04
 
 ## Official repository
 
@@ -35,33 +35,35 @@ The current repository-transported Forge candidate lineage is maintained in `ref
 | Component | Candidate | VC | Source SHA-256 | Metadata SHA-256 | Repository transport | Status boundary |
 |---|---|---:|---|---|---|---|
 | CLIENT | CFv2.1.26 R8 | 131 | `5b47857ef039609966669b039042bc69eba64dca48774107db353faeb7419912` | `6f246527543d28c010a67a019879ec4280706a6011a66f119c9a2fa366341391` | commit `d2e54ff07759cbc74d15a88a987dd0dc1ffc6f4b` | owner-reported Android build success; not promoted |
-| SERVER | CFv2.1.26 R34 | 117 | `9cafb443adfcf8dc250eefc7e8894c50190418f9604de7e151356a0e6a12f9cb` | `34cf10cdcdea4c2beeb5c39b91067743dab74019f3d5eafa0d7962a2551569e3` | commit `c92e124656fd1d9b0c2b039d29c8b508a54de309` | `SWYRLZ-SERVER-UI-HANDOFF-001-B`; repository transported; build result pending; not promoted |
+| SERVER | CFv2.1.27 R2 | 130 | `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86` | `65034a407090c80d252361c449f0cc471ad57a7fde3742b9622958a96465a647` | INT-FIX-075A publication commit that adds the R2 transport identity | source/static/package verified; automatic exact-SHA Android rebuild pending; not promoted |
 
-R34 replaces the prior non-promoted SERVER candidate pointer because its exact chunked Forge transport is established. It does not change promoted SERVER authority.
+R2 replaces R1 only as the non-promoted repository SERVER candidate pointer. R1 remains immutable failed-build lineage. Neither repository transport nor the automatic rebuild changes promoted SERVER authority.
 
 ## Current SERVER candidate interpretation
 
-- Candidate: `SERVER_CFv2.1.26_SWRLZ_CANDIDATE_R34`
-- Logical identity: `CFv2.1.26 R34`
-- versionCode: `117`
-- versionName: `2.1.26-chat-interface-cleanup-r34`
-- checkpoint: `SWYRLZ-SERVER-UI-HANDOFF-001-B`
-- source SHA-256: `9cafb443adfcf8dc250eefc7e8894c50190418f9604de7e151356a0e6a12f9cb`
-- metadata SHA-256: `34cf10cdcdea4c2beeb5c39b91067743dab74019f3d5eafa0d7962a2551569e3`
-- repository identity: `sources/server/SERVER_CFv2.1.26_SWRLZ_CANDIDATE_R34.transport.json`
-- Forge transport commit: `c92e124656fd1d9b0c2b039d29c8b508a54de309`
+- Candidate: `SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R2`
+- Logical identity: `CFv2.1.27 R2`
+- versionCode: `130`
+- versionName: `2.1.27-swrlz-llm-studio-compile-repair-r2`
+- checkpoint: `INT-FIX-075A`
+- source SHA-256: `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86`
+- metadata SHA-256: `65034a407090c80d252361c449f0cc471ad57a7fde3742b9622958a96465a647`
+- direct parent: `SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R1` / SHA-256 `f14a42f8d809fe4a4c23fc86c2bb193bbf3b51d7f6dc5d023205a875916f41dc`
+- repository identity: `sources/server/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R2.transport.json`
+- repository transport: the INT-FIX-075A publication commit that adds the identity above
 - promotion: not promoted
 
-R34 implements the bounded Chat-interface cleanup and related presentation amendments: active-thread and LLM-status header, functional thread navigation, compact composer, upward dragon menu, GitHub Actions first in Forge, precise mobile-data/local-link wording, and visible `Swyrlz` / `Swyrler` terminology on primary SERVER surfaces.
+R1 introduced the first-party §wyrlz LLM system layer, role-scoped knowledge/training, CLIENT context bridge, and dedicated SERVER LLM Studio. APK Router run `30950003262` selected and verified exact R1, then failed at `:app:compileDebugKotlin` on the explicit internal Compose `foundation.layout.weight` import in `ServerOperationsScreen.kt`.
 
-R34 preserves package names, protocol identifiers, database identifiers, source filenames, capability IDs, lineage, `server-root`, the persistent node-admin registry, capability-bearing mission routing, tunnel process isolation/lifecycle, identity, trust, Truth Firewall, offline-first behavior, and protocol discipline.
+R2 removes only that invalid import, preserves both contextual `Modifier.weight(1f)` calls, and makes the existing SERVER compiler-regression precheck mandatory in the paired LLM verifier. It preserves the paired INT-AI-074A CLIENT source without publishing or changing the repository CLIENT lane, plus the LLM behavior/contracts, Room schema 16, package/protocol/database identifiers, `server-root`, proof-bound admin authority, identity, trust, Truth Firewall, offline-first behavior, local/remote distinctions, and protocol discipline.
 
 ## Build and workflow evidence boundary
 
-- Forge transport of R34 succeeded and established exact source identity.
-- Patch Note Accounting run `30846388129` failed because the three repository accounting documents still stopped at an older SERVER candidate; this document, `reference/CURRENT_CANDIDATE_LINEAGE.md`, and `patch-notes/SERVER_PATCH_NOTES.md` now carry the exact R34 source SHA, candidate, and checkpoint.
-- APK Router run `30846388177` was canceled during GitHub checkout after approximately five minutes. It did not reach component routing, source resolution, Gradle configuration, Kotlin compilation, APK packaging, or artifact upload.
-- Therefore the canceled APK Router run is not evidence of an R34 source defect and is not a failed Android build result.
+- R1 transport commit `193fe26155c26c07f77fec9bda212c84d8e7b5f9` established exact source SHA-256 `f14a42f8d809fe4a4c23fc86c2bb193bbf3b51d7f6dc5d023205a875916f41dc`.
+- APK Router run `30950003262` verified that exact R1 source and failed at Kotlin compilation on the explicit internal Compose weight import. It produced no APK and did not build CLIENT.
+- R2 is source/static/package verified at SHA-256 `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86`.
+- Publication of the R2 lane-root transport identity may trigger the configured Source Package Integrity, Patch Note Accounting, and APK Router workflows automatically.
+- No R2 workflow/build result is claimed until a run resolves this exact R2 SHA and reports its actual outcome.
 
 ## SERVER runtime authority boundary
 
@@ -78,11 +80,9 @@ The permanent SERVER-owned internal principal remains:
 ## Current evidence interpretation
 
 - CLIENT R8 remains the current repository CLIENT candidate.
-- SERVER R34 is the current repository SERVER candidate by exact Forge transport identity.
-- R31 established persistent admin promotion/revocation and internal server-root authority.
-- R32 established capability-bearing message/mission routing.
-- R33 established truthful Core status semantics and accepted Core ordering.
-- R34 established the bounded Chat-interface cleanup and visible terminology transition.
+- SERVER R2 is the current repository SERVER candidate by exact chunked transport identity.
+- R1 remains preserved as the failed-build §wyrlz LLM Studio parent.
+- R2 is a bounded compile-repair successor; it does not alter the §wyrlz LLM contract or CLIENT.
 - Source transport and repository accounting do not establish Android build success, installation, runtime acceptance, promotion, release, or deployment.
 
 ## Candidate documentation entry points

@@ -6,6 +6,7 @@
 **Last distributed architecture synchronization:** 2026-07-28 — INT-DOC-AI-040A  
 **Last update architecture synchronization:** 2026-07-28 — INT-DOC-UPD-040C-040D  
 **Last SWRLIE runtime/candidate synchronization:** 2026-07-31 — INT-AI-060A + INT-CI-061A documentation sync
+**Last SERVER candidate synchronization:** 2026-08-04 — INT-FIX-075A
 
 ## Current promoted source baseline
 
@@ -23,12 +24,14 @@ The current post-041H source-candidate lineage is maintained in `CURRENT_CANDIDA
 - `../patch-notes/CLIENT_PATCH_NOTES.md`
 - `../patch-notes/SERVER_PATCH_NOTES.md`
 
-Current repository Forge transport from commit `ac6e58c642d6ad58cc2f806cdb93794d0a4bf4af`:
+Current component pointers are maintained independently. INT-FIX-075A changes only the SERVER pointer; the CLIENT row remains unchanged pending its own separately governed synchronization.
 
 | Component | Candidate | VC | SHA-256 | Checkpoint | Promotion |
 |---|---|---:|---|---|---|
 | CLIENT | CFv2.1.27 R1 | 125 | `28074d8f2e97bec734b460e944399972920a32309ba21222a6a240642c35b433` | INT-AI-060A | candidate only |
-| SERVER | CFv2.1.25 R1 | 83 | `5aa743e47c0e5474120e907f5dc2440b9333aa40245c9832e2b4e700a0a27798` | INT-AI-060A | candidate only |
+| SERVER | CFv2.1.27 R2 | 130 | `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86` | INT-FIX-075A | current repository candidate; source/static/package verified; build pending; not promoted |
+
+SERVER R1 / VC129 / SHA `f14a42f8d809fe4a4c23fc86c2bb193bbf3b51d7f6dc5d023205a875916f41dc` remains preserved failed-build parent lineage. Transport commit `193fe26155c26c07f77fec9bda212c84d8e7b5f9` and run `30950003262` prove exact source selection followed by Kotlin compile failure; they do not establish an APK.
 
 INT-FILE-059A previously packaged different bytes under the same external CLIENT CFv2.1.27 R1 / SERVER CFv2.1.25 R1 identities. That collision is explicitly recorded in `CURRENT_CANDIDATE_LINEAGE.md`; the sources are distinguished by exact SHA-256, versionName and checkpoint provenance. The next candidate must advance version and/or revision.
 

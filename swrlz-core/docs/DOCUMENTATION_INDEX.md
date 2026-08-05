@@ -57,11 +57,14 @@ Patch notes are lineage/navigation evidence. They do not outrank canonical sourc
 ## Releases
 
 - `releases/compatibility-matrix.md`
+- `releases/SERVER_CFv2.1.27_R2_COMPILE_REPAIR.md` — INT-FIX-075A bounded SERVER compile-repair successor; build pending
 - `releases/CLIENT_CFv2.1.9_PACKAGE_PAIR_REPAIR.md`
 - `releases/CLIENT_CFv2.1.8_THEME_CHROME_RUNTIME_REPAIR.md`
 
 ## Checkpoints and engineering evidence
 
+- `checkpoints/INT-FIX-075A_SERVER_COMPILE_REPAIR_AND_PUBLICATION.md` — exact R1 compiler failure, bounded R2 repair, immutable package identities, repository publication boundary, and automatic-build evidence gate
+- `evidence/INT-FIX-075A_STATIC_VERIFICATION.md` — R2 static/package verification and explicit non-claims
 - `checkpoints/INT-CI-061A_ROUTER_DOCUMENTATION_PATCHNOTE_SYNC.md` — 2026-07-31 Source Package Integrity fix for nested chunk-transport evidence, APK Router lane-root/BOTH hardening, current candidate accounting, and mandatory CLIENT/SERVER patch-note synchronization; no workflow dispatch/build/promotion/release/deployment/install claim
 - `engineering/Engineering_Log_2026-07-31.md` — current engineering-log extension covering INT-FORGE-054A-R2, INT-FILE-059A, INT-AI-060A, INT-CI-061A, the 059A/060A source-identity collision, and the locked patch-note accounting contract
 - `engineering/Engineering_Log.md` — earlier maintained engineering history
@@ -80,6 +83,8 @@ Patch notes are lineage/navigation evidence. They do not outrank canonical sourc
 - `handoffs/INT-THEME-035C_SOURCE_HANDOFF.md`
 
 ## Current 2026-07-31 lineage summary
+
+This dated summary is preserved as historical synchronization evidence. Current SERVER-candidate navigation supersedes it with CFv2.1.27 R2 / VC130 / INT-FIX-075A / source SHA `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86`; promoted SERVER authority remains unchanged.
 
 - INT-FORGE-054A-R2 parent baseline: CLIENT CFv2.1.26 R1 / VC124 / SHA `7b0202c01ea2ffbf7c7a3cb50f1e635c1eb6658299abb63de78b2b78502589eb`; SERVER CFv2.1.24 R1 / VC82 / SHA `e5baafa58e0b71d87f7a1042db5c7c8b287d3978aca9445ad1d35661469abe00`.
 - INT-FILE-059A packaged File Lab / Archive Cartographer candidates: CLIENT CFv2.1.27 R1 / VC125 / SHA `9bc88da752d0d310a1ddfc6c9357ce93f8115567f7a6c6eeee35f0ec77f66603`; SERVER CFv2.1.25 R1 / VC83 / SHA `78d7a2efa540fe0b7d9676233cde1a67b606155beb04198f4fd564b9570173ed`.

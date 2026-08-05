@@ -2,9 +2,26 @@
 
 # Server Implementation Analysis
 
-## Current candidate evidence — 2026-07-31
+## Current candidate evidence — 2026-08-04
 
-Current repository transport is INT-AI-060A SERVER CFv2.1.25 R1:
+Current non-promoted repository transport is INT-FIX-075A SERVER CFv2.1.27 R2:
+
+- versionCode: `130`;
+- versionName: `2.1.27-swrlz-llm-studio-compile-repair-r2`;
+- source SHA-256: `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86`;
+- metadata ZIP SHA-256: `65034a407090c80d252361c449f0cc471ad57a7fde3742b9622958a96465a647`;
+- repository transport: `sources/server/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R2.transport.json`;
+- direct parent: SERVER CFv2.1.27 R1 / SHA `f14a42f8d809fe4a4c23fc86c2bb193bbf3b51d7f6dc5d023205a875916f41dc`.
+
+R1 introduced the first-party §wyrlz LLM contract/runtime, atomic training store, role-filtered product knowledge, teaching/evaluation paths, proof-bound CLIENT context/chat integration, and dedicated SERVER LLM Studio. R1 transport commit `193fe26155c26c07f77fec9bda212c84d8e7b5f9` and APK Router run `30950003262` prove exact source selection and package verification followed by a Kotlin compile failure at `ServerOperationsScreen.kt:16:43`.
+
+R2 removes the invalid explicit Compose weight import, retains both contextual weight calls, and makes the established compiler-regression precheck mandatory in the paired verifier. It preserves the paired INT-AI-074A CLIENT source without publishing or changing the repository CLIENT lane, plus LLM behavior/contracts, Room schema 16, proof-bound admin access, identity, trust, Truth Firewall, offline-first behavior, and compatibility identifiers.
+
+R2 has source/static/package evidence only. The configured publication push may start an exact-SHA Android rebuild automatically, but no R2 compile/APK/device result is claimed until the resulting run is observed.
+
+### Preserved 2026-07-31 candidate snapshot
+
+The preceding maintained repository snapshot identified INT-AI-060A SERVER CFv2.1.25 R1:
 
 - versionCode: `83`;
 - versionName: `2.1.25-truth-reasoning-expression-separation-candidate-r1`;
@@ -12,7 +29,7 @@ Current repository transport is INT-AI-060A SERVER CFv2.1.25 R1:
 - repository Forge commit: `ac6e58c642d6ad58cc2f806cdb93794d0a4bf4af`;
 - repository transport: `sources/server/SERVER_CFv2.1.25_SWRLZ_CANDIDATE_R1-1.transport.json`.
 
-INT-AI-060A separates non-profile Truth Core invariants, reasoning/output-budget controls, and expression/profile shaping. Truthfulness, user sovereignty, speaker grounding, authority boundaries, evidence precedence, epistemic skepticism, uncertainty honesty, and action-result honesty remain SWRLZ standards rather than profile flavor. The selected LLM remains replaceable reasoning equipment; Swurlzara remains an expression/profile lens.
+INT-AI-060A separated non-profile Truth Core invariants, reasoning/output-budget controls, and expression/profile shaping. Truthfulness, user sovereignty, speaker grounding, authority boundaries, evidence precedence, epistemic skepticism, uncertainty honesty, and action-result honesty remain SWRLZ standards rather than profile flavor. The selected LLM remains replaceable reasoning equipment; Swurlzara remains an expression/profile lens.
 
 Packaged evidence records SERVER static `56/56` PASS, compiler-regression PASS, standalone `SwrlzTruthCoreV1` Kotlin compilation PASS, and package/manifest integrity. Gradle/Android compilation was not established in that packaging environment because the Gradle distribution could not be reached.
 
@@ -23,7 +40,7 @@ INT-FILE-059A previously packaged different source bytes as SERVER CFv2.1.25 R1:
 - versionName: `2.1.25-file-lab-cartographer-candidate-r1`;
 - source SHA-256: `78d7a2efa540fe0b7d9676233cde1a67b606155beb04198f4fd564b9570173ed`.
 
-That candidate adds the shared Forge File Lab/Archive Cartographer foundation. It is distinct from current 060A repository transport despite the reused external version/revision identity. The next SERVER candidate must advance version and/or revision.
+That candidate adds the shared Forge File Lab/Archive Cartographer foundation. It is distinct from the historical 060A repository transport despite the reused external version/revision identity. Later candidates advanced version/revision and remain separated by exact SHA and checkpoint lineage.
 
 ### Shared Forge parent — SERVER CFv2.1.24 R1 / INT-FORGE-054A-R2
 

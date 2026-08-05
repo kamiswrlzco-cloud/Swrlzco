@@ -1,4 +1,4 @@
-# Current CLIENT / SERVER Candidate Lineage — 2026-08-03
+# Current CLIENT / SERVER Candidate Lineage — 2026-08-04
 
 This file tracks repository-transported candidates independently from promoted authority. `../CURRENT_AUTHORITY.md` remains the promotion authority until an explicit promotion checkpoint changes it.
 
@@ -7,25 +7,22 @@ This file tracks repository-transported candidates independently from promoted a
 | Component | Logical candidate | VC | Source SHA-256 | Metadata SHA-256 | Checkpoint | Forge commit | Repository identity |
 |---|---|---:|---|---|---|---|---|
 | CLIENT | CFv2.1.26 R8 | 131 | `5b47857ef039609966669b039042bc69eba64dca48774107db353faeb7419912` | `6f246527543d28c010a67a019879ec4280706a6011a66f119c9a2fa366341391` | INT-FIX-060C | `d2e54ff07759cbc74d15a88a987dd0dc1ffc6f4b` | `sources/client/CLIENT_CFv2.1.26_SWRLZ_CANDIDATE_R8.zip` |
-| SERVER | CFv2.1.26 R34 | 117 | `9cafb443adfcf8dc250eefc7e8894c50190418f9604de7e151356a0e6a12f9cb` | `34cf10cdcdea4c2beeb5c39b91067743dab74019f3d5eafa0d7962a2551569e3` | SWYRLZ-SERVER-UI-HANDOFF-001-B | `c92e124656fd1d9b0c2b039d29c8b508a54de309` | `sources/server/SERVER_CFv2.1.26_SWRLZ_CANDIDATE_R34.transport.json` |
+| SERVER | CFv2.1.27 R2 | 130 | `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86` | `65034a407090c80d252361c449f0cc471ad57a7fde3742b9622958a96465a647` | INT-FIX-075A | publication commit that adds this transport identity | `sources/server/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R2.transport.json` |
 
 The SERVER transport uses chunked Git blobs. The lane-root `.transport.json` is the repository source identity; chunks, metadata, and bounded accounting receipts are evidence members, not independent source candidates.
 
-R34 is the current non-promoted repository SERVER candidate. Repository transport establishes exact package identity only; it does not prove Android compilation, installation, device acceptance, promotion, release, or deployment.
+R2 is the current non-promoted repository SERVER candidate. Repository transport establishes exact package identity only; it does not prove Android compilation, installation, device acceptance, promotion, release, or deployment.
 
-## R34 implementation relationship
+## R1 failure and R2 repair relationship
 
-R34 is the direct interface-cleanup successor to R33 and implements checkpoint `SWYRLZ-SERVER-UI-HANDOFF-001-B`:
+R1 is the §wyrlz LLM Studio successor to R45. Forge commit `193fe26155c26c07f77fec9bda212c84d8e7b5f9` transported exact R1 source SHA-256 `f14a42f8d809fe4a4c23fc86c2bb193bbf3b51d7f6dc5d023205a875916f41dc`. APK Router run `30950003262` verified that package and failed at `:app:compileDebugKotlin` on the explicit internal Compose `foundation.layout.weight` import.
 
-- truthful active-thread and LLM-status Chat header;
-- New Chat, Chat History, Pinned Chats, and Bookmarked Chats navigation;
-- compact translucent composer with embedded dragon and send controls;
-- upward dragon menu with Commands, Pinned Responses, and Bookmarked Responses;
-- GitHub Actions first in Forge operational ordering;
-- precise mobile-data approved-local-link wording while loopback remains active;
-- visible `Swyrlz` / `Swyrler` terminology migration on primary SERVER surfaces while internal compatibility identifiers remain unchanged.
+R2 is the direct SERVER-only repair successor:
 
-The supplied APK Router run `30846388177` was canceled during GitHub checkout before component route determination or compilation. That run is transport/runner evidence, not a source failure.
+- removes that invalid import while preserving both contextual `Modifier.weight(1f)` calls;
+- makes the established SERVER compiler-regression precheck mandatory in the paired LLM verifier;
+- preserves the paired INT-AI-074A CLIENT source without publishing or changing the repository CLIENT lane, plus the LLM runtime/Studio/contracts, Room schema 16, identity, trust, Truth Firewall, offline-first behavior, and compatibility identifiers;
+- remains build-pending until an automatic or separately authorized run resolves exact R2 SHA-256 `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86` and reports its result.
 
 ## Active direct-successor progression
 
@@ -66,13 +63,26 @@ The supplied APK Router run `30846388177` was canceled during GitHub checkout be
 | CFv2.1.26 R31 | 114 | INT-CONTROL-069B | `2ff51a057917d8280bab5e1142a964925b767e87e879e74a64dfce887ef2f5a2` | persistent admin registry/server-root |
 | CFv2.1.26 R32 | 115 | INT-CONTROL-069C | `c7a947803d2b29d3bef9f0ca4622c24b5cfd90357fc504635e77aa77944d6a15` | capability-bearing messages and mission route |
 | CFv2.1.26 R33 | 116 | SWRLZ-SERVER-UI-HANDOFF-001-A | `5a725d0d827b871e8f7b44d954fbe140c1d5dc857afe9be447deac9f809a020c` | truthful Core status semantics and layout |
-| CFv2.1.26 R34 | 117 | SWYRLZ-SERVER-UI-HANDOFF-001-B | `9cafb443adfcf8dc250eefc7e8894c50190418f9604de7e151356a0e6a12f9cb` | current repository candidate; Chat interface cleanup |
+| CFv2.1.26 R34 | 117 | SWYRLZ-SERVER-UI-HANDOFF-001-B | `9cafb443adfcf8dc250eefc7e8894c50190418f9604de7e151356a0e6a12f9cb` | preserved prior repository candidate; Chat interface cleanup |
+| CFv2.1.26 R35 | 118 | INT-WORKFLOW-RESET-070A | `fbd98d5879354769e43cfd7dc0a49c7d85c43d0399fd255bab2a43cc3a54bc86` | clean candidate identity successor; preserved R34 behavior |
+| CFv2.1.26 R36 | 119 | INT-SERVER-CONTINUITY-071A | `d2e3b4c89ca1efaeb6ea310ce918e50c9a9c799ee19122b6b31e5abb217bac22` | credential-vault/Forge-order/IME foundation |
+| CFv2.1.26 R37 | 120 | INT-SERVER-CONTINUITY-071B | `fd0e7cf2837cbf16abf1267dcb8749895570fed839c511f785bd286d5bf83eed` | canonical conversation ledger and node synchronization |
+| CFv2.1.26 R38 | 121 | INT-SERVER-CONTINUITY-071C | `76a180bdcbf3b0d6d6ff40a01c7ebbc86d32736ea783cfd68ef8feb0210aa200` | capability-gated conversation observatory |
+| CFv2.1.26 R39 | 122 | INT-SERVER-CONTINUITY-071D | `dc19b731e7e06a6046998df3fb64240f38900e15814b97f24c08447f915459df` | group conversations and explicit AI participation |
+| CFv2.1.26 R40 | 123 | INT-SERVER-CONTINUITY-071E | `c6e5b71dd3bcd71453b4c12d868783d6a22f4bcb3283b602729523e8e4b956b1` | resumable verified transfer intake |
+| CFv2.1.26 R41 | 124 | INT-SERVER-CONTINUITY-071F | `e05a2a804eebbc4f5cb414c50871ddfeadd94ea20196488ad1ab342307523a58` | protected local File Analysis Forge |
+| CFv2.1.26 R42 | 125 | INT-SERVER-CONTINUITY-071G | `10108e93d4a535b550e338d8f8bbc140eb98be64ef9039cfcb0def4fb387a1f1` | verified Auto Forge intake and artifact delivery; source-only |
+| CFv2.1.26 R43 | 126 | INT-SERVER-TUNNEL-072A | `ef41bc4052644e0de966a283a38e63cc7c07211cc87103758e8b9e8556ea7236` | shared 23-tool MCP catalog and route-grounded plugin presence |
+| CFv2.1.26 R44 | 127 | INT-SERVER-BUILD-REPAIR-072B | `503fbc1f784621771da43761b842929196cb229060027d254233ccacdbd3a3ce` | malformed ordinary Kotlin string compile repair |
+| CFv2.1.26 R45 | 128 | INT-SERVER-RUNTIME-ACCEPTANCE-073A | `4665ea6d613e2b070597e360ef281392747cdacd1ae670f41355f91ea2c5d226` | Operations/Runtime Acceptance Center; source-only |
+| CFv2.1.27 R1 | 129 | INT-AI-074A | `f14a42f8d809fe4a4c23fc86c2bb193bbf3b51d7f6dc5d023205a875916f41dc` | §wyrlz LLM Studio parent; exact transport; compile failed in run `30950003262` |
+| CFv2.1.27 R2 | 130 | INT-FIX-075A | `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86` | current repository candidate; bounded compile repair; rebuild pending |
 
 ## Authority and package-accounting boundary
 
 - `server-root` remains an internal SERVER principal, not a client node and not externally assignable.
 - A node may hold bounded `SWRLZ_ADMIN_OPERATOR` registry state without becoming server-root.
 - Target capabilities remain implementation- and policy-bound; trust does not fabricate capabilities.
-- R34 package-internal `CHANGELOG.md`, `ReleaseNotes.md`, checkpoint record, and `SWRLZ_PATCH_LINEAGE_INDEX_V1.json` identify R34/VC117/checkpoint B.
+- R2 package-internal `CHANGELOG.md`, `ReleaseNotes.md`, checkpoint record, and `SWRLZ_PATCH_LINEAGE_INDEX_V1.json` identify R2/VC130/INT-FIX-075A.
 - Repository documentation must also name the exact transported source SHA, candidate, and checkpoint.
 - Candidate pointer changes do not promote, release, or deploy software.
