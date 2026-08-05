@@ -1,5 +1,73 @@
 # SWRLZ Engineering Log
 
+## 2026-08-05 — INT-CI-076A
+
+### Objective
+
+Repair Source Package Integrity and Patch Note Accounting changed-range enumeration for
+multi-commit pushes while retaining bounded shallow checkout.
+
+### Source lineage
+
+- Repository baseline: `3d37cf5eadd6eea5a5cba8e796d3a02002fde634`.
+- Preserved SERVER candidate: CFv2.1.27 R2 / VC130 / source SHA-256
+  `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86`.
+- Preserved CLIENT/SERVER application sources and promoted authority: unchanged.
+
+### Facts
+
+- `SOURCE IMPLEMENTED` for CI/tooling only.
+- `STATIC VERIFICATION PASS` — 35 tests pass with one absent historical fixture skip.
+- `WORKFLOW NOT TRIGGERED` for INT-CI-076A at initial documentation freeze.
+- Failed runs `30965115656` and `30965115160` prove the original omitted-base defect.
+- Later CLIENT run `30969188766` passed changed-range resolution and failed the audit on
+  separate CLIENT patch-history/current-lineage gaps.
+
+### Requirements
+
+- Preserve shallow checkout performance and exact push-range truth.
+- Fail closed when a declared boundary cannot be proven.
+- Do not weaken patch accounting or absorb the unrelated CLIENT documentation repair.
+- Change no CLIENT/SERVER application source, package, version, protocol, or authority.
+
+### Engineering decisions
+
+- Centralize range resolution in one Python helper invoked by both workflows.
+- Fetch only an absent exact boundary commit instead of full repository history.
+- Validate the real failure shape with a depth-2 three-commit fixture and a two-commit
+  push range whose base is initially unavailable.
+
+### Engineering changes
+
+- Added `resolve_push_changed_paths.py` and five focused tests.
+- Replaced both inline `git diff` blocks with the shared helper.
+- Added the helper/tests and Patch Note Accounting workflow/tool files to path triggers.
+- Synchronized workflow operations, checkpoint, evidence, status, authority, SERVER
+  follow-up notes, and this engineering log.
+
+### Verification performed
+
+- New changed-range suite: 5/5 PASS.
+- Full local CI discovery: 35 PASS / 1 absent-fixture skip.
+- Historical failed range: 83 paths and exact SERVER R2 identity resolved.
+- SERVER R2 reconstructed/package-pair verified at its unchanged exact SHA-256.
+
+### Known issues
+
+- Repository push validation remains pending until the authorized publication.
+- CLIENT source SHA `2c43d604...aabe5` has independent patch-accounting debt from run
+  `30969188766`; this checkpoint intentionally leaves that enforcement result armed.
+
+### Exclusions
+
+No app-source update, source package, APK build/install, manual rerun/dispatch,
+promotion, release, deployment, or CLIENT accounting repair.
+
+### Follow-up
+
+Publish INT-CI-076A as an intentional two-commit fast-forward, record the two affected
+workflows' exact range-step results, and separate any downstream CLIENT audit failure.
+
 ## 2026-08-04 — INT-FIX-075A
 
 ### Objective

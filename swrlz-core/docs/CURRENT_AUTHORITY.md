@@ -1,4 +1,4 @@
-# Current Authority — 2026-08-04
+# Current Authority — 2026-08-05
 
 ## Official repository
 
@@ -27,6 +27,17 @@ The promoted rows below are intentionally unchanged. A newer candidate, successf
 - Android applicationId: `sh.swrlz.nodehost`
 - versionCode: `50`
 - versionName: `2.1.0-forge-parity-portable-repository-v1`
+
+## Unaccounted repository candidate evidence
+
+Repository head `3d37cf5eadd6eea5a5cba8e796d3a02002fde634` contains a later CLIENT
+CFv2.1.27 R1 Forge transport with source SHA-256
+`2c43d60454d16defda959e482bd03b40ce29a1898d71a966fa67ef30333aabe5`.
+Patch Note Accounting run `30969188766` proves that its package `ReleaseNotes.md` and
+the repository current-lineage/authority surfaces are not synchronized to that exact
+identity. Therefore the documentation-complete candidate pointer below is not silently
+advanced by this CI checkpoint. Repairing or accepting that CLIENT lineage requires a
+separate bounded documentation/source-authority decision.
 
 ## Current candidate pointer — not promoted authority
 
@@ -64,6 +75,14 @@ R2 removes only that invalid import, preserves both contextual `Modifier.weight(
 - APK Router run `30965115165` resolved exact R2 SHA-256 `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86`, verified metadata SHA-256 `65034a407090c80d252361c449f0cc471ad57a7fde3742b9622958a96465a647`, passed package verification, and completed `:app:assembleDebug` successfully.
 - Run `30965115165` produced artifact `SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R2_debug_APK` / artifact ID `8914536222`; contained APK SHA-256 `c9932345cc8f07d110bffa364d4b30d111cf149d78fed789153a63cde9f3d726`.
 - Source Package Integrity run `30965115656` and Patch Note Accounting run `30965115160` failed before source selection/audit because their `fetch-depth: 2` checkout omitted push `before` commit `193fe26155c26c07f77fec9bda212c84d8e7b5f9` from this two-commit push. Their `bad object` failures are CI changed-range defects, not contradictory package or build evidence.
+- INT-CI-076A implements a shared fail-closed changed-range resolver that retains
+  shallow checkout and fetches only a missing exact event-base commit. Its direct
+  depth-2 multi-commit regression and historical 83-path replay pass locally;
+  post-publication workflow evidence remains pending at this documentation freeze.
+- Patch Note Accounting run `30969188766` for later CLIENT Forge commit `3d37cf5e...`
+  passed changed-range resolution and failed in the subsequent audit on separate
+  CLIENT package/repository patch-history omissions. INT-CI-076A does not suppress or
+  repair that evidence.
 
 ## SERVER runtime authority boundary
 

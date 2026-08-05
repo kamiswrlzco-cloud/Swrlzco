@@ -6,7 +6,7 @@ This tree is the maintained engineering-documentation root for the official
 Start with:
 
 1. [`CURRENT_AUTHORITY.md`](CURRENT_AUTHORITY.md) — promoted CLIENT/SERVER authority plus current-candidate pointer and evidence boundary
-2. [`DOCUMENTATION_INDEX.md`](DOCUMENTATION_INDEX.md) — maintained documentation map, including the 2026-08-04 SERVER R2 repair/publication checkpoint
+2. [`DOCUMENTATION_INDEX.md`](DOCUMENTATION_INDEX.md) — maintained documentation map, including the 2026-08-05 INT-CI-076A changed-range repair and the 2026-08-04 SERVER R2 repair/publication checkpoint
 3. [`reference/CURRENT_CANDIDATE_LINEAGE.md`](reference/CURRENT_CANDIDATE_LINEAGE.md) — current CLIENT/SERVER candidate transport, Forge/File-Lab/Truth-Core progression, and identity-collision accounting
 4. [`patch-notes/CLIENT_PATCH_NOTES.md`](patch-notes/CLIENT_PATCH_NOTES.md) and [`patch-notes/SERVER_PATCH_NOTES.md`](patch-notes/SERVER_PATCH_NOTES.md) — maintained per-component candidate/update ledgers
 5. [`contracts/SWRLZ_PATCH_NOTE_AND_LINEAGE_ACCOUNTING_V1.md`](contracts/SWRLZ_PATCH_NOTE_AND_LINEAGE_ACCOUNTING_V1.md) — active contract requiring every future source update to synchronize package and repository patch-history surfaces
@@ -15,6 +15,19 @@ Start with:
 8. [`reference/module-map.md`](reference/module-map.md) — module map updated through current candidates and CI router synchronization
 9. [`reference/source-of-truth.md`](reference/source-of-truth.md) — authority hierarchy and evidence classes
 10. [`architecture/conversational-artifact-forge-and-file-organization-v1.md`](architecture/conversational-artifact-forge-and-file-organization-v1.md) — Forge transport/lifecycle, Chat artifact discovery, and file-organization architecture
+
+## 2026-08-05 CI synchronization boundary
+
+- `INT-CI-076A` replaces duplicated shallow-history `git diff` logic in Source Package
+  Integrity and Patch Note Accounting with one fail-closed push-range resolver.
+- The resolver retains `fetch-depth: 2` and fetches only an absent event-base commit by
+  exact object ID before diffing the declared `before..after` range.
+- Five focused tests directly cover the former multi-commit failure plus one-commit,
+  new-branch, invalid, and unavailable boundary behavior.
+- Local CI discovery is 35 PASS with one absent historical fixture skip; repository
+  publication and actual push-triggered validation remain separate evidence.
+- The independent CLIENT Patch Note Accounting failure in run `30969188766` remains
+  visible and outside this CI-only repair.
 
 ## 2026-08-04 SERVER synchronization boundary
 

@@ -35,6 +35,13 @@ Verification: compiler-regression precheck PASS; paired gate 113/113 PASS; repai
 
 Automatic Source Package Integrity run `30965115656` and Patch Note Accounting run `30965115160` failed before their substantive verification/audit steps because `fetch-depth: 2` did not include push `before` commit `193fe26155c26c07f77fec9bda212c84d8e7b5f9` for the two-commit publication. Both reported `fatal: bad object`; this is preserved as CI workflow evidence debt and does not negate the independent APK Router package/build success.
 
+CI-only follow-up INT-CI-076A replaces both workflows' duplicated range logic with a
+shared fail-closed helper that fetches only a missing exact event-base commit and adds
+direct depth-2 multi-commit regression coverage. Local verification passes; actual
+publication-run evidence remains pending at the initial checkpoint freeze. This
+follow-up changes no SERVER source/package bytes, version, behavior, promotion, build,
+device, release, or deployment state.
+
 ## Failed direct parent preserved — 2026-08-04
 
 ### CFv2.1.27 R1 — INT-AI-074A

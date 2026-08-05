@@ -20,7 +20,7 @@ R2 removes the invalid explicit Compose weight import, retains both contextual w
 
 R2 has source/static/package evidence plus exact-SHA Android debug build evidence. APK Router run `30965115165` resolved source SHA-256 `ec1627ad77e27752c8d29f665faa9f223a3c35bc74af0246bed198586cf3aa86`, verified the metadata/package pair, completed `:app:assembleDebug`, and uploaded artifact ID `8914536222`; the contained APK SHA-256 is `c9932345cc8f07d110bffa364d4b30d111cf149d78fed789153a63cde9f3d726`. Installation/device/runtime acceptance remains untested.
 
-The same push exposed an independent workflow-depth defect: Source Package Integrity run `30965115656` and Patch Note Accounting run `30965115160` used `fetch-depth: 2`, could not access the two-commit push's `before` commit, and failed before source verification/audit. Those failures do not contradict APK Router's exact-R2 verification/build result; their checkout logic remains follow-up work.
+The same push exposed an independent workflow-depth defect: Source Package Integrity run `30965115656` and Patch Note Accounting run `30965115160` used `fetch-depth: 2`, could not access the two-commit push's `before` commit, and failed before source verification/audit. Those failures do not contradict APK Router's exact-R2 verification/build result. CI-only successor INT-CI-076A implements a shared exact-boundary fetch and changed-range resolver with a direct depth-2 multi-commit regression; repository run evidence remains pending at its initial documentation freeze, and no SERVER source bytes change.
 
 ### Preserved 2026-07-31 candidate snapshot
 

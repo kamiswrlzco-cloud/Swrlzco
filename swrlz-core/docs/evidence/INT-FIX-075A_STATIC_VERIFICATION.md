@@ -45,6 +45,11 @@ R2 source-publication commit `ece8bda4ae572fe585e662484c8469e84ad923ef` carries 
 
 The downloaded artifact's three expected hashes match their files. Its `.sha256` records contain absolute runner paths, so portable direct `sha256sum -c` remains CI artifact-format debt even though the digest values themselves verify.
 
+INT-CI-076A preserves both failed shallow-checkout runs as trigger evidence and adds a
+shared exact-boundary changed-range repair. See
+`INT-CI-076A_CHANGED_RANGE_VERIFICATION.md`; SERVER R2 source/package/build evidence is
+unchanged by that CI-only successor.
+
 ## Non-claims
 
 Static results remain source/static/package evidence. APK Router run `30965115165` separately establishes Android debug compilation and APK production for exact R2. Neither evidence class establishes installation, device/integration acceptance, promotion, release, or deployment.

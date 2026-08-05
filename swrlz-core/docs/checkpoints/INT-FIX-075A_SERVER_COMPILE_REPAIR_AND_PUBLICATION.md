@@ -104,6 +104,13 @@ Source Package Integrity run `30965115656` and Patch Note Accounting run `309651
 
 `SOURCE IMPLEMENTED` / `STATIC VERIFICATION PASS` / `DOCUMENTATION SYNCED` / `REPOSITORY TRANSPORTED` / `ANDROID DEBUG BUILD SUCCESS` / `DEVICE PENDING`.
 
+## CI follow-up
+
+INT-CI-076A preserves the two shallow-checkout failures above as evidence and implements
+their shared changed-range repair without changing SERVER R2. Its local depth-2
+multi-commit regression passes; publication-run evidence is governed by the separate
+INT-CI-076A checkpoint.
+
 ## Approval boundary
 
 The project owner authorized committing and pushing the exact R2 source/metadata pair and synchronized repository documentation. That approval includes normally configured push-triggered workflows, but excludes CLIENT changes, manual workflow dispatch/rerun, APK installation, promotion, release, and deployment.
