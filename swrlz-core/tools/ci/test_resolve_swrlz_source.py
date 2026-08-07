@@ -119,6 +119,15 @@ class ResolverTests(unittest.TestCase):
             self.assertEqual(result["selection_reason"], "explicit-source")
             self.assertTrue(result["verified"])
 
+    def test_direct_bundle_accepts_lane_root_filename_identity(self):
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp)
+            source, _ = make_direct(repo, "SERVER", 6, 129)
+            result = resolver.resolve(repo, "SERVER", source.name, repo / "work")
+            self.assertEqual(result["canonical_filename"], source.name)
+            self.assertEqual(result["source_kind"], "direct-bundle")
+            self.assertEqual(result["selection_reason"], "explicit-source")
+
     def test_chunked_v2_bundle(self):
         with tempfile.TemporaryDirectory() as temp:
             repo = Path(temp)
@@ -126,6 +135,29 @@ class ResolverTests(unittest.TestCase):
             result = resolver.resolve(repo, "SERVER", work_dir=repo / "work")
             self.assertEqual(result["source_kind"], "chunked-v2")
             self.assertTrue(Path(result["selected_source"]).is_file())
+
+    def test_chunked_v2_accepts_explicit_logical_zip_identity(self):
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp)
+            transport, _ = make_chunked_v2(repo, "SERVER", 8, 91)
+            source_name = transport.name.removesuffix(".transport.json") + ".zip"
+            result = resolver.resolve(repo, "SERVER", source_name, repo / "work")
+            self.assertEqual(result["source_kind"], "chunked-v2")
+            self.assertEqual(result["canonical_filename"], source_name)
+            self.assertEqual(result["uploaded_filename"], transport.name)
+            self.assertEqual(result["selection_reason"], "explicit-source")
+            self.assertTrue(Path(result["selected_source"]).is_file())
+
+    def test_explicit_logical_zip_keeps_matching_chunked_transport_fail_closed(self):
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp)
+            transport, _ = make_chunked_v2(repo, "SERVER", 9, 92)
+            payload = json.loads(transport.read_text(encoding="utf-8"))
+            first_chunk = repo / payload["chunks"][0]["path"]
+            first_chunk.write_bytes(first_chunk.read_bytes() + b"corrupt")
+            source_name = transport.name.removesuffix(".transport.json") + ".zip"
+            with self.assertRaises(resolver.ResolutionError):
+                resolver.resolve(repo, "SERVER", source_name, repo / "work")
 
     def test_evidence_ranking(self):
         with tempfile.TemporaryDirectory() as temp:
