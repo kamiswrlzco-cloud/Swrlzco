@@ -89,6 +89,18 @@ def ensure_in_lane(path: Path, lane: Path) -> None:
         raise ResolutionError(f"Transport path leaves source lane: {path}") from exc
 
 
+def explicit_identity_path(repo_root: Path, component: str, explicit: str) -> Path:
+    """Resolve a workflow identity as either lane-root filename or repo-relative path."""
+    value = explicit.replace("\\", "/").strip()
+    if not value:
+        raise ResolutionError("Explicit source identity is empty")
+    if "/" not in value:
+        value = (COMPONENT_LANES[component] / value).as_posix()
+    path = safe_repo_path(repo_root, value)
+    ensure_in_lane(path, (repo_root / COMPONENT_LANES[component]).resolve())
+    return path
+
+
 def parse_checksum_text(text: str) -> tuple[str, str]:
     match = SHA_FIND_RE.search(text)
     if not match:
@@ -363,8 +375,14 @@ def select_candidate(candidates: list[Candidate], repo_root: Path, explicit: str
     if not candidates:
         raise ResolutionError("No verified source package was found")
     if explicit:
-        explicit_path = (repo_root / explicit).resolve()
-        matches = [candidate for candidate in candidates if candidate.identity_path.resolve() == explicit_path]
+        component = candidates[0].component
+        explicit_path = explicit_identity_path(repo_root, component, explicit)
+        matches = [
+            candidate
+            for candidate in candidates
+            if candidate.identity_path.resolve() == explicit_path
+            or (candidate.identity_path.parent / candidate.source_name).resolve() == explicit_path
+        ]
         if len(matches) != 1:
             raise ResolutionError("Explicit source identity is absent or ambiguous")
         return matches[0], "explicit-source"
@@ -385,7 +403,10 @@ def resolve(repo_root: Path, component: str, explicit: str = "", work_dir: Path 
     work_dir = (work_dir or repo_root / ".swrlz-work" / component.lower()).resolve()
     strict = changed_paths(repo_root)
     if explicit:
-        strict.add((repo_root / explicit).resolve())
+        explicit_path = explicit_identity_path(repo_root, component, explicit)
+        strict.add(explicit_path)
+        if explicit_path.name.lower().endswith(".zip"):
+            strict.add(explicit_path.with_name(f"{source_stem(explicit_path.name)}.transport.json"))
     candidates = discover(repo_root, component, work_dir, strict)
     selected, reason = select_candidate(candidates, repo_root, explicit)
     if selected.kind.startswith("chunked"):
