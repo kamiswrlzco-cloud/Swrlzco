@@ -4,12 +4,12 @@
 #
 # target: CLIENT or SERVER
 # source_mode=lane_latest uses the current authoritative source lane.
-# source_zip records the exact intended source identity for this authorized retry.
-# INT-FIX-CI-091A: retry unchanged SERVER R13 after explicit ZIP -> chunked-v2 resolver repair.
+# source_zip records the last explicitly validated source identity for lineage only while disabled.
+# INT-FIX-CI-091A: SERVER R13 retry completed successfully after explicit ZIP -> chunked-v2 resolver repair.
 
 schema=2
-enabled=true
-request_id=INT-FIX-CI-091A-SERVER-R13-RETRY
+enabled=false
+request_id=INT-FIX-CI-091A-SERVER-R13-RETRY-COMPLETE
 target=SERVER
 source_mode=lane_latest
 source_zip=swrlz-core/sources/server/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R13.zip
