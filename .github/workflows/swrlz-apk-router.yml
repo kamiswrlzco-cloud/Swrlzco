@@ -62,9 +62,8 @@ defaults:
 env:
   SWRLZ_CI_ROOT: swrlz-core/tools/ci
   SWRLZ_REQUEST_FILE: swrlz-core/requests/000_CURRENT.request
-  # This router is the Google-OAuth-capable distribution path. Stable signing is mandatory.
   SWRLZ_STABLE_SIGNING_REQUIRED: 'true'
-  # Public certificate fingerprints are pinned so accidental keystore rotation fails closed.
+  SWRLZ_EXPECTED_KEYSTORE_SHA256: 'c81cacdb07b0885c9f503b2ca36eccd64a46415940d50e5a97d0a89741069590'
   SWRLZ_EXPECTED_SIGNING_SHA1: '9D:AE:D1:BC:66:4E:15:81:A8:79:14:22:FE:95:CE:9B:6F:83:71:36'
   SWRLZ_EXPECTED_SIGNING_SHA256: 'E4:7B:54:3B:EB:66:48:F1:35:37:95:62:48:68:59:E4:CE:EB:93:4A:63:43:E5:B9:3F:04:D0:6B:8C:6C:50:DA'
 
@@ -286,15 +285,7 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Gradle 8.7
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.7'
-
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Require complete stable signing secret set
+      - name: Validate V2 stable signing configuration
         env:
           SWRLZ_DEV_KEYSTORE_BASE64: ${{ secrets.SWRLZ_DEV_KEYSTORE_BASE64 }}
           SWRLZ_DEV_KEYSTORE_PASSWORD: ${{ secrets.SWRLZ_DEV_KEYSTORE_PASSWORD }}
@@ -302,6 +293,7 @@ jobs:
           SWRLZ_DEV_KEY_PASSWORD: ${{ secrets.SWRLZ_DEV_KEY_PASSWORD }}
         run: |
           set -euo pipefail
+
           PRESENT=0
           for value in \
             "$SWRLZ_DEV_KEYSTORE_BASE64" \
@@ -313,13 +305,65 @@ jobs:
 
           if [[ "${SWRLZ_STABLE_SIGNING_REQUIRED,,}" == 'true' && "$PRESENT" -ne 4 ]]; then
             echo "Stable signing is mandatory for SWRLZ APK Router; found $PRESENT/4 required secrets." >&2
-            echo 'Required: SWRLZ_DEV_KEYSTORE_BASE64, SWRLZ_DEV_KEYSTORE_PASSWORD, SWRLZ_DEV_KEY_ALIAS, SWRLZ_DEV_KEY_PASSWORD' >&2
             exit 1
           fi
           if [[ "$PRESENT" -ne 0 && "$PRESENT" -ne 4 ]]; then
             echo "Stable signing secrets are partially configured ($PRESENT/4); refusing transient fallback." >&2
             exit 1
           fi
+
+          KEYSTORE="$RUNNER_TEMP/swrlz-dev-signing.jks"
+          printf '%s' "$SWRLZ_DEV_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
+          chmod 600 "$KEYSTORE"
+          [[ -s "$KEYSTORE" ]] || {
+            echo 'Decoded stable signing keystore is empty.' >&2
+            exit 1
+          }
+
+          ACTUAL_KEYSTORE_SHA256="$(sha256sum "$KEYSTORE" | awk '{print $1}')"
+          if [[ "$ACTUAL_KEYSTORE_SHA256" != "$SWRLZ_EXPECTED_KEYSTORE_SHA256" ]]; then
+            echo 'Decoded keystore does not match the pinned SWRLZ V2 keystore.' >&2
+            echo "Expected keystore SHA-256: $SWRLZ_EXPECTED_KEYSTORE_SHA256" >&2
+            echo "Actual keystore SHA-256:   $ACTUAL_KEYSTORE_SHA256" >&2
+            exit 1
+          fi
+
+          keytool -list \
+            -keystore "$KEYSTORE" \
+            -storepass "$SWRLZ_DEV_KEYSTORE_PASSWORD" \
+            -alias "$SWRLZ_DEV_KEY_ALIAS" >/dev/null
+
+          # V2 intentionally uses the keystore password for the private-key entry too.
+          # Prove the private key can actually be decrypted before spending time on Gradle.
+          PROBE_STORE="$RUNNER_TEMP/swrlz-signing-private-key-probe.p12"
+          PROBE_PASSWORD="swrlz-ci-probe-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          rm -f "$PROBE_STORE"
+          keytool -importkeystore \
+            -srckeystore "$KEYSTORE" \
+            -srcstoretype JKS \
+            -srcstorepass "$SWRLZ_DEV_KEYSTORE_PASSWORD" \
+            -srcalias "$SWRLZ_DEV_KEY_ALIAS" \
+            -srckeypass "$SWRLZ_DEV_KEYSTORE_PASSWORD" \
+            -destkeystore "$PROBE_STORE" \
+            -deststoretype PKCS12 \
+            -deststorepass "$PROBE_PASSWORD" \
+            -destkeypass "$PROBE_PASSWORD" \
+            -noprompt >/dev/null
+          rm -f "$PROBE_STORE"
+
+          if [[ "$SWRLZ_DEV_KEY_PASSWORD" != "$SWRLZ_DEV_KEYSTORE_PASSWORD" ]]; then
+            echo '::warning::SWRLZ_DEV_KEY_PASSWORD differs from the V2 store password. V2 signing ignores the legacy key-password value and uses the validated store password for the private key.'
+          fi
+
+          echo "V2 stable signing preflight passed. Keystore SHA-256: $ACTUAL_KEYSTORE_SHA256"
+
+      - name: Set up Gradle 8.7
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
 
       - name: Resolve canonical source and checksum
         id: resolve
@@ -361,8 +405,6 @@ jobs:
           SWRLZ_ARTIFACT_ROOT: ${{ runner.temp }}/swrlz-artifacts/router
         run: |
           set -euo pipefail
-          # Forge/Git API uploads may store shell helpers as mode 100644.
-          # Invoke through Bash so CI does not depend on the executable bit.
           bash "$SWRLZ_CI_ROOT/build_swrlz_component.sh" \
             "$COMPONENT" "$SOURCE_ZIP" "$CANONICAL_STEM" "$VARIANT" \
             "$SWRLZ_BUILD_WORK_DIR/$COMPONENT" \
@@ -372,26 +414,22 @@ jobs:
         id: signing
         env:
           ARTIFACT_DIR: ${{ steps.build.outputs.artifact_dir }}
-          SWRLZ_DEV_KEYSTORE_BASE64: ${{ secrets.SWRLZ_DEV_KEYSTORE_BASE64 }}
           SWRLZ_DEV_KEYSTORE_PASSWORD: ${{ secrets.SWRLZ_DEV_KEYSTORE_PASSWORD }}
           SWRLZ_DEV_KEY_ALIAS: ${{ secrets.SWRLZ_DEV_KEY_ALIAS }}
-          SWRLZ_DEV_KEY_PASSWORD: ${{ secrets.SWRLZ_DEV_KEY_PASSWORD }}
         run: |
           set -euo pipefail
 
           KEYSTORE="$RUNNER_TEMP/swrlz-dev-signing.jks"
-          printf '%s' "$SWRLZ_DEV_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
-          chmod 600 "$KEYSTORE"
           [[ -s "$KEYSTORE" ]] || {
-            echo 'Decoded stable signing keystore is empty.' >&2
+            echo 'Validated V2 keystore is missing from runner temp.' >&2
             exit 1
           }
 
-          # Validate the persisted keystore and alias before touching APK artifacts.
-          keytool -list \
-            -keystore "$KEYSTORE" \
-            -storepass "$SWRLZ_DEV_KEYSTORE_PASSWORD" \
-            -alias "$SWRLZ_DEV_KEY_ALIAS" >/dev/null
+          ACTUAL_KEYSTORE_SHA256="$(sha256sum "$KEYSTORE" | awk '{print $1}')"
+          [[ "$ACTUAL_KEYSTORE_SHA256" == "$SWRLZ_EXPECTED_KEYSTORE_SHA256" ]] || {
+            echo 'Validated V2 keystore changed after preflight.' >&2
+            exit 1
+          }
 
           APKSIGNER="$(find "${ANDROID_HOME:-$HOME}" -type f -name apksigner -print 2>/dev/null | sort -V | tail -n 1 || true)"
           ZIPALIGN="$(find "${ANDROID_HOME:-$HOME}" -type f -name zipalign -print 2>/dev/null | sort -V | tail -n 1 || true)"
@@ -431,7 +469,7 @@ jobs:
               --ks "$KEYSTORE" \
               --ks-pass "pass:$SWRLZ_DEV_KEYSTORE_PASSWORD" \
               --ks-key-alias "$SWRLZ_DEV_KEY_ALIAS" \
-              --key-pass "pass:$SWRLZ_DEV_KEY_PASSWORD" \
+              --key-pass "pass:$SWRLZ_DEV_KEYSTORE_PASSWORD" \
               --out "$SIGNED" "$ALIGNED"
 
             "$APKSIGNER" verify --verbose --print-certs "$SIGNED" | tee "$VERIFY_LOG"
@@ -456,7 +494,6 @@ jobs:
             sha256sum "$SIGNED" > "$SIGNED.sha256"
             CANONICAL_APKS+=("$(basename "$SIGNED")")
 
-            # Never publish the source/runner-signed APK alongside the canonical stable APK.
             rm -f \
               "$APK" "$APK.sha256" "$APK.sha" "$APK.idsig" \
               "$ALIGNED" "$ALIGNED.sha256" "$ALIGNED.sha" "$ALIGNED.idsig"
@@ -471,7 +508,6 @@ jobs:
             exit 1
           fi
 
-          # Defense in depth: no non-stable APK may survive into upload/release artifacts.
           mapfile -t TRANSIENT_APKS < <(
             find "$ARTIFACT_DIR" -maxdepth 1 -type f -name '*.apk' \
               ! -name '*_stable-signed.apk' -print | sort
@@ -481,21 +517,23 @@ jobs:
             exit 1
           fi
 
-          SIGNING_MODE='stable-dev-signing-active'
+          SIGNING_MODE='stable-dev-signing-v2-active'
           CANONICAL_APKS_CSV="$(IFS=,; echo "${CANONICAL_APKS[*]}")"
           printf '%s\n' "$SIGNING_MODE" > "$ARTIFACT_DIR/SWRLZ_SIGNING_MODE.txt"
           printf '%s\n' "$CERT_SHA1" > "$ARTIFACT_DIR/SWRLZ_SIGNING_CERT_SHA1.txt"
           printf '%s\n' "$CERT_SHA256" > "$ARTIFACT_DIR/SWRLZ_SIGNING_CERT_SHA256.txt"
+          printf '%s\n' "$ACTUAL_KEYSTORE_SHA256" > "$ARTIFACT_DIR/SWRLZ_SIGNING_KEYSTORE_SHA256.txt"
 
-          export SIGNING_MODE CERT_SHA1 CERT_SHA256 CANONICAL_APKS_CSV ARTIFACT_DIR
+          export SIGNING_MODE CERT_SHA1 CERT_SHA256 CANONICAL_APKS_CSV ARTIFACT_DIR ACTUAL_KEYSTORE_SHA256
           python3 - <<'PY'
           import json, os
           from pathlib import Path
 
           artifact_dir = Path(os.environ["ARTIFACT_DIR"])
           payload = {
-              "schema": 1,
+              "schema": 2,
               "signing_mode": os.environ["SIGNING_MODE"],
+              "keystore_sha256": os.environ["ACTUAL_KEYSTORE_SHA256"],
               "certificate_sha1": os.environ["CERT_SHA1"],
               "certificate_sha256": os.environ["CERT_SHA256"],
               "canonical_apks": [
@@ -515,6 +553,7 @@ jobs:
             echo "signing_mode=$SIGNING_MODE"
             echo "cert_sha1=$CERT_SHA1"
             echo "cert_sha256=$CERT_SHA256"
+            echo "keystore_sha256=$ACTUAL_KEYSTORE_SHA256"
             echo "canonical_apks=$CANONICAL_APKS_CSV"
           } >> "$GITHUB_OUTPUT"
 
@@ -537,6 +576,7 @@ jobs:
             echo "- Manifest file: \`${{ steps.resolve.outputs.manifest_file || 'none supplied' }}\`"
             echo "- Transport manifest: \`${{ steps.resolve.outputs.transport_manifest || 'direct ZIP' }}\`"
             echo "- Signing mode: \`${{ steps.signing.outputs.signing_mode }}\`"
+            echo "- V2 keystore SHA-256: \`${{ steps.signing.outputs.keystore_sha256 }}\`"
             echo "- Canonical APK(s): \`${{ steps.signing.outputs.canonical_apks }}\`"
             echo "- Signing certificate SHA-1: \`${{ steps.signing.outputs.cert_sha1 }}\`"
             echo "- Signing certificate SHA-256: \`${{ steps.signing.outputs.cert_sha256 }}\`"
@@ -563,6 +603,7 @@ jobs:
           SIGNING_MODE: ${{ steps.signing.outputs.signing_mode }}
           SIGNING_CERT_SHA1: ${{ steps.signing.outputs.cert_sha1 }}
           SIGNING_CERT_SHA256: ${{ steps.signing.outputs.cert_sha256 }}
+          SIGNING_KEYSTORE_SHA256: ${{ steps.signing.outputs.keystore_sha256 }}
           CANONICAL_APKS: ${{ steps.signing.outputs.canonical_apks }}
         run: |
           set -euo pipefail
@@ -578,13 +619,14 @@ jobs:
 
           component = os.environ["COMPONENT"]
           manifest = {
-              "schema": 3,
+              "schema": 4,
               "component": component,
               "canonical_source": os.environ["CANONICAL_STEM"] + ".zip",
               "selected_source": os.environ["SOURCE_ZIP"],
               "source_sha256": os.environ["SOURCE_SHA256"],
               "variant": os.environ["VARIANT"],
               "signing_mode": os.environ["SIGNING_MODE"],
+              "signing_keystore_sha256": os.environ["SIGNING_KEYSTORE_SHA256"],
               "signing_certificate_sha1": os.environ["SIGNING_CERT_SHA1"],
               "signing_certificate_sha256": os.environ["SIGNING_CERT_SHA256"],
               "canonical_apks": [name for name in os.environ["CANONICAL_APKS"].split(",") if name],
