@@ -62,6 +62,11 @@ defaults:
 env:
   SWRLZ_CI_ROOT: swrlz-core/tools/ci
   SWRLZ_REQUEST_FILE: swrlz-core/requests/000_CURRENT.request
+  # This router is the Google-OAuth-capable distribution path. Stable signing is mandatory.
+  SWRLZ_STABLE_SIGNING_REQUIRED: 'true'
+  # Public certificate fingerprints are pinned so accidental keystore rotation fails closed.
+  SWRLZ_EXPECTED_SIGNING_SHA1: '9D:AE:D1:BC:66:4E:15:81:A8:79:14:22:FE:95:CE:9B:6F:83:71:36'
+  SWRLZ_EXPECTED_SIGNING_SHA256: 'E4:7B:54:3B:EB:66:48:F1:35:37:95:62:48:68:59:E4:CE:EB:93:4A:63:43:E5:B9:3F:04:D0:6B:8C:6C:50:DA'
 
 jobs:
   resolver-tests:
@@ -289,6 +294,33 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Require complete stable signing secret set
+        env:
+          SWRLZ_DEV_KEYSTORE_BASE64: ${{ secrets.SWRLZ_DEV_KEYSTORE_BASE64 }}
+          SWRLZ_DEV_KEYSTORE_PASSWORD: ${{ secrets.SWRLZ_DEV_KEYSTORE_PASSWORD }}
+          SWRLZ_DEV_KEY_ALIAS: ${{ secrets.SWRLZ_DEV_KEY_ALIAS }}
+          SWRLZ_DEV_KEY_PASSWORD: ${{ secrets.SWRLZ_DEV_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          PRESENT=0
+          for value in \
+            "$SWRLZ_DEV_KEYSTORE_BASE64" \
+            "$SWRLZ_DEV_KEYSTORE_PASSWORD" \
+            "$SWRLZ_DEV_KEY_ALIAS" \
+            "$SWRLZ_DEV_KEY_PASSWORD"; do
+            [[ -n "$value" ]] && PRESENT=$((PRESENT + 1))
+          done
+
+          if [[ "${SWRLZ_STABLE_SIGNING_REQUIRED,,}" == 'true' && "$PRESENT" -ne 4 ]]; then
+            echo "Stable signing is mandatory for SWRLZ APK Router; found $PRESENT/4 required secrets." >&2
+            echo 'Required: SWRLZ_DEV_KEYSTORE_BASE64, SWRLZ_DEV_KEYSTORE_PASSWORD, SWRLZ_DEV_KEY_ALIAS, SWRLZ_DEV_KEY_PASSWORD' >&2
+            exit 1
+          fi
+          if [[ "$PRESENT" -ne 0 && "$PRESENT" -ne 4 ]]; then
+            echo "Stable signing secrets are partially configured ($PRESENT/4); refusing transient fallback." >&2
+            exit 1
+          fi
+
       - name: Resolve canonical source and checksum
         id: resolve
         env:
@@ -336,7 +368,7 @@ jobs:
             "$SWRLZ_BUILD_WORK_DIR/$COMPONENT" \
             "$SWRLZ_ARTIFACT_ROOT/$COMPONENT"
 
-      - name: Apply optional stable development signing
+      - name: Apply mandatory stable development signing
         id: signing
         env:
           ARTIFACT_DIR: ${{ steps.build.outputs.artifact_dir }}
@@ -346,57 +378,147 @@ jobs:
           SWRLZ_DEV_KEY_PASSWORD: ${{ secrets.SWRLZ_DEV_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          PRESENT=0
-          for value in \
-            "$SWRLZ_DEV_KEYSTORE_BASE64" \
-            "$SWRLZ_DEV_KEYSTORE_PASSWORD" \
-            "$SWRLZ_DEV_KEY_ALIAS" \
-            "$SWRLZ_DEV_KEY_PASSWORD"; do
-            [[ -n "$value" ]] && PRESENT=$((PRESENT + 1))
+
+          KEYSTORE="$RUNNER_TEMP/swrlz-dev-signing.jks"
+          printf '%s' "$SWRLZ_DEV_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
+          chmod 600 "$KEYSTORE"
+          [[ -s "$KEYSTORE" ]] || {
+            echo 'Decoded stable signing keystore is empty.' >&2
+            exit 1
+          }
+
+          # Validate the persisted keystore and alias before touching APK artifacts.
+          keytool -list \
+            -keystore "$KEYSTORE" \
+            -storepass "$SWRLZ_DEV_KEYSTORE_PASSWORD" \
+            -alias "$SWRLZ_DEV_KEY_ALIAS" >/dev/null
+
+          APKSIGNER="$(find "${ANDROID_HOME:-$HOME}" -type f -name apksigner -print 2>/dev/null | sort -V | tail -n 1 || true)"
+          ZIPALIGN="$(find "${ANDROID_HOME:-$HOME}" -type f -name zipalign -print 2>/dev/null | sort -V | tail -n 1 || true)"
+          [[ -n "$APKSIGNER" && -n "$ZIPALIGN" ]] || {
+            echo 'apksigner/zipalign not found.' >&2
+            exit 1
+          }
+
+          mapfile -t APKS < <(
+            find "$ARTIFACT_DIR" -maxdepth 1 -type f -name '*.apk' \
+              ! -name '*_stable-signed.apk' -print | sort
+          )
+          ((${#APKS[@]} > 0)) || {
+            echo 'No APK was produced for stable signing.' >&2
+            exit 1
+          }
+
+          CERT_SHA1=''
+          CERT_SHA256=''
+          CANONICAL_APKS=()
+
+          normalize_digest() {
+            printf '%s' "$1" \
+              | tr -d '[:space:]:' \
+              | tr '[:lower:]' '[:upper:]' \
+              | sed 's/../&:/g; s/:$//'
+          }
+
+          for APK in "${APKS[@]}"; do
+            BASE="${APK%.apk}"
+            ALIGNED="${BASE}_aligned.apk"
+            SIGNED="${BASE}_stable-signed.apk"
+            VERIFY_LOG="${SIGNED}.apksigner.txt"
+
+            "$ZIPALIGN" -f -p 4 "$APK" "$ALIGNED"
+            "$APKSIGNER" sign \
+              --ks "$KEYSTORE" \
+              --ks-pass "pass:$SWRLZ_DEV_KEYSTORE_PASSWORD" \
+              --ks-key-alias "$SWRLZ_DEV_KEY_ALIAS" \
+              --key-pass "pass:$SWRLZ_DEV_KEY_PASSWORD" \
+              --out "$SIGNED" "$ALIGNED"
+
+            "$APKSIGNER" verify --verbose --print-certs "$SIGNED" | tee "$VERIFY_LOG"
+
+            THIS_SHA1_RAW="$(sed -n 's/^Signer #1 certificate SHA-1 digest: //p' "$VERIFY_LOG" | head -n 1)"
+            THIS_SHA256_RAW="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$VERIFY_LOG" | head -n 1)"
+            [[ -n "$THIS_SHA1_RAW" && -n "$THIS_SHA256_RAW" ]] || {
+              echo "Unable to extract signing certificate digests from apksigner for $SIGNED" >&2
+              exit 1
+            }
+            THIS_SHA1="$(normalize_digest "$THIS_SHA1_RAW")"
+            THIS_SHA256="$(normalize_digest "$THIS_SHA256_RAW")"
+
+            if [[ -z "$CERT_SHA1" ]]; then
+              CERT_SHA1="$THIS_SHA1"
+              CERT_SHA256="$THIS_SHA256"
+            elif [[ "$CERT_SHA1" != "$THIS_SHA1" || "$CERT_SHA256" != "$THIS_SHA256" ]]; then
+              echo 'Stable-signed APK certificate fingerprints do not match within the same build.' >&2
+              exit 1
+            fi
+
+            sha256sum "$SIGNED" > "$SIGNED.sha256"
+            CANONICAL_APKS+=("$(basename "$SIGNED")")
+
+            # Never publish the source/runner-signed APK alongside the canonical stable APK.
+            rm -f \
+              "$APK" "$APK.sha256" "$APK.sha" "$APK.idsig" \
+              "$ALIGNED" "$ALIGNED.sha256" "$ALIGNED.sha" "$ALIGNED.idsig"
           done
 
-          SIGNING_MODE='runner/default-source-signing'
-          if [[ "$PRESENT" -ne 0 && "$PRESENT" -ne 4 ]]; then
-            echo 'Stable development signing secrets are only partially configured.' >&2
+          if [[ "$CERT_SHA1" != "$SWRLZ_EXPECTED_SIGNING_SHA1" || "$CERT_SHA256" != "$SWRLZ_EXPECTED_SIGNING_SHA256" ]]; then
+            echo 'Stable signing certificate does not match the pinned SWRLZ certificate.' >&2
+            echo "Expected SHA-1: $SWRLZ_EXPECTED_SIGNING_SHA1" >&2
+            echo "Actual SHA-1:   $CERT_SHA1" >&2
+            echo "Expected SHA-256: $SWRLZ_EXPECTED_SIGNING_SHA256" >&2
+            echo "Actual SHA-256:   $CERT_SHA256" >&2
             exit 1
           fi
 
-          if [[ "$PRESENT" -eq 4 ]]; then
-            KEYSTORE="$RUNNER_TEMP/swrlz-dev-signing.jks"
-            printf '%s' "$SWRLZ_DEV_KEYSTORE_BASE64" | base64 -d > "$KEYSTORE"
-            APKSIGNER="$(find "${ANDROID_HOME:-$HOME}" -type f -name apksigner -print 2>/dev/null | sort -V | tail -n 1 || true)"
-            ZIPALIGN="$(find "${ANDROID_HOME:-$HOME}" -type f -name zipalign -print 2>/dev/null | sort -V | tail -n 1 || true)"
-            [[ -n "$APKSIGNER" && -n "$ZIPALIGN" ]] || {
-              echo 'apksigner/zipalign not found.' >&2
-              exit 1
-            }
-
-            mapfile -t APKS < <(
-              find "$ARTIFACT_DIR" -maxdepth 1 -type f -name '*.apk' \
-                ! -name '*_stable-signed.apk' -print | sort
-            )
-            for APK in "${APKS[@]}"; do
-              BASE="${APK%.apk}"
-              ALIGNED="${BASE}_aligned.apk"
-              SIGNED="${BASE}_stable-signed.apk"
-              "$ZIPALIGN" -f -p 4 "$APK" "$ALIGNED"
-              "$APKSIGNER" sign \
-                --ks "$KEYSTORE" \
-                --ks-pass "pass:$SWRLZ_DEV_KEYSTORE_PASSWORD" \
-                --ks-key-alias "$SWRLZ_DEV_KEY_ALIAS" \
-                --key-pass "pass:$SWRLZ_DEV_KEY_PASSWORD" \
-                --out "$SIGNED" "$ALIGNED"
-              "$APKSIGNER" verify "$SIGNED"
-              sha256sum "$SIGNED" > "$SIGNED.sha256"
-              rm -f "$ALIGNED"
-            done
-            SIGNING_MODE='stable-dev-signing-active'
+          # Defense in depth: no non-stable APK may survive into upload/release artifacts.
+          mapfile -t TRANSIENT_APKS < <(
+            find "$ARTIFACT_DIR" -maxdepth 1 -type f -name '*.apk' \
+              ! -name '*_stable-signed.apk' -print | sort
+          )
+          if ((${#TRANSIENT_APKS[@]} > 0)); then
+            printf 'Transient APK unexpectedly remained: %s\n' "${TRANSIENT_APKS[@]}" >&2
+            exit 1
           fi
 
+          SIGNING_MODE='stable-dev-signing-active'
+          CANONICAL_APKS_CSV="$(IFS=,; echo "${CANONICAL_APKS[*]}")"
           printf '%s\n' "$SIGNING_MODE" > "$ARTIFACT_DIR/SWRLZ_SIGNING_MODE.txt"
-          echo "signing_mode=$SIGNING_MODE" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "$CERT_SHA1" > "$ARTIFACT_DIR/SWRLZ_SIGNING_CERT_SHA1.txt"
+          printf '%s\n' "$CERT_SHA256" > "$ARTIFACT_DIR/SWRLZ_SIGNING_CERT_SHA256.txt"
 
-      - name: Record source resolution provenance
+          export SIGNING_MODE CERT_SHA1 CERT_SHA256 CANONICAL_APKS_CSV ARTIFACT_DIR
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+
+          artifact_dir = Path(os.environ["ARTIFACT_DIR"])
+          payload = {
+              "schema": 1,
+              "signing_mode": os.environ["SIGNING_MODE"],
+              "certificate_sha1": os.environ["CERT_SHA1"],
+              "certificate_sha256": os.environ["CERT_SHA256"],
+              "canonical_apks": [
+                  name for name in os.environ["CANONICAL_APKS_CSV"].split(",") if name
+              ],
+              "verification": "apksigner verify --verbose --print-certs",
+          }
+          (artifact_dir / "SWRLZ_SIGNING_PROVENANCE.json").write_text(
+              json.dumps(payload, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+          sha256sum "$ARTIFACT_DIR/SWRLZ_SIGNING_PROVENANCE.json" \
+            > "$ARTIFACT_DIR/SWRLZ_SIGNING_PROVENANCE.json.sha256"
+
+          {
+            echo "signing_mode=$SIGNING_MODE"
+            echo "cert_sha1=$CERT_SHA1"
+            echo "cert_sha256=$CERT_SHA256"
+            echo "canonical_apks=$CANONICAL_APKS_CSV"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Record source resolution and signing provenance
         env:
           ARTIFACT_DIR: ${{ steps.build.outputs.artifact_dir }}
           RESOLUTION_JSON: ${{ steps.resolve.outputs.resolution_json }}
@@ -415,9 +537,13 @@ jobs:
             echo "- Manifest file: \`${{ steps.resolve.outputs.manifest_file || 'none supplied' }}\`"
             echo "- Transport manifest: \`${{ steps.resolve.outputs.transport_manifest || 'direct ZIP' }}\`"
             echo "- Signing mode: \`${{ steps.signing.outputs.signing_mode }}\`"
+            echo "- Canonical APK(s): \`${{ steps.signing.outputs.canonical_apks }}\`"
+            echo "- Signing certificate SHA-1: \`${{ steps.signing.outputs.cert_sha1 }}\`"
+            echo "- Signing certificate SHA-256: \`${{ steps.signing.outputs.cert_sha256 }}\`"
+            echo "- APK verification: \`apksigner verify --verbose --print-certs\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload APK and provenance artifact
+      - name: Upload canonical stable APK and provenance artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.resolve.outputs.canonical_stem }}_${{ needs.prepare.outputs.build_variant }}_APK
@@ -435,6 +561,9 @@ jobs:
           SOURCE_SHA256: ${{ steps.resolve.outputs.source_sha256 }}
           VARIANT: ${{ needs.prepare.outputs.build_variant }}
           SIGNING_MODE: ${{ steps.signing.outputs.signing_mode }}
+          SIGNING_CERT_SHA1: ${{ steps.signing.outputs.cert_sha1 }}
+          SIGNING_CERT_SHA256: ${{ steps.signing.outputs.cert_sha256 }}
+          CANONICAL_APKS: ${{ steps.signing.outputs.canonical_apks }}
         run: |
           set -euo pipefail
           RELEASE_DIR="swrlz-core/releases/${CANONICAL_STEM}_APK"
@@ -449,13 +578,16 @@ jobs:
 
           component = os.environ["COMPONENT"]
           manifest = {
-              "schema": 2,
+              "schema": 3,
               "component": component,
               "canonical_source": os.environ["CANONICAL_STEM"] + ".zip",
               "selected_source": os.environ["SOURCE_ZIP"],
               "source_sha256": os.environ["SOURCE_SHA256"],
               "variant": os.environ["VARIANT"],
               "signing_mode": os.environ["SIGNING_MODE"],
+              "signing_certificate_sha1": os.environ["SIGNING_CERT_SHA1"],
+              "signing_certificate_sha256": os.environ["SIGNING_CERT_SHA256"],
+              "canonical_apks": [name for name in os.environ["CANONICAL_APKS"].split(",") if name],
               "artifact_folder": "swrlz-core/releases/" + os.environ["CANONICAL_STEM"] + "_APK",
               "repository_commit": os.environ["GITHUB_SHA"],
               "workflow_run": os.environ["GITHUB_RUN_ID"],
