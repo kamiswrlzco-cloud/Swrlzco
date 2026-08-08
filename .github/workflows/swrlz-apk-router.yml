@@ -333,8 +333,6 @@ jobs:
             -storepass "$SWRLZ_DEV_KEYSTORE_PASSWORD" \
             -alias "$SWRLZ_DEV_KEY_ALIAS" >/dev/null
 
-          # V2 intentionally uses the keystore password for the private-key entry too.
-          # Prove the private key can actually be decrypted before spending time on Gradle.
           PROBE_STORE="$RUNNER_TEMP/swrlz-signing-private-key-probe.p12"
           PROBE_PASSWORD="swrlz-ci-probe-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           rm -f "$PROBE_STORE"
@@ -474,8 +472,8 @@ jobs:
 
             "$APKSIGNER" verify --verbose --print-certs "$SIGNED" | tee "$VERIFY_LOG"
 
-            THIS_SHA1_RAW="$(sed -n 's/^Signer #1 certificate SHA-1 digest: //p' "$VERIFY_LOG" | head -n 1)"
-            THIS_SHA256_RAW="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$VERIFY_LOG" | head -n 1)"
+            THIS_SHA1_RAW="$(awk -F'certificate SHA-1 digest: ' 'NF > 1 {print $2; exit}' "$VERIFY_LOG")"
+            THIS_SHA256_RAW="$(awk -F'certificate SHA-256 digest: ' 'NF > 1 {print $2; exit}' "$VERIFY_LOG")"
             [[ -n "$THIS_SHA1_RAW" && -n "$THIS_SHA256_RAW" ]] || {
               echo "Unable to extract signing certificate digests from apksigner for $SIGNED" >&2
               exit 1
