@@ -30,6 +30,14 @@ rm -rf "$WORK_DIR" "$ARTIFACT_DIR"
 mkdir -p "$WORK_DIR/extracted" "$ARTIFACT_DIR"
 unzip -q "$SOURCE_ZIP" -d "$WORK_DIR/extracted"
 
+# ZIP creators do not agree on Unix mode metadata. In particular, a valid source
+# archive can contain directory entries marked 0600; unzip preserves that mode,
+# which makes descendants impossible to traverse and causes Android discovery to
+# report a false "No Android Gradle project root found" failure. Normalize only
+# access/traversal after extraction: directories become traversable/readable and
+# regular files become readable while existing executable bits remain executable.
+chmod -R u+rwX,go+rX "$WORK_DIR/extracted"
+
 # Select a Gradle wrapper only when its directory is an Android project root.
 PROJECT_ROOT=''
 while IFS= read -r wrapper; do
