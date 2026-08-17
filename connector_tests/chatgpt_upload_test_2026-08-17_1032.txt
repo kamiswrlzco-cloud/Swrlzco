@@ -1,0 +1,5 @@
+ChatGPT GitHub connector write test.
+Repository: kamiswrlzco-cloud/Swrlzco
+Branch: main
+Local test time: 2026-08-17 10:32 -05:00
+Purpose: verify create-file permission and read-back through the GitHub connector.
