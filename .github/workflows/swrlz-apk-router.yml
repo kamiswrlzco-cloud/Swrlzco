@@ -98,10 +98,11 @@ jobs:
           set -euo pipefail
           python3 test_resolve_swrlz_source.py
           python3 test_resolve_changed_source_identities.py
+          python3 test_plan_swrlz_build_route.py
+          python3 test_prepare_swrlz_sparse_checkout.py
 
   prepare:
-    name: Determine component route
-    needs: resolver-tests
+    name: Determine component and source route
     runs-on: ubuntu-latest
     timeout-minutes: 20
     outputs:
@@ -143,105 +144,7 @@ jobs:
           REQUEST_FILE: swrlz-core/requests/000_CURRENT.request
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          from __future__ import annotations
-          import json, os, subprocess
-          from pathlib import Path
-
-          single_components = {"CLIENT", "SERVER"}
-          manual_components = {"CLIENT", "SERVER", "BOTH"}
-          source_signal_suffixes = (
-              ".zip", ".transport.json", ".sha256", ".sha", ".txt", ".manifest.json"
-          )
-
-          def parse_request(path: Path) -> dict[str, str]:
-              values = {}
-              if not path.is_file():
-                  return values
-              for raw in path.read_text(encoding="utf-8").splitlines():
-                  line = raw.strip()
-                  if not line or line.startswith("#") or "=" not in line:
-                      continue
-                  key, value = line.split("=", 1)
-                  values[key.strip()] = value.strip()
-              return values
-
-          def changed_component(path: str) -> str | None:
-              lane_prefixes = {
-                  "swrlz-core/sources/client/": "CLIENT",
-                  "swrlz-core/sources/server/": "SERVER",
-              }
-              for prefix, component in lane_prefixes.items():
-                  if not path.startswith(prefix):
-                      continue
-                  relative = path[len(prefix):]
-                  if "/" in relative:
-                      return None
-                  if relative.lower().endswith(source_signal_suffixes):
-                      return component
-              return None
-
-          event = os.environ["EVENT_NAME"]
-          components: set[str] = set()
-          variant = "debug"
-
-          if event == "workflow_dispatch":
-              component = os.environ.get("MANUAL_COMPONENT", "").upper()
-              source_identity = os.environ.get("MANUAL_SOURCE_IDENTITY", "").strip()
-              commit_release = os.environ.get("MANUAL_COMMIT_RELEASE", "false").lower() == "true"
-              if component not in manual_components:
-                  raise SystemExit(f"Unsupported manual component: {component!r}")
-              if component == "BOTH":
-                  if source_identity:
-                      raise SystemExit("BOTH dispatch cannot use one explicit source identity; leave source_zip empty.")
-                  if commit_release:
-                      raise SystemExit("BOTH dispatch cannot commit release artifacts concurrently; build artifacts remain downloadable.")
-                  components.update(single_components)
-              else:
-                  components.add(component)
-              variant = os.environ.get("MANUAL_VARIANT", "debug").lower()
-          else:
-              before = os.environ.get("BEFORE_SHA", "")
-              after = os.environ["AFTER_SHA"]
-              cmd = ["git", "show", "--pretty=", "--name-only", after] if (not before or set(before) == {"0"}) \
-                  else ["git", "diff", "--name-only", before, after]
-              changed = {
-                  line.strip()
-                  for line in subprocess.check_output(cmd, text=True).splitlines()
-                  if line.strip()
-              }
-
-              for path in changed:
-                  component = changed_component(path)
-                  if component is not None:
-                      components.add(component)
-
-              request_path = os.environ["REQUEST_FILE"]
-              if request_path in changed:
-                  request = parse_request(Path(request_path))
-                  if request.get("enabled", "false").lower() == "true":
-                      target = request.get("target", "").upper()
-                      if target not in single_components:
-                          raise SystemExit(f"Enabled build request has invalid target: {target!r}")
-                      components.add(target)
-                      variant = request.get("build_variant", "debug").lower()
-                      if request.get("commit_release_artifacts", "false").lower() != "false":
-                          raise SystemExit(
-                              "Automatic request builds may not commit release artifacts; use manual dispatch."
-                          )
-
-          if variant not in {"debug", "release"}:
-              raise SystemExit(f"Unsupported build variant: {variant!r}")
-
-          ordered = [c for c in ("CLIENT", "SERVER") if c in components]
-          has_work = bool(ordered)
-          matrix_components = ordered if ordered else ["CLIENT"]
-
-          with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as handle:
-              handle.write("matrix=" + json.dumps({"component": matrix_components}) + "\n")
-              handle.write(f"has_work={'true' if has_work else 'false'}\n")
-              handle.write(f"build_variant={variant}\n")
-          PY
+          python3 "$SWRLZ_CI_ROOT/plan_swrlz_build_route.py"
 
   build:
     name: Build ${{ matrix.component }} APK
@@ -254,9 +157,11 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - name: Sparse partial checkout for selected component
+      - name: Candidate-targeted partial checkout
         env:
           COMPONENT: ${{ matrix.component }}
+          SOURCE_IDENTITY: ${{ matrix.source_identity }}
+          COMMIT_RELEASE: ${{ github.event_name == 'workflow_dispatch' && inputs.commit_release_artifacts }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
@@ -267,9 +172,7 @@ jobs:
           git sparse-checkout init --cone
           git sparse-checkout set \
             swrlz-core/tools/ci \
-            swrlz-core/requests \
-            "swrlz-core/sources/$LANE" \
-            swrlz-core/releases
+            swrlz-core/requests
           git -c protocol.version=2 fetch \
             --no-tags \
             --prune \
@@ -278,6 +181,29 @@ jobs:
             origin \
             "+${GITHUB_SHA}:refs/remotes/origin/swrlz-ci"
           git checkout --detach refs/remotes/origin/swrlz-ci
+
+          if [[ -n "$SOURCE_IDENTITY" ]]; then
+            TARGET_ARGS=(
+              --component "$COMPONENT"
+              --source-identity "$SOURCE_IDENTITY"
+              --ref HEAD
+            )
+            if [[ "${COMMIT_RELEASE,,}" == 'true' ]]; then
+              TARGET_ARGS+=(--include-releases)
+            fi
+            python3 "$SWRLZ_CI_ROOT/prepare_swrlz_sparse_checkout.py" "${TARGET_ARGS[@]}"
+          else
+            FALLBACK_PATHS=(
+              swrlz-core/tools/ci
+              swrlz-core/requests
+              "swrlz-core/sources/$LANE"
+            )
+            if [[ "${COMMIT_RELEASE,,}" == 'true' ]]; then
+              FALLBACK_PATHS+=(swrlz-core/releases)
+            fi
+            git sparse-checkout set "${FALLBACK_PATHS[@]}"
+            echo "SWRLZ checkout mode: compatible full-lane fallback for $COMPONENT"
+          fi
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -367,12 +293,12 @@ jobs:
         id: resolve
         env:
           COMPONENT: ${{ matrix.component }}
-          MANUAL_SOURCE_ZIP: ${{ inputs.source_zip || '' }}
+          SOURCE_IDENTITY: ${{ matrix.source_identity }}
         run: |
           set -euo pipefail
           SOURCE_ARGUMENTS=()
-          if [[ "${{ github.event_name }}" == 'workflow_dispatch' && -n "$MANUAL_SOURCE_ZIP" ]]; then
-            SOURCE_ARGUMENTS+=(--source-zip "$MANUAL_SOURCE_ZIP")
+          if [[ -n "$SOURCE_IDENTITY" ]]; then
+            SOURCE_ARGUMENTS+=(--source-zip "$SOURCE_IDENTITY")
           fi
           python3 "$SWRLZ_CI_ROOT/resolve_swrlz_source.py" \
             --component "$COMPONENT" \
@@ -570,6 +496,7 @@ jobs:
             echo "- Canonical filename: \`${{ steps.resolve.outputs.canonical_filename }}\`"
             echo "- Source SHA-256: \`${{ steps.resolve.outputs.source_sha256 }}\`"
             echo "- Source kind: \`${{ steps.resolve.outputs.source_kind }}\`"
+            echo "- Checkout identity: \`${{ matrix.source_identity || 'full-lane fallback' }}\`"
             echo "- Checksum file: \`${{ steps.resolve.outputs.checksum_file || 'none supplied' }}\`"
             echo "- Manifest file: \`${{ steps.resolve.outputs.manifest_file || 'none supplied' }}\`"
             echo "- Transport manifest: \`${{ steps.resolve.outputs.transport_manifest || 'direct ZIP' }}\`"
