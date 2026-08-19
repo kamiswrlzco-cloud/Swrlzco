@@ -31,10 +31,11 @@ jobs:
       - name: Sparse checkout CI tooling
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 2
           filter: blob:none
           sparse-checkout: |
             swrlz-core/tools/ci
+            swrlz-core/requests
 
       - name: Validate Python and shell syntax
         working-directory: swrlz-core/tools/ci
@@ -43,9 +44,13 @@ jobs:
           python3 -m py_compile \
             resolve_swrlz_source.py \
             resolve_changed_source_identities.py \
+            plan_swrlz_build_route.py \
+            prepare_swrlz_sparse_checkout.py \
             verify_swrlz_package_pair.py \
             test_resolve_swrlz_source.py \
             test_resolve_changed_source_identities.py \
+            test_plan_swrlz_build_route.py \
+            test_prepare_swrlz_sparse_checkout.py \
             test_verify_swrlz_package_pair.py
           bash -n build_swrlz_component.sh
 
@@ -55,4 +60,6 @@ jobs:
           set -euo pipefail
           python3 test_resolve_swrlz_source.py
           python3 test_resolve_changed_source_identities.py
+          python3 test_plan_swrlz_build_route.py
+          python3 test_prepare_swrlz_sparse_checkout.py
           python3 test_verify_swrlz_package_pair.py
