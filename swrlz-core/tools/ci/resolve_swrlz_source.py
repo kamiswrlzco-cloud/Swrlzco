@@ -7,8 +7,11 @@ Accepted package contracts:
 - chunked-git-blobs-v2 + metadata ZIP;
 - chunked-git-blobs-v1 + complete legacy sidecars.
 
-Unsupported historical transports are quarantined. A current-push or explicitly
-selected unsupported transport remains fail-closed.
+Discovery validates package identity and metadata without reconstructing every
+historical source payload. Expensive source-byte hashing/reassembly is deferred
+until a candidate is actually selected. Current-push and explicitly selected
+sources remain fail-closed; verified-latest fallback may quarantine a broken
+historical payload and try the next ranked verified identity.
 """
 from __future__ import annotations
 
@@ -113,7 +116,10 @@ def manifest_source(payload: dict) -> tuple[str, str, int]:
     source = payload.get("sourceZip") if isinstance(payload.get("sourceZip"), dict) else {}
     name = str(source.get("filename") or payload.get("zip") or "")
     sha = str(source.get("sha256") or payload.get("sha256") or "").lower()
-    size = source.get("sizeBytes", source.get("size_bytes", payload.get("sizeBytes", payload.get("size_bytes", -1))))
+    size = source.get(
+        "sizeBytes",
+        source.get("size_bytes", payload.get("sizeBytes", payload.get("size_bytes", -1))),
+    )
     try:
         return name, sha, int(size)
     except Exception as exc:
@@ -147,7 +153,13 @@ class Candidate:
     transport: dict | None = None
 
 
-def validate_manifest(payload: dict, source_name: str, source_sha: str, source_size: int, component: str) -> tuple[int, str]:
+def validate_manifest(
+    payload: dict,
+    source_name: str,
+    source_sha: str,
+    source_size: int,
+    component: str,
+) -> tuple[int, str]:
     manifest_name, manifest_sha, manifest_size = manifest_source(payload)
     if canonical_zip(manifest_name).casefold() != canonical_zip(source_name).casefold():
         raise ResolutionError("Manifest source filename mismatch")
@@ -169,7 +181,13 @@ def validate_manifest(payload: dict, source_name: str, source_sha: str, source_s
     return version_code, revision
 
 
-def extract_metadata_bundle(bundle: Path, work_dir: Path, source_name: str, component: str, declared_sha: str = "") -> Evidence:
+def extract_metadata_bundle(
+    bundle: Path,
+    work_dir: Path,
+    source_name: str,
+    component: str,
+    declared_sha: str = "",
+) -> Evidence:
     if not bundle.is_file():
         raise ResolutionError(f"Metadata bundle is missing: {bundle}")
     if bundle.stat().st_size > 4 * 1024 * 1024:
@@ -208,13 +226,29 @@ def extract_metadata_bundle(bundle: Path, work_dir: Path, source_name: str, comp
         raise ResolutionError("Checksum target filename mismatch")
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     _, _, source_size = manifest_source(payload)
-    version_code, revision = validate_manifest(payload, source_name, source_sha, source_size, component)
-    return Evidence("metadata-bundle-v1", checksum_path, manifest_path, bundle, bundle_sha, source_sha, source_size, version_code, revision)
+    version_code, revision = validate_manifest(
+        payload, source_name, source_sha, source_size, component
+    )
+    return Evidence(
+        "metadata-bundle-v1",
+        checksum_path,
+        manifest_path,
+        bundle,
+        bundle_sha,
+        source_sha,
+        source_size,
+        version_code,
+        revision,
+    )
 
 
 def exact_legacy_evidence(lane: Path, source_name: str, component: str) -> Evidence | None:
     stem = source_stem(source_name)
-    checksum_candidates = [lane / f"{stem}.sha256", lane / f"{stem}.sha", lane / f"{stem}.sha256.txt"]
+    checksum_candidates = [
+        lane / f"{stem}.sha256",
+        lane / f"{stem}.sha",
+        lane / f"{stem}.sha256.txt",
+    ]
     checksums = [path for path in checksum_candidates if path.is_file()]
     manifest_path = lane / f"{stem}.manifest.json"
     if not checksums and not manifest_path.exists():
@@ -227,50 +261,107 @@ def exact_legacy_evidence(lane: Path, source_name: str, component: str) -> Evide
         raise ResolutionError("Legacy checksum target filename mismatch")
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     _, _, source_size = manifest_source(payload)
-    version_code, revision = validate_manifest(payload, source_name, source_sha, source_size, component)
-    return Evidence("legacy-loose-sidecars", checksum_path, manifest_path, None, "", source_sha, source_size, version_code, revision)
+    version_code, revision = validate_manifest(
+        payload, source_name, source_sha, source_size, component
+    )
+    return Evidence(
+        "legacy-loose-sidecars",
+        checksum_path,
+        manifest_path,
+        None,
+        "",
+        source_sha,
+        source_size,
+        version_code,
+        revision,
+    )
 
 
-def reconstruct_chunks(repo_root: Path, lane: Path, payload: dict, source_name: str, source_sha: str, source_size: int, work_dir: Path) -> Path:
+def validate_chunk_declarations(
+    repo_root: Path,
+    lane: Path,
+    payload: dict,
+    source_size: int,
+) -> list[tuple[dict, Path]]:
     chunks = payload.get("chunks")
     if not isinstance(chunks, list) or not chunks:
         raise ResolutionError("Transport has no chunks")
     indexes = [int(chunk.get("index", -1)) for chunk in chunks]
     if indexes != list(range(1, len(chunks) + 1)):
         raise ResolutionError("Transport chunk indexes are not sequential")
+
+    declared: list[tuple[dict, Path]] = []
+    seen: set[Path] = set()
+    total_size = 0
+    for chunk in chunks:
+        chunk_path = safe_repo_path(repo_root, str(chunk.get("path") or ""))
+        ensure_in_lane(chunk_path, lane)
+        if chunk_path in seen:
+            raise ResolutionError("Transport contains duplicate chunk paths")
+        seen.add(chunk_path)
+        expected_size = int(chunk.get("size_bytes", -1))
+        expected_sha = str(chunk.get("sha256") or "").lower()
+        if expected_size < 1 or not SHA_RE.fullmatch(expected_sha):
+            raise ResolutionError("Transport chunk declaration is invalid")
+        total_size += expected_size
+        declared.append((chunk, chunk_path))
+    if total_size != source_size:
+        raise ResolutionError("Transport chunk sizes do not match source size")
+    return declared
+
+
+def reconstruct_chunks(
+    repo_root: Path,
+    lane: Path,
+    payload: dict,
+    source_name: str,
+    source_sha: str,
+    source_size: int,
+    work_dir: Path,
+) -> Path:
+    declared = validate_chunk_declarations(repo_root, lane, payload, source_size)
     output_dir = work_dir / "sources"
     output_dir.mkdir(parents=True, exist_ok=True)
     output = output_dir / canonical_zip(source_name)
     digest = hashlib.sha256()
     total = 0
-    with output.open("wb") as target:
-        for chunk in chunks:
-            chunk_path = safe_repo_path(repo_root, str(chunk.get("path") or ""))
-            ensure_in_lane(chunk_path, lane)
-            if not chunk_path.is_file():
-                raise ResolutionError(f"Transport chunk is missing: {chunk_path}")
-            expected_size = int(chunk.get("size_bytes", -1))
-            expected_sha = str(chunk.get("sha256") or "").lower()
-            if expected_size < 1 or not SHA_RE.fullmatch(expected_sha):
-                raise ResolutionError("Transport chunk declaration is invalid")
-            if chunk_path.stat().st_size != expected_size or sha256_file(chunk_path) != expected_sha:
-                raise ResolutionError(f"Transport chunk verification failed: {chunk_path}")
-            with chunk_path.open("rb") as source:
-                for block in iter(lambda: source.read(1024 * 1024), b""):
-                    target.write(block)
-                    digest.update(block)
-                    total += len(block)
-    if total != source_size or digest.hexdigest() != source_sha:
-        raise ResolutionError("Reassembled source size or SHA-256 mismatch")
+    try:
+        with output.open("wb") as target:
+            for chunk, chunk_path in declared:
+                if not chunk_path.is_file():
+                    raise ResolutionError(f"Transport chunk is missing: {chunk_path}")
+                expected_size = int(chunk["size_bytes"])
+                expected_sha = str(chunk["sha256"]).lower()
+                if chunk_path.stat().st_size != expected_size or sha256_file(chunk_path) != expected_sha:
+                    raise ResolutionError(f"Transport chunk verification failed: {chunk_path}")
+                with chunk_path.open("rb") as source:
+                    for block in iter(lambda: source.read(1024 * 1024), b""):
+                        target.write(block)
+                        digest.update(block)
+                        total += len(block)
+        if total != source_size or digest.hexdigest() != source_sha:
+            raise ResolutionError("Reassembled source size or SHA-256 mismatch")
+    except Exception:
+        output.unlink(missing_ok=True)
+        raise
     return output
 
 
-def parse_transport(path: Path, repo_root: Path, lane: Path, component: str, work_dir: Path) -> Candidate:
+def parse_transport(
+    path: Path,
+    repo_root: Path,
+    lane: Path,
+    component: str,
+    work_dir: Path,
+    *,
+    materialize: bool = True,
+) -> Candidate:
     payload = json.loads(path.read_text(encoding="utf-8"))
     schema = int(payload.get("schema", -1))
     transport = str(payload.get("transport") or "")
     if str(payload.get("component") or "").upper() != component:
         raise ResolutionError("Transport component mismatch")
+
     if schema == 2 and transport == "chunked-git-blobs-v2":
         source_name = str(payload.get("source_zip") or "")
         source_sha = str(payload.get("source_sha256") or "").lower()
@@ -281,7 +372,9 @@ def parse_transport(path: Path, repo_root: Path, lane: Path, component: str, wor
             bundle_rel = (lane / str(payload.get("metadata_bundle") or "")).relative_to(repo_root).as_posix()
         bundle_path = safe_repo_path(repo_root, bundle_rel)
         ensure_in_lane(bundle_path, lane)
-        evidence = extract_metadata_bundle(bundle_path, work_dir, source_name, component, bundle_sha)
+        evidence = extract_metadata_bundle(
+            bundle_path, work_dir, source_name, component, bundle_sha
+        )
         kind = "chunked-v2"
     elif schema == 1 and transport == "chunked-git-blobs-v1":
         source_name = str(payload.get("zip") or "")
@@ -295,23 +388,58 @@ def parse_transport(path: Path, repo_root: Path, lane: Path, component: str, wor
         manifest_path = safe_repo_path(repo_root, manifest_rel)
         ensure_in_lane(checksum_path, lane)
         ensure_in_lane(manifest_path, lane)
-        source_checksum, target = parse_checksum_text(checksum_path.read_text(encoding="utf-8"))
+        source_checksum, target = parse_checksum_text(
+            checksum_path.read_text(encoding="utf-8")
+        )
         if target and canonical_zip(target).casefold() != canonical_zip(source_name).casefold():
             raise ResolutionError("Schema-1 checksum target mismatch")
         manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-        version_code, revision = validate_manifest(manifest_payload, source_name, source_checksum, source_size, component)
-        evidence = Evidence("legacy-loose-sidecars", checksum_path, manifest_path, None, "", source_checksum, source_size, version_code, revision)
+        version_code, revision = validate_manifest(
+            manifest_payload, source_name, source_checksum, source_size, component
+        )
+        evidence = Evidence(
+            "legacy-loose-sidecars",
+            checksum_path,
+            manifest_path,
+            None,
+            "",
+            source_checksum,
+            source_size,
+            version_code,
+            revision,
+        )
         kind = "chunked-v1"
     else:
         raise ResolutionError(f"Unsupported source transport manifest: {path.name}")
+
     if not SHA_RE.fullmatch(source_sha) or source_size < 1:
         raise ResolutionError("Transport source identity is invalid")
     if payload.get("verified") is not True:
         raise ResolutionError("Transport verified flag is false")
     if evidence.source_sha256 != source_sha or evidence.source_size != source_size:
         raise ResolutionError("Transport and metadata source identity disagree")
-    reconstruct_chunks(repo_root, lane, payload, source_name, source_sha, source_size, work_dir)
-    return Candidate(kind, path, component, canonical_zip(source_name), source_sha, source_size, version_tuple(source_name), revision_number(source_name), evidence, payload)
+
+    # Validate the complete chunk declaration graph during discovery, but do not
+    # read/hash/reassemble every historical chunk payload. Source bytes are
+    # materialized only after selection.
+    validate_chunk_declarations(repo_root, lane, payload, source_size)
+    if materialize:
+        reconstruct_chunks(
+            repo_root, lane, payload, source_name, source_sha, source_size, work_dir
+        )
+
+    return Candidate(
+        kind,
+        path,
+        component,
+        canonical_zip(source_name),
+        source_sha,
+        source_size,
+        version_tuple(source_name),
+        revision_number(source_name),
+        evidence,
+        payload,
+    )
 
 
 def changed_paths(repo_root: Path) -> set[Path]:
@@ -329,49 +457,109 @@ def changed_paths(repo_root: Path) -> set[Path]:
             pass
     if not after:
         return set()
-    command = ["git", "show", "--pretty=", "--name-only", after] if not before or set(before) == {"0"} else ["git", "diff", "--name-only", before, after]
+    command = (
+        ["git", "show", "--pretty=", "--name-only", after]
+        if not before or set(before) == {"0"}
+        else ["git", "diff", "--name-only", before, after]
+    )
     try:
         text = subprocess.check_output(command, cwd=repo_root, text=True)
     except Exception:
         return set()
-    return {(repo_root / line.strip()).resolve() for line in text.splitlines() if line.strip()}
+    return {
+        (repo_root / line.strip()).resolve()
+        for line in text.splitlines()
+        if line.strip()
+    }
 
 
-def discover(repo_root: Path, component: str, work_dir: Path, strict_paths: Iterable[Path] = ()) -> list[Candidate]:
+def discover(
+    repo_root: Path,
+    component: str,
+    work_dir: Path,
+    strict_paths: Iterable[Path] = (),
+) -> list[Candidate]:
     lane = (repo_root / COMPONENT_LANES[component]).resolve()
     if not lane.is_dir():
         raise ResolutionError(f"Source lane does not exist: {lane}")
     strict = {path.resolve() for path in strict_paths}
     candidates: list[Candidate] = []
+
     for source in sorted(lane.glob("*.zip")):
         upper = source.name.upper()
-        if upper.endswith("_METADATA.ZIP") or upper.endswith("_EVIDENCE.ZIP") or not upper.startswith(component + "_"):
+        if (
+            upper.endswith("_METADATA.ZIP")
+            or upper.endswith("_EVIDENCE.ZIP")
+            or not upper.startswith(component + "_")
+        ):
             continue
         try:
             bundle = lane / f"{source_stem(source.name)}_METADATA.zip"
-            evidence = extract_metadata_bundle(bundle, work_dir, source.name, component) if bundle.is_file() else exact_legacy_evidence(lane, source.name, component)
+            evidence = (
+                extract_metadata_bundle(bundle, work_dir, source.name, component)
+                if bundle.is_file()
+                else exact_legacy_evidence(lane, source.name, component)
+            )
             if evidence is None:
                 continue
-            source_sha = sha256_file(source)
             source_size = source.stat().st_size
-            if evidence.source_sha256 != source_sha or evidence.source_size != source_size:
-                raise ResolutionError("Direct source evidence mismatch")
-            candidates.append(Candidate("direct-bundle" if evidence.bundle_path else "direct-legacy", source, component, canonical_zip(source.name), source_sha, source_size, version_tuple(source.name), revision_number(source.name), evidence))
+            if evidence.source_size != source_size:
+                raise ResolutionError("Direct source evidence size mismatch")
+            candidates.append(
+                Candidate(
+                    "direct-bundle" if evidence.bundle_path else "direct-legacy",
+                    source,
+                    component,
+                    canonical_zip(source.name),
+                    evidence.source_sha256,
+                    source_size,
+                    version_tuple(source.name),
+                    revision_number(source.name),
+                    evidence,
+                )
+            )
         except Exception as exc:
             if source.resolve() in strict:
                 raise
-            print(f"SWRLZ resolver warning: quarantined historical source {source.name}: {exc}", file=sys.stderr)
+            print(
+                f"SWRLZ resolver warning: quarantined historical source {source.name}: {exc}",
+                file=sys.stderr,
+            )
+
     for transport_path in sorted(lane.glob("*.transport.json")):
         try:
-            candidates.append(parse_transport(transport_path, repo_root, lane, component, work_dir))
+            candidates.append(
+                parse_transport(
+                    transport_path,
+                    repo_root,
+                    lane,
+                    component,
+                    work_dir,
+                    materialize=False,
+                )
+            )
         except Exception as exc:
             if transport_path.resolve() in strict:
                 raise
-            print(f"SWRLZ resolver warning: quarantined historical transport {transport_path.name}: {exc}", file=sys.stderr)
+            print(
+                f"SWRLZ resolver warning: quarantined historical transport {transport_path.name}: {exc}",
+                file=sys.stderr,
+            )
     return candidates
 
 
-def select_candidate(candidates: list[Candidate], repo_root: Path, explicit: str = "") -> tuple[Candidate, str]:
+def candidate_rank(candidate: Candidate) -> tuple:
+    return (
+        candidate.evidence.version_code,
+        candidate.revision,
+        candidate.version,
+        candidate.identity_path.name.casefold(),
+    )
+
+
+def select_candidate(
+    candidates: list[Candidate], repo_root: Path, explicit: str = ""
+) -> tuple[Candidate, str]:
     if not candidates:
         raise ResolutionError("No verified source package was found")
     if explicit:
@@ -387,16 +575,58 @@ def select_candidate(candidates: list[Candidate], repo_root: Path, explicit: str
             raise ResolutionError("Explicit source identity is absent or ambiguous")
         return matches[0], "explicit-source"
     changed = changed_paths(repo_root)
-    current = [candidate for candidate in candidates if candidate.identity_path.resolve() in changed or (candidate.evidence.bundle_path and candidate.evidence.bundle_path.resolve() in changed)]
+    current = [
+        candidate
+        for candidate in candidates
+        if candidate.identity_path.resolve() in changed
+        or (
+            candidate.evidence.bundle_path
+            and candidate.evidence.bundle_path.resolve() in changed
+        )
+    ]
     if len(current) == 1:
         return current[0], "current-push"
     if len(current) > 1:
         raise ResolutionError("Multiple verified source identities changed in one component lane")
-    ranked = sorted(candidates, key=lambda item: (item.evidence.version_code, item.revision, item.version, item.identity_path.name.casefold()), reverse=True)
+    ranked = sorted(candidates, key=candidate_rank, reverse=True)
     return ranked[0], "verified-latest"
 
 
-def resolve(repo_root: Path, component: str, explicit: str = "", work_dir: Path | None = None) -> dict:
+def materialize_candidate(
+    candidate: Candidate,
+    repo_root: Path,
+    work_dir: Path,
+) -> Path:
+    lane = (repo_root / COMPONENT_LANES[candidate.component]).resolve()
+    if candidate.kind.startswith("chunked"):
+        if candidate.transport is None:
+            raise ResolutionError("Chunked candidate has no transport payload")
+        return reconstruct_chunks(
+            repo_root,
+            lane,
+            candidate.transport,
+            candidate.source_name,
+            candidate.source_sha256,
+            candidate.source_size,
+            work_dir,
+        )
+
+    source = candidate.identity_path
+    if not source.is_file():
+        raise ResolutionError(f"Direct source is missing: {source}")
+    if source.stat().st_size != candidate.source_size:
+        raise ResolutionError("Direct source size changed after discovery")
+    if sha256_file(source) != candidate.source_sha256:
+        raise ResolutionError("Direct source SHA-256 mismatch")
+    return source
+
+
+def resolve(
+    repo_root: Path,
+    component: str,
+    explicit: str = "",
+    work_dir: Path | None = None,
+) -> dict:
     component = component.upper()
     if component not in COMPONENT_LANES:
         raise ResolutionError("component must be CLIENT or SERVER")
@@ -406,13 +636,37 @@ def resolve(repo_root: Path, component: str, explicit: str = "", work_dir: Path 
         explicit_path = explicit_identity_path(repo_root, component, explicit)
         strict.add(explicit_path)
         if explicit_path.name.lower().endswith(".zip"):
-            strict.add(explicit_path.with_name(f"{source_stem(explicit_path.name)}.transport.json"))
+            strict.add(
+                explicit_path.with_name(
+                    f"{source_stem(explicit_path.name)}.transport.json"
+                )
+            )
+
     candidates = discover(repo_root, component, work_dir, strict)
     selected, reason = select_candidate(candidates, repo_root, explicit)
-    if selected.kind.startswith("chunked"):
-        selected_source = work_dir / "sources" / selected.source_name
+
+    if reason == "verified-latest":
+        materialization_error: Exception | None = None
+        for candidate in sorted(candidates, key=candidate_rank, reverse=True):
+            try:
+                selected_source = materialize_candidate(candidate, repo_root, work_dir)
+                selected = candidate
+                break
+            except Exception as exc:
+                materialization_error = exc
+                print(
+                    f"SWRLZ resolver warning: quarantined historical payload "
+                    f"{candidate.identity_path.name}: {exc}",
+                    file=sys.stderr,
+                )
+        else:
+            raise ResolutionError(
+                f"No verified source payload could be materialized: {materialization_error}"
+            )
     else:
-        selected_source = selected.identity_path
+        # Explicit and current-push identities remain strictly fail-closed.
+        selected_source = materialize_candidate(selected, repo_root, work_dir)
+
     lane = COMPONENT_LANES[component]
     evidence = selected.evidence
     description = (
@@ -427,7 +681,11 @@ def resolve(repo_root: Path, component: str, explicit: str = "", work_dir: Path 
         "metadata_mode": evidence.mode,
         "source_description": description,
         "build_description": f"Build {component} APK from {description} · selected by {reason}",
-        "evidence_description": str(evidence.bundle_path.relative_to(repo_root)) if evidence.bundle_path else f"{evidence.checksum_path} + {evidence.manifest_path}",
+        "evidence_description": (
+            str(evidence.bundle_path.relative_to(repo_root))
+            if evidence.bundle_path
+            else f"{evidence.checksum_path} + {evidence.manifest_path}"
+        ),
         "selected_source": str(selected_source),
         "canonical_filename": selected.source_name,
         "canonical_stem": source_stem(selected.source_name),
@@ -440,11 +698,17 @@ def resolve(repo_root: Path, component: str, explicit: str = "", work_dir: Path 
         "version": ".".join(map(str, selected.version)),
         "version_code": evidence.version_code,
         "revision": f"R{selected.revision}",
-        "metadata_bundle": str(evidence.bundle_path.relative_to(repo_root)) if evidence.bundle_path else "",
+        "metadata_bundle": (
+            str(evidence.bundle_path.relative_to(repo_root)) if evidence.bundle_path else ""
+        ),
         "metadata_bundle_sha256": evidence.bundle_sha256,
         "checksum_file": str(evidence.checksum_path),
         "manifest_file": str(evidence.manifest_path),
-        "transport_manifest": str(selected.identity_path.relative_to(repo_root)) if selected.kind.startswith("chunked") else "",
+        "transport_manifest": (
+            str(selected.identity_path.relative_to(repo_root))
+            if selected.kind.startswith("chunked")
+            else ""
+        ),
         "selection_reason": reason,
         "verified": True,
         "build_eligible": True,
@@ -464,11 +728,29 @@ def resolve_source(
 
 def write_outputs(path: Path, result: dict) -> None:
     keys = (
-        "component", "source_kind", "metadata_mode", "source_description", "build_description",
-        "evidence_description", "selected_source", "canonical_filename", "canonical_stem",
-        "logical_stem", "uploaded_filename", "duplicate_suffix", "lane", "source_sha256",
-        "source_size_bytes", "version", "version_code", "revision", "metadata_bundle",
-        "metadata_bundle_sha256", "checksum_file", "manifest_file", "transport_manifest",
+        "component",
+        "source_kind",
+        "metadata_mode",
+        "source_description",
+        "build_description",
+        "evidence_description",
+        "selected_source",
+        "canonical_filename",
+        "canonical_stem",
+        "logical_stem",
+        "uploaded_filename",
+        "duplicate_suffix",
+        "lane",
+        "source_sha256",
+        "source_size_bytes",
+        "version",
+        "version_code",
+        "revision",
+        "metadata_bundle",
+        "metadata_bundle_sha256",
+        "checksum_file",
+        "manifest_file",
+        "transport_manifest",
         "selection_reason",
     )
     with path.open("a", encoding="utf-8") as handle:
@@ -490,7 +772,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         repo_root = Path(args.repo_root).resolve()
         work_dir = Path(args.work_dir).resolve() if args.work_dir else None
         result = resolve(repo_root, args.component, args.source_zip, work_dir)
-    except (ResolutionError, ValueError, OSError, json.JSONDecodeError, zipfile.BadZipFile) as exc:
+    except (
+        ResolutionError,
+        ValueError,
+        OSError,
+        json.JSONDecodeError,
+        zipfile.BadZipFile,
+    ) as exc:
         print(f"SWRLZ source resolution failed: {exc}", file=sys.stderr)
         return 2
     print(json.dumps(result, indent=2, sort_keys=True))
