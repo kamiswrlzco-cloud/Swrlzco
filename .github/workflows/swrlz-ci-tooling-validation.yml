@@ -1,0 +1,58 @@
+name: SWRLZ CI Tooling Validation
+
+on:
+  pull_request:
+    paths:
+      - 'swrlz-core/tools/ci/**'
+      - '.github/workflows/swrlz-apk-router.yml'
+      - '.github/workflows/swrlz-ci-tooling-validation.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'swrlz-core/tools/ci/**'
+      - '.github/workflows/swrlz-apk-router.yml'
+      - '.github/workflows/swrlz-ci-tooling-validation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  validate-ci-tooling:
+    name: Validate resolver and build helper
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Sparse checkout CI tooling
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: |
+            swrlz-core/tools/ci
+
+      - name: Validate Python and shell syntax
+        working-directory: swrlz-core/tools/ci
+        run: |
+          set -euo pipefail
+          python3 -m py_compile \
+            resolve_swrlz_source.py \
+            resolve_changed_source_identities.py \
+            verify_swrlz_package_pair.py \
+            test_resolve_swrlz_source.py \
+            test_resolve_changed_source_identities.py \
+            test_verify_swrlz_package_pair.py
+          bash -n build_swrlz_component.sh
+
+      - name: Run CI tooling unit tests
+        working-directory: swrlz-core/tools/ci
+        run: |
+          set -euo pipefail
+          python3 test_resolve_swrlz_source.py
+          python3 test_resolve_changed_source_identities.py
+          python3 test_verify_swrlz_package_pair.py
