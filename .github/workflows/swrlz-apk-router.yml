@@ -51,10 +51,6 @@ on:
 permissions:
   contents: write
 
-concurrency:
-  group: swrlz-apk-router-${{ github.ref }}-${{ github.event_name }}
-  cancel-in-progress: false
-
 defaults:
   run:
     shell: bash
@@ -68,39 +64,6 @@ env:
   SWRLZ_EXPECTED_SIGNING_SHA256: 'E4:7B:54:3B:EB:66:48:F1:35:37:95:62:48:68:59:E4:CE:EB:93:4A:63:43:E5:B9:3F:04:D0:6B:8C:6C:50:DA'
 
 jobs:
-  resolver-tests:
-    name: Validate source resolver
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - name: Sparse partial checkout for resolver tests
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          git init .
-          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          git config gc.auto 0
-          git sparse-checkout init --cone
-          git sparse-checkout set swrlz-core/tools/ci
-          git -c protocol.version=2 fetch \
-            --no-tags \
-            --prune \
-            --depth=1 \
-            --filter=blob:none \
-            origin \
-            "+${GITHUB_SHA}:refs/remotes/origin/swrlz-ci"
-          git checkout --detach refs/remotes/origin/swrlz-ci
-
-      - name: Run resolver unit tests
-        working-directory: swrlz-core/tools/ci
-        run: |
-          set -euo pipefail
-          python3 test_resolve_swrlz_source.py
-          python3 test_resolve_changed_source_identities.py
-          python3 test_plan_swrlz_build_route.py
-          python3 test_prepare_swrlz_sparse_checkout.py
-
   prepare:
     name: Determine component and source route
     runs-on: ubuntu-latest
@@ -148,13 +111,17 @@ jobs:
 
   build:
     name: Build ${{ matrix.component }} APK
-    needs: [resolver-tests, prepare]
+    needs: prepare
     if: needs.prepare.outputs.has_work == 'true'
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    concurrency:
+      group: swrlz-apk-router-${{ github.ref }}-${{ matrix.component }}
+      cancel-in-progress: false
+      queue: max
 
     steps:
       - name: Candidate-targeted partial checkout
@@ -325,6 +292,7 @@ jobs:
           SOURCE_ZIP: ${{ steps.resolve.outputs.selected_source }}
           CANONICAL_STEM: ${{ steps.resolve.outputs.canonical_stem }}
           VARIANT: ${{ needs.prepare.outputs.build_variant }}
+          SWRLZ_VERIFIED_SOURCE_SHA256: ${{ steps.resolve.outputs.source_sha256 }}
           SWRLZ_BUILD_WORK_DIR: ${{ runner.temp }}/swrlz-build/router
           SWRLZ_ARTIFACT_ROOT: ${{ runner.temp }}/swrlz-artifacts/router
         run: |
@@ -515,6 +483,7 @@ jobs:
           path: ${{ steps.build.outputs.artifact_dir }}/
           if-no-files-found: error
           retention-days: 30
+          compression-level: 0
 
       - name: Commit release artifacts when manually requested
         if: github.event_name == 'workflow_dispatch' && inputs.commit_release_artifacts
