@@ -2,30 +2,28 @@
 
 CLIENT and SERVER advance independently. A compatibility reference does not create a lockstep release pair.
 
-## CLIENT current prepared candidate
+## CLIENT current repository candidate
 
-- Short identity: `2.1.27 R97`
-- Candidate: `CLIENT_CFv2.1.27_SWRLZ_CANDIDATE_R97`
-- Revision: `R97`
-- Version code: `223`
-- Version name: `2.1.27-patch-accounting-gdrive-r97`
-- Checkpoint: `INT-PATCH-ACCOUNTING-GDRIVE-PUBLISH-194A`
-- Source SHA-256: `17b97f121da1cede54eb13c9881cd9742d7fa09a9a76d4488c4e09b12f7a7b2c`
-- Parent: `CLIENT_CFv2.1.27_SWRLZ_CANDIDATE_R96`
-- Parent SHA-256: `21fe0a77a561fd2181d97595369076c708a2e9f77d9215a170c17de2afc8a9d5`
+- Candidate: `CLIENT_CFv2.1.27_SWRLZ_CANDIDATE_R96`
+- Version: `2.1.27 R96`
+- Revision: `R96`
+- Version code: `VC222`
+- Version name: `2.1.27-lalm-longform-vfs-r96`
+- Checkpoint: `INT-LALM-LONGFORM-VFS-193A`
+- Source SHA-256: `21fe0a77a561fd2181d97595369076c708a2e9f77d9215a170c17de2afc8a9d5`
+- Parent SHA-256: `bec0b6c3ddaa3e97df4ecce7cbe51f9f2fb35d3500d4914cff77808204a72703`
 
-## SERVER current prepared candidate
+## SERVER current repository candidate
 
-- Short identity: `2.1.27 R133`
-- Candidate: `SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R133`
-- Revision: `R133`
-- Version code: `256`
-- Version name: `2.1.27-patch-accounting-gdrive-r133`
-- Checkpoint: `INT-PATCH-ACCOUNTING-GDRIVE-PUBLISH-194A`
-- Source SHA-256: `0c850daf4370b5e26d2a2a94b011faca8921a92b2e74f84d4c8177a3eefd25d8`
-- Parent: `SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R132`
-- Parent SHA-256: `bec7b0606525a3394290942586937884037a63e05b15ebfcfe41a8a953efdc4f`
+- Candidate: `SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R132`
+- Version: `2.1.27 R132`
+- Revision: `R132`
+- Version code: `VC255`
+- Version name: `2.1.27-lalm-longform-vfs-r132`
+- Checkpoint: `INT-LALM-LONGFORM-VFS-193A`
+- Source SHA-256: `bec7b0606525a3394290942586937884037a63e05b15ebfcfe41a8a953efdc4f`
+- Parent SHA-256: `7f5f77ff7f91dfaef43cdbe6d58a1f49e024a934b72a5fb8480753d3673aa9d1`
 
-## Authority boundary
+## Publication boundary
 
-These are candidate/accounting pointers only. They do not claim Android compilation, APK signing/install, device acceptance, promotion, release, or deployment. Historical candidate lineage remains preserved in Git history and package-internal lineage/checkpoint records.
+Google Drive may contain newer prepared successors before GitHub does. A candidate becomes this repository's current accounting identity only when its immutable source transport, metadata, and repository accounting surfaces are committed together. Build, APK, install, device acceptance, promotion and deployment remain separate evidence gates.
