@@ -82,6 +82,58 @@ class SparseCheckoutPlannerTests(unittest.TestCase):
         self.assertFalse(historical.exists())
         self.assertTrue((self.repo / "swrlz-core/tools/ci/placeholder.txt").is_file())
 
+    def test_exact_extra_blob_is_materialized_without_sibling_docs(self):
+        lane = self.repo / "swrlz-core/sources/client"
+        lane.mkdir(parents=True)
+        selected = lane / "CLIENT_CFv2.1.27_SWRLZ_CANDIDATE_R100.zip"
+        selected.write_bytes(b"selected")
+        docs = self.repo / "swrlz-core/docs/patch-notes"
+        docs.mkdir(parents=True)
+        client_doc = docs / "CLIENT_PATCH_NOTES.md"
+        server_doc = docs / "SERVER_PATCH_NOTES.md"
+        client_doc.write_text("client", encoding="utf-8")
+        server_doc.write_text("server", encoding="utf-8")
+        ref = commit_all(self.repo)
+
+        paths, _ = sparse.build_sparse_paths(
+            self.repo,
+            "CLIENT",
+            selected.relative_to(self.repo).as_posix(),
+            ref=ref,
+            extra_paths=[client_doc.relative_to(self.repo).as_posix()],
+        )
+        git(self.repo, "sparse-checkout", "init", "--cone")
+        sparse.apply_sparse_checkout(self.repo, paths)
+
+        self.assertTrue(client_doc.is_file())
+        self.assertFalse(server_doc.exists())
+
+    def test_missing_or_directory_extra_path_is_rejected(self):
+        lane = self.repo / "swrlz-core/sources/client"
+        lane.mkdir(parents=True)
+        selected = lane / "CLIENT_CFv2.1.27_SWRLZ_CANDIDATE_R100.zip"
+        selected.write_bytes(b"selected")
+        docs = self.repo / "swrlz-core/docs"
+        docs.mkdir(parents=True)
+        ref = commit_all(self.repo)
+
+        with self.assertRaises(sparse.SparseCheckoutError):
+            sparse.build_sparse_paths(
+                self.repo,
+                "CLIENT",
+                selected.relative_to(self.repo).as_posix(),
+                ref=ref,
+                extra_paths=["swrlz-core/docs/missing.md"],
+            )
+        with self.assertRaises(sparse.SparseCheckoutError):
+            sparse.build_sparse_paths(
+                self.repo,
+                "CLIENT",
+                selected.relative_to(self.repo).as_posix(),
+                ref=ref,
+                extra_paths=["swrlz-core/docs"],
+            )
+
     def test_logical_zip_resolves_to_exact_chunked_transport_payload(self):
         lane = self.repo / "swrlz-core/sources/server"
         lane.mkdir(parents=True)
