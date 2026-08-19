@@ -57,6 +57,31 @@ class SparseCheckoutPlannerTests(unittest.TestCase):
         self.assertIn(metadata.relative_to(self.repo), paths)
         self.assertNotIn(historical.relative_to(self.repo), paths)
 
+    def test_sparse_checkout_application_materializes_only_selected_direct_payload(self):
+        lane = self.repo / "swrlz-core/sources/client"
+        lane.mkdir(parents=True)
+        selected = lane / "CLIENT_CFv2.1.27_SWRLZ_CANDIDATE_R100.zip"
+        selected.write_bytes(b"selected")
+        metadata = lane / "CLIENT_CFv2.1.27_SWRLZ_CANDIDATE_R100_METADATA.zip"
+        metadata.write_bytes(b"metadata")
+        historical = lane / "CLIENT_CFv2.1.27_SWRLZ_CANDIDATE_R99.zip"
+        historical.write_bytes(b"historical")
+        ref = commit_all(self.repo)
+
+        paths, _ = sparse.build_sparse_paths(
+            self.repo,
+            "CLIENT",
+            selected.relative_to(self.repo).as_posix(),
+            ref=ref,
+        )
+        git(self.repo, "sparse-checkout", "init", "--cone")
+        sparse.apply_sparse_checkout(self.repo, paths)
+
+        self.assertTrue(selected.is_file())
+        self.assertTrue(metadata.is_file())
+        self.assertFalse(historical.exists())
+        self.assertTrue((self.repo / "swrlz-core/tools/ci/placeholder.txt").is_file())
+
     def test_logical_zip_resolves_to_exact_chunked_transport_payload(self):
         lane = self.repo / "swrlz-core/sources/server"
         lane.mkdir(parents=True)
