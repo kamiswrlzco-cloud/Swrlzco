@@ -5,6 +5,8 @@ on:
     paths:
       - 'swrlz-core/tools/ci/**'
       - '.github/workflows/swrlz-apk-router.yml'
+      - '.github/workflows/source-package-integrity.yml'
+      - '.github/workflows/patch-note-accounting.yml'
       - '.github/workflows/swrlz-ci-tooling-validation.yml'
   push:
     branches:
@@ -12,6 +14,8 @@ on:
     paths:
       - 'swrlz-core/tools/ci/**'
       - '.github/workflows/swrlz-apk-router.yml'
+      - '.github/workflows/source-package-integrity.yml'
+      - '.github/workflows/patch-note-accounting.yml'
       - '.github/workflows/swrlz-ci-tooling-validation.yml'
   workflow_dispatch:
 
@@ -24,7 +28,7 @@ defaults:
 
 jobs:
   validate-ci-tooling:
-    name: Validate resolver and build helper
+    name: Validate resolver, audits, and build helper
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -44,14 +48,18 @@ jobs:
           python3 -m py_compile \
             resolve_swrlz_source.py \
             resolve_changed_source_identities.py \
+            resolve_push_changed_paths.py \
             plan_swrlz_build_route.py \
             prepare_swrlz_sparse_checkout.py \
             verify_swrlz_package_pair.py \
+            verify_patch_note_accounting.py \
             test_resolve_swrlz_source.py \
             test_resolve_changed_source_identities.py \
+            test_resolve_push_changed_paths.py \
             test_plan_swrlz_build_route.py \
             test_prepare_swrlz_sparse_checkout.py \
-            test_verify_swrlz_package_pair.py
+            test_verify_swrlz_package_pair.py \
+            test_verify_patch_note_accounting.py
           bash -n build_swrlz_component.sh
 
       - name: Run CI tooling unit tests
@@ -60,6 +68,8 @@ jobs:
           set -euo pipefail
           python3 test_resolve_swrlz_source.py
           python3 test_resolve_changed_source_identities.py
+          python3 test_resolve_push_changed_paths.py
           python3 test_plan_swrlz_build_route.py
           python3 test_prepare_swrlz_sparse_checkout.py
           python3 test_verify_swrlz_package_pair.py
+          python3 test_verify_patch_note_accounting.py
