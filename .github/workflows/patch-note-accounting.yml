@@ -12,8 +12,8 @@ on:
       - 'swrlz-core/docs/contracts/SWRLZ_PATCH_NOTE_AND_LINEAGE_ACCOUNTING_V1.md'
       - 'swrlz-core/tools/ci/resolve_changed_source_identities.py'
       - 'swrlz-core/tools/ci/resolve_push_changed_paths.py'
-      - 'swrlz-core/tools/ci/test_resolve_push_changed_paths.py'
-      - 'swrlz-core/tools/ci/test_verify_patch_note_accounting.py'
+      - 'swrlz-core/tools/ci/plan_swrlz_build_route.py'
+      - 'swrlz-core/tools/ci/prepare_swrlz_sparse_checkout.py'
       - 'swrlz-core/tools/ci/verify_patch_note_accounting.py'
       - '.github/workflows/patch-note-accounting.yml'
   workflow_dispatch:
@@ -21,63 +21,134 @@ on:
 permissions:
   contents: read
 
+env:
+  SWRLZ_CI_ROOT: swrlz-core/tools/ci
+
+defaults:
+  run:
+    shell: bash
+
 jobs:
-  audit:
+  prepare:
+    name: Determine accounting route
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      matrix: ${{ steps.route.outputs.matrix }}
+      has_source_work: ${{ steps.route.outputs.has_work }}
+    steps:
+      - name: Sparse checkout route tooling
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          filter: blob:none
+          sparse-checkout: |
+            swrlz-core/tools/ci
+            swrlz-core/requests
+
+      - name: Plan changed source identities
+        id: route
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == 'workflow_dispatch' ]]; then
+            echo 'matrix={"include":[{"component":"CLIENT","source_identity":""}]}' >> "$GITHUB_OUTPUT"
+            echo 'has_work=false' >> "$GITHUB_OUTPUT"
+            echo 'build_variant=debug' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          python3 "$SWRLZ_CI_ROOT/plan_swrlz_build_route.py"
+
+  audit-targeted:
+    name: Audit ${{ matrix.component }} patch accounting
+    needs: prepare
+    if: needs.prepare.outputs.has_source_work == 'true'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
     steps:
-      - name: Checkout repository
+      - name: Candidate-targeted checkout with exact accounting docs
+        env:
+          COMPONENT: ${{ matrix.component }}
+          SOURCE_IDENTITY: ${{ matrix.source_identity }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ -n "$SOURCE_IDENTITY" ]] || {
+            echo 'Targeted accounting requires an exact source identity.' >&2
+            exit 64
+          }
+          git init .
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git config gc.auto 0
+          git sparse-checkout init --cone
+          git sparse-checkout set swrlz-core/tools/ci swrlz-core/requests
+          git -c protocol.version=2 fetch \
+            --no-tags \
+            --prune \
+            --depth=1 \
+            --filter=blob:none \
+            origin \
+            "+${GITHUB_SHA}:refs/remotes/origin/swrlz-ci"
+          git checkout --detach refs/remotes/origin/swrlz-ci
+          python3 "$SWRLZ_CI_ROOT/prepare_swrlz_sparse_checkout.py" \
+            --component "$COMPONENT" \
+            --source-identity "$SOURCE_IDENTITY" \
+            --ref HEAD \
+            --extra-path "swrlz-core/docs/patch-notes/${COMPONENT}_PATCH_NOTES.md" \
+            --extra-path swrlz-core/docs/reference/CURRENT_CANDIDATE_LINEAGE.md \
+            --extra-path swrlz-core/docs/CURRENT_AUTHORITY.md
+
+      - name: Audit selected package and repository accounting
+        env:
+          COMPONENT: ${{ matrix.component }}
+          SOURCE_IDENTITY: ${{ matrix.source_identity }}
+        run: |
+          set -euo pipefail
+          identities="$RUNNER_TEMP/swrlz-patch-accounting-identities.tsv"
+          result="$RUNNER_TEMP/swrlz-patch-accounting.json"
+          printf '%s\t%s\n' "$COMPONENT" "$SOURCE_IDENTITY" > "$identities"
+          python3 "$SWRLZ_CI_ROOT/verify_patch_note_accounting.py" \
+            --repo-root . \
+            --identity-file "$identities" \
+            --json-output "$result"
+          {
+            echo "## $COMPONENT patch note accounting"
+            echo
+            echo '```json'
+            cat "$result"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  audit-fallback:
+    name: Audit current CLIENT / SERVER accounting
+    needs: prepare
+    if: needs.prepare.outputs.has_source_work != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository for current-candidate fallback audit
         uses: actions/checkout@v4
         with:
           fetch-depth: 2
 
-      - name: Run patch-accounting regression tests
-        working-directory: swrlz-core/tools/ci
-        run: |
-          python3 -m unittest -v \
-            test_resolve_push_changed_paths.py \
-            test_verify_patch_note_accounting.py
-
-      - name: Resolve changed source identities
-        id: identities
-        shell: bash
+      - name: Audit current repository accounting
         run: |
           set -euo pipefail
-          changed="$RUNNER_TEMP/swrlz-patch-accounting-changed.txt"
           identities="$RUNNER_TEMP/swrlz-patch-accounting-identities.tsv"
-          : > "$changed"
-          : > "$identities"
-
-          if [[ "${{ github.event_name }}" == 'push' ]]; then
-            BEFORE='${{ github.event.before }}'
-            AFTER='${{ github.sha }}'
-            python3 swrlz-core/tools/ci/resolve_push_changed_paths.py \
-              --repo-root . \
-              --before "$BEFORE" \
-              --after "$AFTER" \
-              --output "$changed"
-
-            python3 swrlz-core/tools/ci/resolve_changed_source_identities.py \
-              --repo-root . \
-              --changed-list "$changed" \
-              --output "$identities"
-          fi
-
-          echo "identities=$identities" >> "$GITHUB_OUTPUT"
-
-      - name: Audit package and repository patch accounting
-        shell: bash
-        env:
-          IDENTITIES_FILE: ${{ steps.identities.outputs.identities }}
-        run: |
-          set -euo pipefail
           result="$RUNNER_TEMP/swrlz-patch-accounting.json"
-          python3 swrlz-core/tools/ci/verify_patch_note_accounting.py \
+          : > "$identities"
+          python3 "$SWRLZ_CI_ROOT/verify_patch_note_accounting.py" \
             --repo-root . \
-            --identity-file "$IDENTITIES_FILE" \
+            --identity-file "$identities" \
             --json-output "$result"
-
           {
             echo '## SWRLZ Patch Note Accounting'
             echo
