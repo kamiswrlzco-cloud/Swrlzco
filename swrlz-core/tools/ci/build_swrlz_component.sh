@@ -94,7 +94,19 @@ FINAL_APK="$ARTIFACT_DIR/${CANONICAL_STEM}_${VARIANT^^}.apk"
 install -m 0644 "${APKS[0]}" "$FINAL_APK"
 sha256sum "$FINAL_APK" > "$FINAL_APK.sha256"
 
-SOURCE_SHA="$(sha256sum "$SOURCE_ZIP" | awk '{print $1}')"
+SOURCE_SHA="${SWRLZ_VERIFIED_SOURCE_SHA256:-}"
+SOURCE_SHA_ORIGIN='resolver-verified'
+if [[ -n "$SOURCE_SHA" ]]; then
+  [[ "$SOURCE_SHA" =~ ^[0-9a-fA-F]{64}$ ]] || {
+    echo 'SWRLZ_VERIFIED_SOURCE_SHA256 is not a valid SHA-256 digest.' >&2
+    exit 65
+  }
+  SOURCE_SHA="${SOURCE_SHA,,}"
+else
+  SOURCE_SHA="$(sha256sum "$SOURCE_ZIP" | awk '{print $1}')"
+  SOURCE_SHA_ORIGIN='builder-fallback-hash'
+fi
+
 PROVENANCE="$ARTIFACT_DIR/BUILD_PROVENANCE_REPORT.md"
 {
   echo '# SWRLZ APK Router Build Provenance'
@@ -104,6 +116,7 @@ PROVENANCE="$ARTIFACT_DIR/BUILD_PROVENANCE_REPORT.md"
   echo "- Canonical source identity: $CANONICAL_STEM"
   echo "- Selected source path: $SOURCE_ZIP"
   echo "- Selected source SHA-256: $SOURCE_SHA"
+  echo "- Selected source SHA origin: $SOURCE_SHA_ORIGIN"
   echo "- Build variant: $VARIANT"
   echo "- Gradle task: $GRADLE_TASK"
   echo "- Gradle build cache: enabled"

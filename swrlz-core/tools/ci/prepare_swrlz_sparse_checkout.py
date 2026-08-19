@@ -36,13 +36,18 @@ def _path_exists(repo_root: Path, ref: str, path: Path) -> bool:
     return result.returncode == 0
 
 
-def _safe_lane_path(component: str, raw: str) -> Path:
+def _safe_repo_path(raw: str) -> Path:
     value = raw.replace("\\", "/").strip()
     if not value or value.startswith("/"):
-        raise SparseCheckoutError(f"Unsafe source path: {raw!r}")
+        raise SparseCheckoutError(f"Unsafe repository path: {raw!r}")
     path = Path(value)
     if any(part in {"", ".", "..", ".git"} for part in path.parts):
-        raise SparseCheckoutError(f"Unsafe source path: {raw!r}")
+        raise SparseCheckoutError(f"Unsafe repository path: {raw!r}")
+    return path
+
+
+def _safe_lane_path(component: str, raw: str) -> Path:
+    path = _safe_repo_path(raw)
     lane = LANES[component]
     try:
         path.relative_to(lane)
@@ -82,6 +87,7 @@ def build_sparse_paths(
     *,
     ref: str = "HEAD",
     include_releases: bool = False,
+    extra_paths: list[str] | None = None,
 ) -> tuple[list[Path], Path]:
     component = component.upper()
     if component not in LANES:
@@ -102,6 +108,17 @@ def build_sparse_paths(
     paths: set[Path] = set(BASE_PATHS)
     if include_releases:
         paths.add(RELEASES_PATH)
+    for raw in extra_paths or []:
+        extra = _safe_repo_path(raw)
+        if not _path_exists(repo_root, ref, extra):
+            raise SparseCheckoutError(f"Extra sparse path is missing at {ref}: {extra}")
+        try:
+            object_type = _git(repo_root, "cat-file", "-t", f"{ref}:{extra.as_posix()}")
+        except subprocess.CalledProcessError as exc:
+            raise SparseCheckoutError(f"Unable to inspect extra sparse path: {extra}") from exc
+        if object_type != "blob":
+            raise SparseCheckoutError(f"Extra sparse path must be an exact file: {extra}")
+        paths.add(extra)
     paths.add(actual)
 
     lower = actual.name.lower()
@@ -192,6 +209,7 @@ def main() -> int:
     parser.add_argument("--source-identity", required=True)
     parser.add_argument("--ref", default="HEAD")
     parser.add_argument("--include-releases", action="store_true")
+    parser.add_argument("--extra-path", action="append", default=[])
     parser.add_argument("--plan-only", action="store_true")
     args = parser.parse_args()
 
@@ -203,6 +221,7 @@ def main() -> int:
             args.source_identity,
             ref=args.ref,
             include_releases=args.include_releases,
+            extra_paths=args.extra_path,
         )
         if not args.plan_only:
             apply_sparse_checkout(repo_root, paths)
