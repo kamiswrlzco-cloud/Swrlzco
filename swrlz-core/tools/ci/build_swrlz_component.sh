@@ -56,10 +56,21 @@ if [[ -n "$SDK_DIR" ]]; then
   printf 'sdk.dir=%s\n' "$SDK_DIR" > "$PROJECT_ROOT/local.properties"
 fi
 
+# Every router invocation extracts into a newly-created isolated workspace above,
+# so running `clean` before assembly only adds Gradle task/configuration overhead.
+# Reuse Gradle's local build cache (persisted by setup-gradle in GitHub Actions)
+# and allow independent project tasks/modules to execute in parallel instead.
+GRADLE_ARGS=(
+  --no-daemon
+  --stacktrace
+  --build-cache
+  --parallel
+)
+
 BUILD_LOG="$ARTIFACT_DIR/BUILD_LOG.txt"
 (
   cd "$PROJECT_ROOT"
-  ./gradlew --no-daemon --stacktrace clean "$GRADLE_TASK"
+  ./gradlew "${GRADLE_ARGS[@]}" "$GRADLE_TASK"
 ) 2>&1 | tee "$BUILD_LOG"
 
 mapfile -t APKS < <(
@@ -95,6 +106,9 @@ PROVENANCE="$ARTIFACT_DIR/BUILD_PROVENANCE_REPORT.md"
   echo "- Selected source SHA-256: $SOURCE_SHA"
   echo "- Build variant: $VARIANT"
   echo "- Gradle task: $GRADLE_TASK"
+  echo "- Gradle build cache: enabled"
+  echo "- Gradle parallel execution: enabled"
+  echo "- Gradle clean task: omitted (fresh isolated extraction workspace)"
   echo "- Project root: $PROJECT_ROOT"
   echo "- Final APK: $(basename "$FINAL_APK")"
   echo "- Final APK SHA-256: $(sha256sum "$FINAL_APK" | awk '{print $1}')"

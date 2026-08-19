@@ -136,6 +136,30 @@ class ResolverTests(unittest.TestCase):
             self.assertEqual(result["source_kind"], "chunked-v2")
             self.assertTrue(Path(result["selected_source"]).is_file())
 
+    def test_discovery_defers_chunk_reassembly_until_selection(self):
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp)
+            work = repo / "work"
+            make_chunked_v2(repo, "SERVER", 7, 90)
+            make_chunked_v2(repo, "SERVER", 8, 91)
+            candidates = resolver.discover(repo, "SERVER", work)
+            self.assertEqual(len(candidates), 2)
+            sources = work / "sources"
+            self.assertFalse(sources.exists(), "discovery should not materialize historical source ZIPs")
+
+    def test_verified_latest_falls_back_after_lazy_payload_failure(self):
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp)
+            older, _ = make_chunked_v2(repo, "SERVER", 7, 90)
+            newer, _ = make_chunked_v2(repo, "SERVER", 8, 91)
+            payload = json.loads(newer.read_text(encoding="utf-8"))
+            first_chunk = repo / payload["chunks"][0]["path"]
+            first_chunk.write_bytes(first_chunk.read_bytes() + b"corrupt")
+            result = resolver.resolve(repo, "SERVER", work_dir=repo / "work")
+            self.assertEqual(result["revision"], "R7")
+            self.assertEqual(result["uploaded_filename"], older.name)
+            self.assertTrue(Path(result["selected_source"]).is_file())
+
     def test_chunked_v2_accepts_explicit_logical_zip_identity(self):
         with tempfile.TemporaryDirectory() as temp:
             repo = Path(temp)
