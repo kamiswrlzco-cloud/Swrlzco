@@ -110,7 +110,7 @@ jobs:
             --source-identity "$SOURCE_IDENTITY" \
             --ref HEAD
 
-      - name: Resolve and verify selected source package
+      - name: Resolve selected source
         id: resolve
         env:
           COMPONENT: ${{ matrix.component }}
@@ -123,6 +123,25 @@ jobs:
             --work-dir "$RUNNER_TEMP/swrlz-integrity/$COMPONENT" \
             --github-output "$GITHUB_OUTPUT"
 
-          VERIFY_ARGS=("$(python3 -c 'import json,os; print(json.loads(os.environ["RESOLUTION_JSON"])["selected_source"])')")
-        env:
-          RESOLUTION_JSON: ${{ steps.resolve.outputs.resolution_json }}
+      - name: Verify resolved package evidence
+        run: |
+          set -euo pipefail
+          VERIFY_ARGS=("${{ steps.resolve.outputs.selected_source }}")
+          if [[ -n "${{ steps.resolve.outputs.checksum_file }}" ]]; then
+            VERIFY_ARGS+=(--checksum "${{ steps.resolve.outputs.checksum_file }}")
+          fi
+          if [[ -n "${{ steps.resolve.outputs.manifest_file }}" ]]; then
+            VERIFY_ARGS+=(--manifest "${{ steps.resolve.outputs.manifest_file }}")
+          fi
+          python3 "$SWRLZ_VERIFY_TOOL" "${VERIFY_ARGS[@]}"
+
+      - name: Summarize integrity result
+        run: |
+          {
+            echo "## ${{ matrix.component }} source integrity"
+            echo
+            echo "- Source identity: \`${{ matrix.source_identity }}\`"
+            echo "- Canonical source: \`${{ steps.resolve.outputs.canonical_filename }}\`"
+            echo "- SHA-256: \`${{ steps.resolve.outputs.source_sha256 }}\`"
+            echo "- Result: verified"
+          } >> "$GITHUB_STEP_SUMMARY"
