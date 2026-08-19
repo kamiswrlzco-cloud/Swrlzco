@@ -2,6 +2,7 @@
 
 ## CLIENT R97 / VC223 — INT-PATCH-ACCOUNTING-GDRIVE-PUBLISH-194A
 
+- Short identity: `2.1.27 R97`
 - Candidate: `CLIENT_CFv2.1.27_SWRLZ_CANDIDATE_R97`
 - Version: `2.1.27`
 - Version name: `2.1.27-patch-accounting-gdrive-r97`
