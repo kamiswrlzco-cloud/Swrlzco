@@ -1,31 +1,29 @@
 # SWRLZ Current Candidate Authority
 
-- Candidate: `CLIENT_CFv2.1.27_SWRLZ_CANDIDATE_R90`
-- Source SHA-256: `625b93181f96883ff61ccca2a193d6699b2ed42420b748d02fb35a0a2e0286d9`
-- Revision: `R90`
-- Version code: `216`
-- Accounting repair source workflow run: `32196572773`
+This document records current **candidate/accounting authority**, not production promotion. CLIENT and SERVER pointers are independent and may advance at different rates.
 
-This records current-candidate accounting only. It does not claim build success, promotion, deployment, or device acceptance.
+## CLIENT candidate authority
 
-```json
-{
-  "schema": "swrlz-patch-accounting-status-v1",
-  "candidate": "CLIENT_CFv2.1.27_SWRLZ_CANDIDATE_R88",
-  "revision": "R88",
-  "versionCode": 214,
-  "versionName": "2.1.27-runtime-chat-auth-external-r88",
-  "checkpoint": "INT-RUNTIME-CHAT-AUTH-EXTERNAL-182A",
-  "parentCandidate": "CLIENT_CFv2.1.27_SWRLZ_CANDIDATE_R87",
-  "parentSha256": "9984d7c1ca5454e68a9bff1c94440124dbc52843ff765ddc77e065c577f2d5a7",
-  "sibling": "SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R121",
-  "changeClass": "CLIENT_RUNTIME_CHAT_AUTH_EXTERNAL_INTELLIGENCE",
-  "canonicalLalm": "EXTERNAL_UNCHANGED",
-  "productionParityProven": false,
-  "productionPromotionPerformed": false,
-  "androidCompile": "NOT_RUN_BY_OPERATOR_REQUEST",
-  "apkBuild": "NOT_CLAIMED",
-  "deviceValidation": "REQUIRED"
-}
+- Short identity: `2.1.27 R97`
+- Candidate: `CLIENT_CFv2.1.27_SWRLZ_CANDIDATE_R97`
+- Source SHA-256: `17b97f121da1cede54eb13c9881cd9742d7fa09a9a76d4488c4e09b12f7a7b2c`
+- Revision: `R97`
+- Version code: `223`
+- Version name: `2.1.27-patch-accounting-gdrive-r97`
+- Checkpoint: `INT-PATCH-ACCOUNTING-GDRIVE-PUBLISH-194A`
+- Parent SHA-256: `21fe0a77a561fd2181d97595369076c708a2e9f77d9215a170c17de2afc8a9d5`
 
-```
+## SERVER candidate authority
+
+- Short identity: `2.1.27 R133`
+- Candidate: `SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R133`
+- Source SHA-256: `0c850daf4370b5e26d2a2a94b011faca8921a92b2e74f84d4c8177a3eefd25d8`
+- Revision: `R133`
+- Version code: `256`
+- Version name: `2.1.27-patch-accounting-gdrive-r133`
+- Checkpoint: `INT-PATCH-ACCOUNTING-GDRIVE-PUBLISH-194A`
+- Parent SHA-256: `bec7b0606525a3394290942586937884037a63e05b15ebfcfe41a8a953efdc4f`
+
+## Promotion boundary
+
+Neither pointer claims Android compile, APK build/signing, installation, device acceptance, production parity, promotion, release, or deployment. Those require their own evidence. Compatibility between the current CLIENT and SERVER may be recorded, but one component advancing does not move the other component's authority pointer.
