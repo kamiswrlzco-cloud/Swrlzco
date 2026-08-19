@@ -2,6 +2,7 @@
 
 ## SERVER R133 / VC256 — INT-PATCH-ACCOUNTING-GDRIVE-PUBLISH-194A
 
+- Short identity: `2.1.27 R133`
 - Candidate: `SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R133`
 - Version: `2.1.27`
 - Version name: `2.1.27-patch-accounting-gdrive-r133`
