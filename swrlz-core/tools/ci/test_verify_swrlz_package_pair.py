@@ -16,19 +16,22 @@ def sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def source_archive(source: Path, *, extra=None):
-    root = source.stem
+def source_archive(source: Path, *, extra=None, wrapped: bool = False):
+    prefix = f"{source.stem}/" if wrapped else ""
+    project = f"{prefix}android"
     with zipfile.ZipFile(source, "w") as archive:
-        archive.writestr(f"{root}/settings.gradle.kts", "rootProject.name='fixture'\n")
-        archive.writestr(f"{root}/gradlew", "#!/usr/bin/env bash\nexit 0\n")
-        archive.writestr(f"{root}/app/build.gradle.kts", "plugins {}\n")
+        if not wrapped:
+            archive.writestr("README.md", "fixture\n")
+        archive.writestr(f"{project}/settings.gradle.kts", "rootProject.name='fixture'\n")
+        archive.writestr(f"{project}/gradlew", "#!/usr/bin/env bash\nexit 0\n")
+        archive.writestr(f"{project}/app/build.gradle.kts", "plugins {}\n")
         for name, value in extra or []:
             archive.writestr(name, value)
 
 
-def fixture(root: Path, component: str = "SERVER", revision: int = 7):
+def fixture(root: Path, component: str = "SERVER", revision: int = 7, *, wrapped: bool = False):
     source = root / f"{component}_CFv2.1.26_SWRLZ_CANDIDATE_R{revision}.zip"
-    source_archive(source)
+    source_archive(source, wrapped=wrapped)
     digest = sha(source)
     manifest = {
         "schema": 1,
@@ -52,13 +55,23 @@ def fixture(root: Path, component: str = "SERVER", revision: int = 7):
 
 
 class VerifyTests(unittest.TestCase):
-    def test_metadata_bundle_and_topology(self):
+    def test_metadata_bundle_accepts_authoritative_flat_root(self):
         with tempfile.TemporaryDirectory() as temp:
             source, _, _, metadata = fixture(Path(temp))
             result = verifier.verify(source, metadata, None, None)
             self.assertTrue(result["verified"])
             self.assertTrue(result["archive_topology_verified"])
+            self.assertEqual(result["archive_layout"], "flat-root")
+            self.assertEqual(result["archive_root"], ".")
+            self.assertEqual(result["android_project_root"], "android")
+
+    def test_canonical_wrapper_layout_remains_supported(self):
+        with tempfile.TemporaryDirectory() as temp:
+            source, _, _, metadata = fixture(Path(temp), wrapped=True)
+            result = verifier.verify(source, metadata, None, None)
+            self.assertEqual(result["archive_layout"], "canonical-wrapper")
             self.assertEqual(result["archive_root"], source.stem)
+            self.assertEqual(result["android_project_root"], f"{source.stem}/android")
 
     def test_legacy_sidecars(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -86,7 +99,7 @@ class VerifyTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             source = root / "SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R1.zip"
-            source_archive(source, extra=[(f"{source.stem}/../escape.txt", "no")])
+            source_archive(source, extra=[("android/../escape.txt", "no")])
             with self.assertRaisesRegex(ValueError, "unsafe path"):
                 verifier.validate_archive_topology(source)
 
@@ -96,7 +109,7 @@ class VerifyTests(unittest.TestCase):
             source = root / "SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R1.zip"
             source_archive(source)
             with zipfile.ZipFile(source, "a") as archive:
-                info = zipfile.ZipInfo(f"{source.stem}/danger-link")
+                info = zipfile.ZipInfo("danger-link")
                 info.create_system = 3
                 info.external_attr = (stat.S_IFLNK | 0o777) << 16
                 archive.writestr(info, "../../outside")
@@ -108,20 +121,31 @@ class VerifyTests(unittest.TestCase):
             root = Path(temp)
             source = root / "SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R1.zip"
             source_archive(source, extra=[
-                (f"{source.stem}/nested/settings.gradle.kts", "rootProject.name='nested'"),
-                (f"{source.stem}/nested/gradlew", "#!/bin/sh\n"),
+                ("other/settings.gradle.kts", "rootProject.name='nested'"),
+                ("other/gradlew", "#!/bin/sh\n"),
             ])
             with self.assertRaisesRegex(ValueError, "exactly one Android Gradle project root"):
                 verifier.validate_archive_topology(source)
 
-    def test_wrong_top_level_root_rejected(self):
+    def test_foreign_single_wrapper_rejected(self):
         with tempfile.TemporaryDirectory() as temp:
             source = Path(temp) / "SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R1.zip"
             with zipfile.ZipFile(source, "w") as archive:
                 archive.writestr("WRONG/settings.gradle.kts", "rootProject.name='wrong'")
                 archive.writestr("WRONG/gradlew", "#!/bin/sh\n")
-            with self.assertRaisesRegex(ValueError, "canonical root"):
+            with self.assertRaisesRegex(ValueError, "non-canonical wrapper"):
                 verifier.validate_archive_topology(source)
+
+    def test_root_level_gradle_project_is_supported(self):
+        with tempfile.TemporaryDirectory() as temp:
+            source = Path(temp) / "CLIENT_CFv2.1.27_SWRLZ_CANDIDATE_R1.zip"
+            with zipfile.ZipFile(source, "w") as archive:
+                archive.writestr("settings.gradle.kts", "rootProject.name='root'\n")
+                archive.writestr("gradlew", "#!/bin/sh\n")
+                archive.writestr("app/build.gradle.kts", "plugins {}\n")
+            result = verifier.validate_archive_topology(source)
+            self.assertEqual(result["archive_layout"], "flat-root")
+            self.assertEqual(result["android_project_root"], ".")
 
 
 if __name__ == "__main__":
