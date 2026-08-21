@@ -41,7 +41,26 @@ def manifest_source(payload: dict) -> tuple[str, str, int]:
     return name, digest, int(size)
 
 
+def _archive_parent(path_text: str) -> str:
+    parent = PurePosixPath(path_text).parent.as_posix()
+    return "" if parent == "." else parent
+
+
+def _archive_child(root: str, name: str) -> str:
+    return f"{root}/{name}" if root else name
+
+
 def validate_archive_topology(zip_path: Path) -> dict:
+    """Validate safe SWRLZ archive structure without forcing one packaging layout.
+
+    Current Forge source packages are flat repository snapshots (for example
+    `.github/`, `android/`, `backend/`, and root documentation). Older or
+    external packages may instead wrap the whole snapshot in the canonical
+    candidate stem. Both layouts are safe when the archive has exactly one
+    Android Gradle project root. A single non-canonical wrapper is rejected so
+    an accidentally nested/repacked archive cannot silently change the build
+    root.
+    """
     expected_root = stem(zip_path.name, ".zip")
     with zipfile.ZipFile(zip_path) as archive:
         infos = archive.infolist()
@@ -85,29 +104,46 @@ def validate_archive_topology(zip_path: Path) -> dict:
             if not info.is_dir():
                 file_names.add(cleaned)
 
-        if roots != {expected_root}:
-            raise ValueError(
-                f"Source archive must have exactly canonical root {expected_root!r}; found {sorted(roots)}"
-            )
+        root_level_files = {
+            name for name in file_names if len(PurePosixPath(name).parts) == 1
+        }
+        if roots == {expected_root} and not root_level_files:
+            archive_layout = "canonical-wrapper"
+            archive_root = expected_root
+        else:
+            # A package containing only one foreign wrapper directory is almost
+            # certainly an accidental repack. Flat Forge snapshots either have
+            # root-level files or multiple top-level repository entries.
+            if len(roots) == 1 and not root_level_files:
+                only_root = next(iter(roots))
+                raise ValueError(
+                    f"Source archive has non-canonical wrapper {only_root!r}; expected {expected_root!r} or flat Forge root"
+                )
+            archive_layout = "flat-root"
+            archive_root = "."
 
         wrappers = {
-            name[: -len("/gradlew")]
+            _archive_parent(name)
             for name in file_names
-            if name.endswith("/gradlew")
+            if PurePosixPath(name).name == "gradlew"
         }
         project_roots = {
             root
             for root in wrappers
-            if f"{root}/settings.gradle" in file_names or f"{root}/settings.gradle.kts" in file_names
+            if _archive_child(root, "settings.gradle") in file_names
+            or _archive_child(root, "settings.gradle.kts") in file_names
         }
         if len(project_roots) != 1:
+            display_roots = sorted(root or "." for root in project_roots)
             raise ValueError(
-                f"Source archive must contain exactly one Android Gradle project root; found {sorted(project_roots)}"
+                f"Source archive must contain exactly one Android Gradle project root; found {display_roots}"
             )
+        project_root = next(iter(project_roots))
 
     return {
-        "archive_root": expected_root,
-        "android_project_root": next(iter(project_roots)),
+        "archive_root": archive_root,
+        "archive_layout": archive_layout,
+        "android_project_root": project_root or ".",
         "archive_entry_count": len(infos),
         "archive_uncompressed_bytes": total_uncompressed,
         "archive_topology_verified": True,
