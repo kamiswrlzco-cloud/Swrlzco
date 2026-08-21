@@ -148,6 +148,20 @@ class BuildRouteTests(unittest.TestCase):
                 0,
             )
 
+    def test_deleted_source_identity_does_not_trigger_fallback_build(self):
+        transport = self._write_transport("SERVER", 142)
+        before = commit_all(self.repo, "server identity to archive")
+        transport.unlink()
+        head = commit_all(self.repo, "archive old server identity")
+        plan = route.plan_route(
+            self.repo,
+            event_name="push",
+            before_sha=before,
+            after_sha=head,
+        )
+        self.assertFalse(plan["has_work"])
+        self.assertEqual(plan["matrix"]["include"], [{"component": "CLIENT", "source_identity": ""}])
+
     def test_manual_explicit_identity_is_forwarded(self):
         plan = route.plan_route(
             self.repo,

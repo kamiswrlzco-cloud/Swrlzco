@@ -11,7 +11,7 @@ Current SWRLZ lanes include:
 - `swrlz-apk-router.yml` — routes CLIENT/SERVER source changes and produces bounded Android build evidence;
 - `source-package-integrity.yml` — reconstructs and verifies changed source identities;
 - `patch-note-accounting.yml` — audits candidate patch-note and lineage accounting;
-- `swrlz-server-r8-patch-build.yml` — preserved explicit historical SERVER R8 patch-build lane.
+- historical SERVER R8 patch-build lane — archived (non-executable) at `swrlz-core/history/workflows/swrlz-server-r8-patch-build.yml`.
 
 ## Push changed-range rule
 

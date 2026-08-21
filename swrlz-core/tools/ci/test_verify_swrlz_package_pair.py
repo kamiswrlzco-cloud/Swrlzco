@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import stat
 import tempfile
 import unittest
 import zipfile
@@ -15,10 +16,19 @@ def sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def source_archive(source: Path, *, extra=None):
+    root = source.stem
+    with zipfile.ZipFile(source, "w") as archive:
+        archive.writestr(f"{root}/settings.gradle.kts", "rootProject.name='fixture'\n")
+        archive.writestr(f"{root}/gradlew", "#!/usr/bin/env bash\nexit 0\n")
+        archive.writestr(f"{root}/app/build.gradle.kts", "plugins {}\n")
+        for name, value in extra or []:
+            archive.writestr(name, value)
+
+
 def fixture(root: Path, component: str = "SERVER", revision: int = 7):
     source = root / f"{component}_CFv2.1.26_SWRLZ_CANDIDATE_R{revision}.zip"
-    with zipfile.ZipFile(source, "w") as archive:
-        archive.writestr("settings.gradle.kts", "rootProject.name='fixture'\n")
+    source_archive(source)
     digest = sha(source)
     manifest = {
         "schema": 1,
@@ -42,10 +52,13 @@ def fixture(root: Path, component: str = "SERVER", revision: int = 7):
 
 
 class VerifyTests(unittest.TestCase):
-    def test_metadata_bundle(self):
+    def test_metadata_bundle_and_topology(self):
         with tempfile.TemporaryDirectory() as temp:
             source, _, _, metadata = fixture(Path(temp))
-            self.assertTrue(verifier.verify(source, metadata, None, None)["verified"])
+            result = verifier.verify(source, metadata, None, None)
+            self.assertTrue(result["verified"])
+            self.assertTrue(result["archive_topology_verified"])
+            self.assertEqual(result["archive_root"], source.stem)
 
     def test_legacy_sidecars(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -68,6 +81,47 @@ class VerifyTests(unittest.TestCase):
                 archive.write(manifest, manifest.name)
             with self.assertRaises(ValueError):
                 verifier.verify(source, metadata, None, None)
+
+    def test_path_traversal_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / "SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R1.zip"
+            source_archive(source, extra=[(f"{source.stem}/../escape.txt", "no")])
+            with self.assertRaisesRegex(ValueError, "unsafe path"):
+                verifier.validate_archive_topology(source)
+
+    def test_symlink_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / "SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R1.zip"
+            source_archive(source)
+            with zipfile.ZipFile(source, "a") as archive:
+                info = zipfile.ZipInfo(f"{source.stem}/danger-link")
+                info.create_system = 3
+                info.external_attr = (stat.S_IFLNK | 0o777) << 16
+                archive.writestr(info, "../../outside")
+            with self.assertRaisesRegex(ValueError, "symlink"):
+                verifier.validate_archive_topology(source)
+
+    def test_multiple_gradle_roots_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / "SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R1.zip"
+            source_archive(source, extra=[
+                (f"{source.stem}/nested/settings.gradle.kts", "rootProject.name='nested'"),
+                (f"{source.stem}/nested/gradlew", "#!/bin/sh\n"),
+            ])
+            with self.assertRaisesRegex(ValueError, "exactly one Android Gradle project root"):
+                verifier.validate_archive_topology(source)
+
+    def test_wrong_top_level_root_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            source = Path(temp) / "SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R1.zip"
+            with zipfile.ZipFile(source, "w") as archive:
+                archive.writestr("WRONG/settings.gradle.kts", "rootProject.name='wrong'")
+                archive.writestr("WRONG/gradlew", "#!/bin/sh\n")
+            with self.assertRaisesRegex(ValueError, "canonical root"):
+                verifier.validate_archive_topology(source)
 
 
 if __name__ == "__main__":
