@@ -10,10 +10,10 @@
 
 schema=2
 enabled=true
-request_id=BENCH-PHASE5C-CLIENT-R114-20260821
-target=CLIENT
+request_id=BENCH-PHASE5C-SERVER-R152-20260821
+target=SERVER
 source_mode=exact
-source_identity=swrlz-core/sources/client/CLIENT_CFv2.1.27_SWRLZ_CANDIDATE_R114.transport.json
-source_zip=swrlz-core/sources/client/CLIENT_CFv2.1.27_SWRLZ_CANDIDATE_R114.zip
+source_identity=swrlz-core/sources/server/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R152.transport.json
+source_zip=swrlz-core/sources/server/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R152.zip
 build_variant=debug
 commit_release_artifacts=false
