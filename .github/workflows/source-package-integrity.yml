@@ -9,7 +9,11 @@ on:
       - 'swrlz-core/tools/ci/resolve_changed_source_identities.py'
       - 'swrlz-core/tools/ci/resolve_push_changed_paths.py'
       - 'swrlz-core/tools/ci/plan_swrlz_build_route.py'
+      - 'swrlz-core/tools/ci/plan_swrlz_candidate_checkout.py'
+      - 'swrlz-core/tools/ci/plan_swrlz_integrity_route.py'
+      - 'swrlz-core/tools/ci/resolve_swrlz_latest_identity.py'
       - 'swrlz-core/tools/ci/prepare_swrlz_sparse_checkout.py'
+      - 'swrlz-core/tools/ci/verify_swrlz_package_pair.py'
       - '.github/workflows/source-package-integrity.yml'
 
   workflow_dispatch:
@@ -37,13 +41,14 @@ jobs:
     timeout-minutes: 10
     outputs:
       matrix: ${{ steps.checkout-plan.outputs.matrix }}
-      has_work: ${{ steps.route.outputs.has_work }}
+      has_work: ${{ steps.integrity-route.outputs.has_work }}
     steps:
       - name: Sparse checkout route tooling
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 2
           filter: blob:none
+          persist-credentials: false
           sparse-checkout: |
             swrlz-core/tools/ci
             swrlz-core/requests
@@ -70,10 +75,25 @@ jobs:
           fi
           python3 "$SWRLZ_CI_ROOT/plan_swrlz_build_route.py"
 
+      - name: Expand integrity self-check route
+        id: integrity-route
+        env:
+          BASE_MATRIX: ${{ steps.route.outputs.matrix }}
+          BASE_HAS_WORK: ${{ steps.route.outputs.has_work }}
+        run: |
+          set -euo pipefail
+          python3 "$SWRLZ_CI_ROOT/plan_swrlz_integrity_route.py" \
+            --matrix-json "$BASE_MATRIX" \
+            --has-work "$BASE_HAS_WORK" \
+            --event-name "${{ github.event_name }}" \
+            --before "${{ github.event.before }}" \
+            --after "$GITHUB_SHA" \
+            --github-output "$GITHUB_OUTPUT"
+
       - name: Plan one-pass candidate hydration
         id: checkout-plan
         env:
-          ROUTE_MATRIX: ${{ steps.route.outputs.matrix }}
+          ROUTE_MATRIX: ${{ steps.integrity-route.outputs.matrix }}
         run: |
           set -euo pipefail
           python3 "$SWRLZ_CI_ROOT/plan_swrlz_candidate_checkout.py" \

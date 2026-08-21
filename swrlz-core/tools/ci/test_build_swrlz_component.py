@@ -39,6 +39,7 @@ class BuildHelperTests(unittest.TestCase):
         env = os.environ.copy()
         env['SWRLZ_VERIFIED_SOURCE_SHA256'] = digest(source)
         env['SWRLZ_SOURCE_HYDRATION_MS'] = str(hydration)
+        env['SWRLZ_JAVA_SETUP_MS'] = '23'
         env['SWRLZ_GRADLE_SETUP_MS'] = '45'
         env['SWRLZ_ANDROID_SDK_SETUP_MS'] = '67'
         env['GITHUB_OUTPUT'] = str(output)
@@ -60,8 +61,10 @@ class BuildHelperTests(unittest.TestCase):
             timing = json.loads((artifact / 'CI_TIMING.json').read_text())
             self.assertEqual(timing['status'], 'succeeded')
             self.assertEqual(timing['source_hydration_ms'], 123)
+            self.assertEqual(timing['java_setup_ms'], 23)
             self.assertEqual(timing['gradle_setup_ms'], 45)
             self.assertEqual(timing['android_sdk_setup_ms'], 67)
+            self.assertFalse(timing['configuration_cache_enabled'])
             self.assertEqual(timing['gradle_exit_code'], 0)
             self.assertTrue(any(artifact.glob('*_DEBUG.apk')))
 
@@ -75,11 +78,15 @@ class BuildHelperTests(unittest.TestCase):
             self.assertEqual(timing['status'], 'failed')
             self.assertEqual(timing['gradle_exit_code'], 7)
             self.assertEqual(timing['source_hydration_ms'], 321)
+            self.assertEqual(timing['java_setup_ms'], 23)
             self.assertEqual(timing['gradle_setup_ms'], 45)
             self.assertEqual(timing['android_sdk_setup_ms'], 67)
+            self.assertFalse(timing['configuration_cache_enabled'])
             failure = json.loads((artifact / 'BUILD_FAILURE.json').read_text())
+            self.assertEqual(failure['java_setup_ms'], 23)
             self.assertEqual(failure['gradle_setup_ms'], 45)
             self.assertEqual(failure['android_sdk_setup_ms'], 67)
+            self.assertFalse(failure['configuration_cache_enabled'])
             self.assertTrue((artifact / 'BUILD_FAILURE.json').is_file())
 
 
@@ -87,7 +94,8 @@ class BuildHelperTests(unittest.TestCase):
         text = HELPER.read_text(encoding='utf-8')
         self.assertIn('--no-watch-fs', text)
         self.assertIn('--build-cache', text)
-        self.assertNotIn('--configuration-cache', text)
+        self.assertIn('--configuration-cache', text)
+        self.assertIn('SWRLZ_GRADLE_CONFIGURATION_CACHE', text)
 
     def test_multiple_android_roots_fail_closed(self):
         with tempfile.TemporaryDirectory() as temp:

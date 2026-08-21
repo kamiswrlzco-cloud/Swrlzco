@@ -221,13 +221,29 @@ jobs:
             echo "artifact_name=${CANONICAL_STEM}_${VARIANT}_APK"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Set up Java 17
-        id: setup-java
-        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
-        with:
-          distribution: temurin
-          java-version: '17'
-          check-latest: false
+      - name: Start Java 17 tooling timer
+        run: echo "SWRLZ_JAVA_SETUP_STARTED_MS=$(date +%s%3N)" >> "$GITHUB_ENV"
+
+      - name: Validate preinstalled Java 17
+        id: java
+        run: |
+          set -euo pipefail
+          JDK_DIR="${JAVA_HOME_17_X64:-}"
+          [[ -n "$JDK_DIR" && -x "$JDK_DIR/bin/java" && -x "$JDK_DIR/bin/javac" && -x "$JDK_DIR/bin/keytool" ]] || {
+            echo 'Pinned Ubuntu 24.04 runner does not expose a complete JAVA_HOME_17_X64 toolchain.' >&2
+            exit 1
+          }
+          SPEC="$("$JDK_DIR/bin/java" -XshowSettings:properties -version 2>&1 | awk -F'= ' '/java.specification.version/{print $2; exit}')"
+          [[ "$SPEC" == '17' ]] || {
+            echo "Expected Java 17, found specification version: ${SPEC:-unknown}" >&2
+            exit 1
+          }
+          echo "JAVA_HOME=$JDK_DIR" >> "$GITHUB_ENV"
+          echo "$JDK_DIR/bin" >> "$GITHUB_PATH"
+          END_MS="$(date +%s%3N)"
+          ELAPSED_MS=$((END_MS - SWRLZ_JAVA_SETUP_STARTED_MS))
+          echo "java_setup_ms=$ELAPSED_MS" >> "$GITHUB_OUTPUT"
+          echo "Java 17 tooling: ${ELAPSED_MS} ms · preinstalled pinned-runner fast path" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Validate V2 stable signing configuration
         env:
@@ -307,6 +323,8 @@ jobs:
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
         with:
           cache-cleanup: on-success
+          cache-provider: basic
+          cache-encryption-key: ${{ secrets.SWRLZ_GRADLE_CACHE_ENCRYPTION_KEY }}
 
       - name: Record Gradle wrapper/cache timing
         id: gradle-setup-timing
@@ -337,14 +355,28 @@ jobs:
           if [[ "$FALLBACK_REQUIRED" == 'false' ]]; then
             echo 'Android SDK fast path: using tools already present on the pinned Ubuntu 24.04 runner.'
           else
-            echo '::notice::Pinned runner Android SDK is incomplete; invoking the setup-android fallback.'
+            echo '::notice::Pinned runner Android SDK is incomplete; invoking the direct sdkmanager fallback.'
           fi
 
-      - name: Set up Android SDK tooling fallback
+      - name: Repair Android SDK tooling with sdkmanager
+        id: setup-android
         if: steps.android-sdk-preflight.outputs.fallback_required == 'true'
-        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4
-        with:
-          packages: 'platform-tools build-tools;35.0.0'
+        run: |
+          set -euo pipefail
+          SDK_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          [[ -n "$SDK_DIR" && -d "$SDK_DIR" ]] || {
+            echo 'Pinned runner Android SDK root is unavailable; refusing an implicit alternate SDK.' >&2
+            exit 1
+          }
+          SDKMANAGER="$SDK_DIR/cmdline-tools/latest/bin/sdkmanager"
+          if [[ ! -x "$SDKMANAGER" ]]; then
+            SDKMANAGER="$(command -v sdkmanager || true)"
+          fi
+          [[ -n "$SDKMANAGER" && -x "$SDKMANAGER" ]] || {
+            echo 'sdkmanager is unavailable on the pinned runner.' >&2
+            exit 1
+          }
+          "$SDKMANAGER" --sdk_root="$SDK_DIR" 'platform-tools' 'build-tools;35.0.0'
 
       - name: Validate Android SDK tooling
         id: android-sdk
@@ -382,8 +414,10 @@ jobs:
           VARIANT: ${{ needs.prepare.outputs.build_variant }}
           SWRLZ_VERIFIED_SOURCE_SHA256: ${{ steps.resolve.outputs.source_sha256 }}
           SWRLZ_SOURCE_HYDRATION_MS: ${{ steps.hydration.outputs.source_hydration_ms }}
+          SWRLZ_JAVA_SETUP_MS: ${{ steps.java.outputs.java_setup_ms }}
           SWRLZ_GRADLE_SETUP_MS: ${{ steps.gradle-setup-timing.outputs.gradle_setup_ms }}
           SWRLZ_ANDROID_SDK_SETUP_MS: ${{ steps.android-sdk.outputs.android_sdk_setup_ms }}
+          SWRLZ_GRADLE_CONFIGURATION_CACHE: ${{ secrets.SWRLZ_GRADLE_CACHE_ENCRYPTION_KEY != '' && 'true' || 'false' }}
           SWRLZ_BUILD_WORK_DIR: ${{ runner.temp }}/swrlz-build/router
           SWRLZ_ARTIFACT_ROOT: ${{ runner.temp }}/swrlz-artifacts/router
         run: |
@@ -563,7 +597,9 @@ jobs:
             echo "- Planned source payload: `${{ matrix.source_size_label }}`"
             echo "- Source transport chunks: `${{ matrix.source_chunk_count }}`"
             echo "- Source hydration: `${{ steps.hydration.outputs.source_hydration_ms }} ms`"
+            echo "- Java 17 tooling: \`${{ steps.java.outputs.java_setup_ms }} ms\`"
             echo "- Gradle wrapper/cache setup: \`${{ steps.gradle-setup-timing.outputs.gradle_setup_ms }} ms\`"
+            echo "- Gradle configuration cache: \`${{ steps.build.outputs.configuration_cache_enabled }}\`"
             echo "- Android SDK tooling: \`${{ steps.android-sdk.outputs.android_sdk_setup_ms }} ms\`"
             echo "- Source extraction: \`${{ steps.build.outputs.extract_ms }} ms\`"
             echo "- Gradle execution: \`${{ steps.build.outputs.gradle_ms }} ms\`"
@@ -606,7 +642,7 @@ jobs:
           HYDRATION_MS: ${{ steps.hydration.outputs.source_hydration_ms }}
           RESOLVE_OUTCOME: ${{ steps.resolve.outcome }}
           PACKAGE_VERIFY_OUTCOME: ${{ steps.package-verify.outcome }}
-          JAVA_OUTCOME: ${{ steps.setup-java.outcome }}
+          JAVA_OUTCOME: ${{ steps.java.outcome }}
           GRADLE_SETUP_OUTCOME: ${{ steps.setup-gradle.outcome }}
           ANDROID_SETUP_OUTCOME: ${{ steps.setup-android.outcome }}
           BUILD_OUTCOME: ${{ steps.build.outcome }}
@@ -695,7 +731,7 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: ${{ github.ref_name }}
-          fetch-depth: 1
+          fetch-depth: 2
           filter: blob:none
           sparse-checkout: |
             swrlz-core/releases
@@ -764,4 +800,24 @@ jobs:
             exit 0
           fi
           git commit -m "build(${COMPONENT,,}): add ${CANONICAL_STEM} APK artifacts"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+          # A source or sibling-component release commit may land while this job is
+          # packaging. Rebase the release-only commit onto the newest branch tip and
+          # retry a bounded number of times instead of failing a valid APK publication
+          # on a harmless non-fast-forward race.
+          for attempt in 1 2 3; do
+            git fetch --no-tags origin "$GITHUB_REF_NAME"
+            if ! git rebase "origin/$GITHUB_REF_NAME"; then
+              git rebase --abort >/dev/null 2>&1 || true
+              echo 'Release-only commit conflicted while rebasing; refusing to overwrite newer repository state.' >&2
+              exit 1
+            fi
+            if git push origin "HEAD:${GITHUB_REF_NAME}"; then
+              exit 0
+            fi
+            if [[ "$attempt" -eq 3 ]]; then
+              echo 'Release publication remained non-fast-forward after 3 attempts.' >&2
+              exit 1
+            fi
+            sleep $((attempt * 2))
+          done
