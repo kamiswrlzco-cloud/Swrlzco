@@ -1,0 +1,76 @@
+name: SWRLZ Phase 5B Export Blob Branch
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/phase5b-export-blob-branch.yml'
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  export:
+    if: github.head_ref == 'checkpoint/forge-phase5-final-20260821'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      CLEAN_PHASE5_PARENT: 17d77fb3158492ca74d33ddfa0b29e3047e284f5
+      EXPORT_BRANCH: temp/phase5b-export-20260821
+    steps:
+      - name: Checkout staging branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: checkpoint/forge-phase5-final-20260821
+          fetch-depth: 12
+          filter: blob:none
+          sparse-checkout: |
+            .github/workflows
+            swrlz-core/tools/ci
+            swrlz-core/requests
+            swrlz-core/history
+
+      - name: Generate validated final files
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('swrlz-core/tools/ci/phase5b_build_hotpath_apply.py')
+          text = path.read_text(encoding='utf-8')
+          old = "    if count != 1:\n        raise SystemExit(f'{label}: expected exactly one marker, found {count}')\n"
+          new = "    expected = 2 if label == 'helper timing JSON setup fields' else 1\n    if count != expected:\n        raise SystemExit(f'{label}: expected {expected} marker(s), found {count}')\n"
+          if text.count(old) != 1:
+              raise SystemExit(f'patcher count-policy marker count was {text.count(old)}')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+          python3 swrlz-core/tools/ci/phase5b_build_hotpath_apply.py
+          git diff --check
+
+          OUT="$RUNNER_TEMP/phase5b-export"
+          mkdir -p "$OUT"
+          cp .github/workflows/swrlz-apk-router.yml "$OUT/swrlz-apk-router.yml"
+          cp .github/workflows/swrlz-ci-tooling-validation.yml "$OUT/swrlz-ci-tooling-validation.yml"
+          cp swrlz-core/tools/ci/build_swrlz_component.sh "$OUT/build_swrlz_component.sh"
+          cp swrlz-core/tools/ci/test_build_swrlz_component.py "$OUT/test_build_swrlz_component.py"
+          cp swrlz-core/tools/ci/test_workflow_phase5_contract.py "$OUT/test_workflow_phase5_contract.py"
+          sha256sum "$OUT"/*
+
+      - name: Push export-only blob carrier branch
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/phase5b-export"
+          git reset --hard "$CLEAN_PHASE5_PARENT"
+          rm -rf swrlz-core/tmp/phase5b-export
+          mkdir -p swrlz-core/tmp/phase5b-export
+          cp "$OUT"/* swrlz-core/tmp/phase5b-export/
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add swrlz-core/tmp/phase5b-export
+          git diff --cached --check
+          git commit -m 'chore(ci): export validated phase5b blobs'
+          git push --force origin "HEAD:refs/heads/$EXPORT_BRANCH"
