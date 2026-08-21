@@ -44,8 +44,9 @@ jobs:
           from pathlib import Path
           path = Path('swrlz-core/tools/ci/phase5_workflows_apply.py')
           text = path.read_text(encoding='utf-8')
-          old = "summary_needle = '            echo \"- Source extraction: `${{ steps.build.outputs.extract_ms }} ms`\"\\n'"
-          new = "summary_needle = '            echo \"- Source extraction: \\\\`${{ steps.build.outputs.extract_ms }} ms\\\\`\"\\n'"
+          expression = '$' + '{{ steps.build.outputs.extract_ms }}'
+          old = f"summary_needle = '            echo \"- Source extraction: `{expression} ms`\"\\n'"
+          new = f"summary_needle = '            echo \"- Source extraction: \\\\`{expression} ms\\\\`\"\\n'"
           if text.count(old) != 1:
               raise SystemExit(f'Forge timing summary patch marker count was {text.count(old)}')
           path.write_text(text.replace(old, new, 1), encoding='utf-8')
