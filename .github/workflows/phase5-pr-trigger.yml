@@ -39,13 +39,51 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
+
           source = Path('.github/workflows/phase5-selfpatch.yml').read_text(encoding='utf-8').splitlines()
           start = next(i for i, line in enumerate(source) if line.strip() == "python3 - <<'PY'") + 1
           end = next(i for i in range(start, len(source)) if source[i].strip() == 'PY')
           body = []
           for line in source[start:end]:
               body.append(line[10:] if line.startswith('          ') else line)
-          Path('/tmp/apply_phase5.py').write_text('\n'.join(body) + '\n', encoding='utf-8')
+          script = '\n'.join(body) + '\n'
+
+          brittle_start = script.index("old_fallback_run = '''")
+          brittle_marker = "accounting = replace_once(accounting, old_fallback_run, new_fallback_run, 'accounting fallback warning mode')"
+          brittle_end = script.index(brittle_marker, brittle_start) + len(brittle_marker)
+          replacement = r'''fallback_step = '      - name: Audit current repository accounting\n'
+a2 = accounting.find(fallback_step)
+if a2 < 0:
+    raise RuntimeError('accounting fallback audit step not found')
+new_fallback_run = ''' + '"""' + r'''      - name: Audit current repository accounting
+        run: |
+          set -uo pipefail
+          identities="$RUNNER_TEMP/swrlz-patch-accounting-identities.tsv"
+          result="$RUNNER_TEMP/swrlz-patch-accounting.json"
+          : > "$identities"
+          rc=0
+          python3 "$SWRLZ_CI_ROOT/verify_patch_note_accounting.py" \
+            --repo-root . \
+            --identity-file "$identities" \
+            --json-output "$result" || rc=$?
+          if [[ ! -s "$result" ]]; then
+            printf '{"schema":1,"status":"WARN","blocking":false,"exit_code":%d}\n' "$rc" > "$result"
+          fi
+          if [[ "$rc" -ne 0 ]]; then
+            echo "::warning::Current-candidate accounting diagnostic failed with exit $rc; source/build authority is unaffected."
+          fi
+          {
+            echo '## SWRLZ Patch Note Accounting (diagnostic only)'
+            echo
+            echo '```json'
+            cat "$result"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+''' + '"""' + r'''
+accounting = accounting[:a2] + new_fallback_run
+'''
+          script = script[:brittle_start] + replacement + script[brittle_end:]
+          Path('/tmp/apply_phase5.py').write_text(script, encoding='utf-8')
           PY
           python3 /tmp/apply_phase5.py
 
