@@ -18,8 +18,36 @@ VARIANT="${4,,}"
 WORK_DIR="$5"
 ARTIFACT_DIR="$6"
 SOURCE_HYDRATION_MS="${SWRLZ_SOURCE_HYDRATION_MS:-0}"
+JAVA_SETUP_MS="${SWRLZ_JAVA_SETUP_MS:-0}"
 GRADLE_SETUP_MS="${SWRLZ_GRADLE_SETUP_MS:-0}"
 ANDROID_SDK_SETUP_MS="${SWRLZ_ANDROID_SDK_SETUP_MS:-0}"
+CONFIGURATION_CACHE_REQUESTED="${SWRLZ_GRADLE_CONFIGURATION_CACHE:-false}"
+CONFIGURATION_CACHE_ENABLED=false
+case "${CONFIGURATION_CACHE_REQUESTED,,}" in
+  true) CONFIGURATION_CACHE_ENABLED=true ;;
+  false|'') CONFIGURATION_CACHE_ENABLED=false ;;
+  *) echo 'SWRLZ_GRADLE_CONFIGURATION_CACHE must be true or false.' >&2; exit 65 ;;
+esac
+PREPARE_ONLY="${SWRLZ_PREPARE_ONLY:-false}"
+REUSE_EXTRACTED_WORKSPACE="${SWRLZ_REUSE_EXTRACTED_WORKSPACE:-false}"
+PREPARED_EXTRACT_MS="${SWRLZ_PREPARED_EXTRACT_MS:-0}"
+for boolean_name in PREPARE_ONLY REUSE_EXTRACTED_WORKSPACE; do
+  boolean_value="${!boolean_name}"
+  case "${boolean_value,,}" in
+    true|false) ;;
+    *) echo "$boolean_name must be true or false." >&2; exit 65 ;;
+  esac
+done
+PREPARE_ONLY="${PREPARE_ONLY,,}"
+REUSE_EXTRACTED_WORKSPACE="${REUSE_EXTRACTED_WORKSPACE,,}"
+[[ "$PREPARED_EXTRACT_MS" =~ ^[0-9]+$ ]] || {
+  echo 'SWRLZ_PREPARED_EXTRACT_MS must be a non-negative integer.' >&2
+  exit 65
+}
+if [[ "$PREPARE_ONLY" == 'true' && "$REUSE_EXTRACTED_WORKSPACE" == 'true' ]]; then
+  echo 'Prepare-only and reuse-extracted modes are mutually exclusive.' >&2
+  exit 65
+fi
 
 case "$COMPONENT" in CLIENT|SERVER) ;; *) usage ;; esac
 case "$VARIANT" in
@@ -27,7 +55,7 @@ case "$VARIANT" in
   release) GRADLE_TASK=':app:assembleRelease' ;;
   *) usage ;;
 esac
-for timing_name in SOURCE_HYDRATION_MS GRADLE_SETUP_MS ANDROID_SDK_SETUP_MS; do
+for timing_name in SOURCE_HYDRATION_MS JAVA_SETUP_MS GRADLE_SETUP_MS ANDROID_SDK_SETUP_MS; do
   timing_value="${!timing_name}"
   [[ "$timing_value" =~ ^[0-9]+$ ]] || {
     echo "$timing_name must be a non-negative integer." >&2
@@ -41,17 +69,27 @@ ARTIFACT_DIR="$(python3 -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' 
 [[ -f "$SOURCE_ZIP" ]] || { echo "Source ZIP not found: $SOURCE_ZIP" >&2; exit 66; }
 
 BUILD_STARTED_MS="$(now_ms)"
-rm -rf "$WORK_DIR" "$ARTIFACT_DIR"
-mkdir -p "$WORK_DIR/extracted" "$ARTIFACT_DIR"
-EXTRACT_STARTED_MS="$(now_ms)"
-unzip -q "$SOURCE_ZIP" -d "$WORK_DIR/extracted"
-# Source packages are already topology-validated before this helper runs. Repair
-# traversal on directories first, then only touch regular files that are actually
-# unreadable instead of chmod-ing every source/resource file on every build.
-find "$WORK_DIR/extracted" -type d -exec chmod u+rwx,go+rx {} +
-find "$WORK_DIR/extracted" -type f ! -readable -exec chmod u+rw,go+r {} +
-EXTRACT_FINISHED_MS="$(now_ms)"
-EXTRACT_DURATION_MS=$((EXTRACT_FINISHED_MS - EXTRACT_STARTED_MS))
+if [[ "$REUSE_EXTRACTED_WORKSPACE" == 'true' ]]; then
+  rm -rf "$ARTIFACT_DIR"
+  mkdir -p "$ARTIFACT_DIR"
+  [[ -d "$WORK_DIR/extracted" ]] || {
+    echo "Prepared extracted workspace not found: $WORK_DIR/extracted" >&2
+    exit 66
+  }
+  EXTRACT_DURATION_MS="$PREPARED_EXTRACT_MS"
+else
+  rm -rf "$WORK_DIR" "$ARTIFACT_DIR"
+  mkdir -p "$WORK_DIR/extracted" "$ARTIFACT_DIR"
+  EXTRACT_STARTED_MS="$(now_ms)"
+  unzip -q "$SOURCE_ZIP" -d "$WORK_DIR/extracted"
+  # Source packages are already topology-validated before this helper runs. Repair
+  # traversal on directories first, then only touch regular files that are actually
+  # unreadable instead of chmod-ing every source/resource file on every build.
+  find "$WORK_DIR/extracted" -type d -exec chmod u+rwx,go+rx {} +
+  find "$WORK_DIR/extracted" -type f ! -readable -exec chmod u+rw,go+r {} +
+  EXTRACT_FINISHED_MS="$(now_ms)"
+  EXTRACT_DURATION_MS=$((EXTRACT_FINISHED_MS - EXTRACT_STARTED_MS))
+fi
 
 mapfile -t PROJECT_ROOTS < <(
   while IFS= read -r wrapper; do
@@ -75,6 +113,17 @@ if [[ -n "$SDK_DIR" ]]; then
   printf 'sdk.dir=%s\n' "$SDK_DIR" > "$PROJECT_ROOT/local.properties"
 fi
 
+if [[ "$PREPARE_ONLY" == 'true' ]]; then
+  if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+    {
+      echo "project_root=$PROJECT_ROOT"
+      echo "work_dir=$WORK_DIR"
+      echo "extract_ms=$EXTRACT_DURATION_MS"
+    } >> "$GITHUB_OUTPUT"
+  fi
+  exit 0
+fi
+
 GRADLE_ARGS=(
   --no-daemon
   --stacktrace
@@ -82,6 +131,9 @@ GRADLE_ARGS=(
   --parallel
   --no-watch-fs
 )
+if [[ "$CONFIGURATION_CACHE_ENABLED" == 'true' ]]; then
+  GRADLE_ARGS+=(--configuration-cache)
+fi
 
 BUILD_LOG="$ARTIFACT_DIR/BUILD_LOG.txt"
 GRADLE_STARTED_MS="$(now_ms)"
@@ -100,7 +152,7 @@ write_timing() {
   local gradle_rc="$2"
   local total_ms="$3"
   local timing_json="$ARTIFACT_DIR/CI_TIMING.json"
-  export COMPONENT CANONICAL_STEM VARIANT EXTRACT_DURATION_MS GRADLE_DURATION_MS SOURCE_HYDRATION_MS GRADLE_SETUP_MS ANDROID_SDK_SETUP_MS
+  export COMPONENT CANONICAL_STEM VARIANT EXTRACT_DURATION_MS GRADLE_DURATION_MS SOURCE_HYDRATION_MS JAVA_SETUP_MS GRADLE_SETUP_MS ANDROID_SDK_SETUP_MS CONFIGURATION_CACHE_ENABLED
   export SWRLZ_TIMING_STATUS="$status" SWRLZ_TIMING_GRADLE_RC="$gradle_rc" SWRLZ_TIMING_TOTAL_MS="$total_ms" SWRLZ_TIMING_JSON="$timing_json"
   python3 - <<'PY'
 import json, os
@@ -112,8 +164,10 @@ payload = {
     "variant": os.environ["VARIANT"],
     "status": os.environ["SWRLZ_TIMING_STATUS"],
     "source_hydration_ms": int(os.environ["SOURCE_HYDRATION_MS"]),
+    "java_setup_ms": int(os.environ["JAVA_SETUP_MS"]),
     "gradle_setup_ms": int(os.environ["GRADLE_SETUP_MS"]),
     "android_sdk_setup_ms": int(os.environ["ANDROID_SDK_SETUP_MS"]),
+    "configuration_cache_enabled": os.environ["CONFIGURATION_CACHE_ENABLED"] == "true",
     "extract_ms": int(os.environ["EXTRACT_DURATION_MS"]),
     "gradle_ms": int(os.environ["GRADLE_DURATION_MS"]),
     "gradle_exit_code": int(os.environ["SWRLZ_TIMING_GRADLE_RC"]),
@@ -130,7 +184,7 @@ if [[ "$GRADLE_RC" -ne 0 ]]; then
   BUILD_FINISHED_MS="$(now_ms)"
   TOTAL_DURATION_MS=$((BUILD_FINISHED_MS - BUILD_STARTED_MS))
   write_timing failed "$GRADLE_RC" "$TOTAL_DURATION_MS"
-  export COMPONENT CANONICAL_STEM VARIANT GRADLE_RC SOURCE_HYDRATION_MS EXTRACT_DURATION_MS GRADLE_DURATION_MS TOTAL_DURATION_MS ARTIFACT_DIR
+  export COMPONENT CANONICAL_STEM VARIANT GRADLE_RC SOURCE_HYDRATION_MS JAVA_SETUP_MS GRADLE_SETUP_MS ANDROID_SDK_SETUP_MS CONFIGURATION_CACHE_ENABLED EXTRACT_DURATION_MS GRADLE_DURATION_MS TOTAL_DURATION_MS ARTIFACT_DIR
   python3 - <<'PY'
 import json, os
 from pathlib import Path
@@ -141,8 +195,10 @@ payload = {
     "variant": os.environ["VARIANT"],
     "gradle_exit_code": int(os.environ["GRADLE_RC"]),
     "source_hydration_ms": int(os.environ["SOURCE_HYDRATION_MS"]),
+    "java_setup_ms": int(os.environ["JAVA_SETUP_MS"]),
     "gradle_setup_ms": int(os.environ["GRADLE_SETUP_MS"]),
     "android_sdk_setup_ms": int(os.environ["ANDROID_SDK_SETUP_MS"]),
+    "configuration_cache_enabled": os.environ["CONFIGURATION_CACHE_ENABLED"] == "true",
     "extract_ms": int(os.environ["EXTRACT_DURATION_MS"]),
     "gradle_ms": int(os.environ["GRADLE_DURATION_MS"]),
     "total_ms": int(os.environ["TOTAL_DURATION_MS"]),
@@ -216,10 +272,12 @@ PROVENANCE="$ARTIFACT_DIR/BUILD_PROVENANCE_REPORT.md"
   echo "- Build variant: $VARIANT"
   echo "- Gradle task: $GRADLE_TASK"
   echo "- Gradle build cache: enabled"
+  echo "- Gradle configuration cache: $CONFIGURATION_CACHE_ENABLED"
   echo "- Gradle parallel execution: enabled"
   echo "- Gradle filesystem watching: disabled (ephemeral extracted workspace)"
   echo "- Gradle clean task: omitted (fresh isolated extraction workspace)"
   echo "- Source hydration duration: ${SOURCE_HYDRATION_MS} ms"
+  echo "- Java 17 tooling duration: ${JAVA_SETUP_MS} ms"
   echo "- Gradle wrapper/cache setup duration: ${GRADLE_SETUP_MS} ms"
   echo "- Android SDK tooling duration: ${ANDROID_SDK_SETUP_MS} ms"
   echo "- Source extraction duration: ${EXTRACT_DURATION_MS} ms"
@@ -243,8 +301,10 @@ if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
     echo "final_apk=$FINAL_APK"
     echo "gradle_task=$GRADLE_TASK"
     echo "source_hydration_ms=$SOURCE_HYDRATION_MS"
+    echo "java_setup_ms=$JAVA_SETUP_MS"
     echo "gradle_setup_ms=$GRADLE_SETUP_MS"
     echo "android_sdk_setup_ms=$ANDROID_SDK_SETUP_MS"
+    echo "configuration_cache_enabled=$CONFIGURATION_CACHE_ENABLED"
     echo "extract_ms=$EXTRACT_DURATION_MS"
     echo "gradle_ms=$GRADLE_DURATION_MS"
     echo "build_helper_total_ms=$TOTAL_DURATION_MS"
