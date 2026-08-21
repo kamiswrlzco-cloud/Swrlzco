@@ -16,7 +16,7 @@ on:
       - '.github/workflows/source-package-integrity.yml'
 
 permissions:
-  contents: write
+  contents: read
 
 defaults:
   run:
@@ -33,6 +33,7 @@ jobs:
           ref: checkpoint/forge-phase5d-workflow-hardening-20260821
           fetch-depth: 3
           filter: blob:none
+          persist-credentials: false
           sparse-checkout: |
             .github/workflows
             swrlz-core/tools/ci
@@ -120,10 +121,10 @@ jobs:
           grep -q 'for attempt in 1 2 3; do' .github/workflows/swrlz-apk-router.yml
           [[ "$(grep -c 'persist-credentials: false' .github/workflows/source-package-integrity.yml)" -ge 2 ]]
 
-      - name: Export validated production files to carrier paths
+      - name: Prepare validated production export
         run: |
           set -euo pipefail
-          CARRIER=swrlz-core/.phase5d-carrier
+          CARRIER="$RUNNER_TEMP/phase5d-carrier"
           rm -rf "$CARRIER"
           mkdir -p "$CARRIER"
           cp .github/workflows/swrlz-apk-router.yml "$CARRIER/swrlz-apk-router.yml.txt"
@@ -133,17 +134,11 @@ jobs:
           cp swrlz-core/tools/ci/test_workflow_phase5_contract.py "$CARRIER/test_workflow_phase5_contract.py.txt"
           sha256sum "$CARRIER"/* > "$CARRIER/SHA256SUMS.txt"
 
-          git restore .github/workflows/swrlz-apk-router.yml \
-            .github/workflows/swrlz-ci-tooling-validation.yml \
-            swrlz-core/tools/ci/build_swrlz_component.sh \
-            swrlz-core/tools/ci/test_build_swrlz_component.py \
-            swrlz-core/tools/ci/test_workflow_phase5_contract.py
-          find swrlz-core/tools/ci -type d -name __pycache__ -prune -exec rm -rf {} +
-          find swrlz-core/tools/ci -type f -name '*.pyc' -delete
-
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add --sparse "$CARRIER"
-          git diff --cached --check
-          git commit -m 'chore(ci): export validated Phase 5D carrier files'
-          git push origin HEAD:checkpoint/forge-phase5d-workflow-hardening-20260821
+      - name: Upload validated Phase 5D export
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: phase5d-validated-production-${{ github.run_id }}
+          path: ${{ runner.temp }}/phase5d-carrier/
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
