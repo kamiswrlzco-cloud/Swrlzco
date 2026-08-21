@@ -28,12 +28,12 @@ defaults:
 
 jobs:
   validate-ci-tooling:
-    name: Validate resolver, audits, and build helper
+    name: Validate resolver, audits, actions, and build helper
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Sparse checkout CI tooling
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 2
           filter: blob:none
@@ -73,3 +73,51 @@ jobs:
           python3 test_prepare_swrlz_sparse_checkout.py
           python3 test_verify_swrlz_package_pair.py
           python3 test_verify_patch_note_accounting.py
+
+      - name: Smoke test Java 17 action
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          check-latest: false
+
+      - name: Smoke test Gradle wrapper cache action
+        uses: gradle/actions/setup-gradle@v5
+
+      - name: Smoke test Android SDK action
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ''
+
+      - name: Verify toolchain availability
+        run: |
+          set -euo pipefail
+          java -version
+          sdkmanager --version
+          command -v keytool
+
+      - name: Create action round-trip fixture
+        run: |
+          printf 'SWRLZ Phase 4 action stack OK\n' > "$RUNNER_TEMP/swrlz-action-smoke.txt"
+
+      - name: Smoke test artifact upload
+        uses: actions/upload-artifact@v7
+        with:
+          name: swrlz-phase4-action-smoke-${{ github.run_id }}
+          path: ${{ runner.temp }}/swrlz-action-smoke.txt
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+      - name: Smoke test artifact download
+        uses: actions/download-artifact@v8
+        with:
+          name: swrlz-phase4-action-smoke-${{ github.run_id }}
+          path: ${{ runner.temp }}/swrlz-action-smoke-download
+
+      - name: Verify artifact round trip
+        run: |
+          set -euo pipefail
+          cmp \
+            "$RUNNER_TEMP/swrlz-action-smoke.txt" \
+            "$RUNNER_TEMP/swrlz-action-smoke-download/swrlz-action-smoke.txt"
