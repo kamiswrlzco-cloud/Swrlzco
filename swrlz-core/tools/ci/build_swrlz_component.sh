@@ -121,7 +121,7 @@ fi
 BUILD_FINISHED_MS="$(now_ms)"
 TOTAL_DURATION_MS=$((BUILD_FINISHED_MS - BUILD_STARTED_MS))
 TIMING_JSON="$ARTIFACT_DIR/CI_TIMING.json"
-export COMPONENT CANONICAL_STEM VARIANT EXTRACT_DURATION_MS GRADLE_DURATION_MS TOTAL_DURATION_MS
+export COMPONENT CANONICAL_STEM VARIANT EXTRACT_DURATION_MS GRADLE_DURATION_MS TOTAL_DURATION_MS TIMING_JSON
 python3 - <<'PY'
 import json, os
 from pathlib import Path
@@ -134,15 +134,10 @@ payload = {
     "gradle_ms": int(os.environ["GRADLE_DURATION_MS"]),
     "build_helper_total_ms": int(os.environ["TOTAL_DURATION_MS"]),
 }
-Path(os.environ.get("TIMING_JSON", "CI_TIMING.json")).write_text(
+Path(os.environ["TIMING_JSON"]).write_text(
     json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
 )
 PY
-# The Python snippet uses the artifact-relative fallback above unless exported;
-# move it into the artifact directory deterministically when necessary.
-if [[ ! -f "$TIMING_JSON" && -f CI_TIMING.json ]]; then
-  mv CI_TIMING.json "$TIMING_JSON"
-fi
 sha256sum "$TIMING_JSON" > "$TIMING_JSON.sha256"
 
 PROVENANCE="$ARTIFACT_DIR/BUILD_PROVENANCE_REPORT.md"
