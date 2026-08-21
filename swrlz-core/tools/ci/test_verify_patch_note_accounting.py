@@ -28,7 +28,6 @@ def manifest(component: str = "CLIENT", revision: str = "R9", vc: int = 132, sha
 
 def write_package(path: Path, data: dict, stale_release: bool = False, stale_lineage: bool = False) -> None:
     candidate = data["sourceZip"]["filename"][:-4]
-    short = f"{data['version']} {data['revision']}"
     current = f"# {candidate} / VC{data['versionCode']} — {data['checkpoint']}\n"
     release = "# old parent\n" if stale_release else current
     lineage = {
@@ -96,6 +95,42 @@ class PatchAccountingTests(unittest.TestCase):
             self.assertEqual(result.status, "FAIL")
             self.assertIn("source SHA-256", result.errors[0])
             self.assertIn("checkpoint", result.errors[0])
+
+    def test_materialized_candidate_reuses_resolver_outputs(self):
+        data = manifest()
+        sha = data["sourceZip"]["sha256"]
+        candidate = data["sourceZip"]["filename"][:-4]
+        short = f"{data['version']} {data['revision']}"
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            package = root / "candidate.zip"
+            manifest_path = root / "candidate.manifest.json"
+            write_package(package, data)
+            manifest_path.write_text(json.dumps(data), encoding="utf-8")
+
+            docs = root / "swrlz-core/docs"
+            (docs / "patch-notes").mkdir(parents=True)
+            (docs / "reference").mkdir(parents=True)
+            (docs / "patch-notes/CLIENT_PATCH_NOTES.md").write_text(
+                f"{candidate}\n{short}\n{data['checkpoint']}\n{sha}\n", encoding="utf-8"
+            )
+            (docs / "reference/CURRENT_CANDIDATE_LINEAGE.md").write_text(
+                f"{candidate}\n{short}\n{sha}\n", encoding="utf-8"
+            )
+            (docs / "CURRENT_AUTHORITY.md").write_text(
+                f"{candidate}\n{short}\n{sha}\n", encoding="utf-8"
+            )
+
+            result = audit.audit_materialized_candidate(
+                root,
+                "CLIENT",
+                "swrlz-core/sources/client/test.transport.json",
+                package,
+                manifest_path,
+                sha,
+            )
+            self.assertEqual(result.status, "PASS")
+            self.assertEqual(result.errors, [])
 
 
 if __name__ == "__main__":

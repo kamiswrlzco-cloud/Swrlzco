@@ -38,7 +38,7 @@ jobs:
       has_source_work: ${{ steps.route.outputs.has_work }}
     steps:
       - name: Sparse checkout route tooling
-        uses: actions/checkout@v4
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 2
           filter: blob:none
@@ -135,9 +135,15 @@ jobs:
 
     steps:
       - name: Checkout repository for current-candidate fallback audit
-        uses: actions/checkout@v4
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 2
+          filter: blob:none
+          sparse-checkout: |
+            swrlz-core/tools/ci
+            swrlz-core/sources/client
+            swrlz-core/sources/server
+            swrlz-core/docs
 
       - name: Audit current repository accounting
         run: |

@@ -6,7 +6,8 @@ import json
 import os
 import subprocess
 from pathlib import Path
-from typing import Iterable
+
+from resolve_push_changed_paths import ChangedRangeError, resolve_push_changed_paths
 
 LANES = {
     "CLIENT": Path("swrlz-core/sources/client"),
@@ -37,14 +38,20 @@ def _path_exists(repo_root: Path, ref: str, path: Path) -> bool:
 
 
 def _changed_paths(repo_root: Path, before: str, after: str) -> list[str]:
+    """Resolve the exact GitHub push range, fetching a missing boundary by SHA."""
     if not after:
         return []
-    args = (
-        ("show", "--pretty=", "--name-only", after)
-        if not before or set(before) == {"0"}
-        else ("diff", "--name-only", before, after)
-    )
-    return [line.strip() for line in _git(repo_root, *args).splitlines() if line.strip()]
+    if not before:
+        return [
+            line.strip()
+            for line in _git(repo_root, "show", "--format=", "--name-only", "--no-renames", after).splitlines()
+            if line.strip()
+        ]
+    try:
+        paths, _ = resolve_push_changed_paths(repo_root, before, after, remote="origin")
+    except ChangedRangeError as exc:
+        raise RoutePlanningError(f"Unable to prove declared push range: {exc}") from exc
+    return paths
 
 
 def _parse_request(path: Path) -> dict[str, str]:
