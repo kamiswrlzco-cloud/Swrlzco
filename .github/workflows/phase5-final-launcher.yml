@@ -61,7 +61,12 @@ jobs:
           new_fixture = "source = make_source(Path(temp), " + dq + body + dq + ")"
           if safety.count(old_fixture) != 1:
               raise SystemExit(f'Build helper fixture quote marker count was {safety.count(old_fixture)}')
-          safety_path.write_text(safety.replace(old_fixture, new_fixture, 1), encoding='utf-8')
+          safety = safety.replace(old_fixture, new_fixture, 1)
+          old_root = "ROOT = Path(__file__).resolve().parents[2]"
+          new_root = "ROOT = Path(__file__).resolve().parents[3]"
+          if safety.count(old_root) != 1:
+              raise SystemExit(f'Workflow contract repo-root marker count was {safety.count(old_root)}')
+          safety_path.write_text(safety.replace(old_root, new_root, 1), encoding='utf-8')
           PY
           python3 -m py_compile \
             swrlz-core/tools/ci/phase5_workflows_apply.py \
