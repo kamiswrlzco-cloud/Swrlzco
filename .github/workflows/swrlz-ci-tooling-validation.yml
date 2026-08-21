@@ -37,6 +37,7 @@ jobs:
         with:
           fetch-depth: 2
           filter: blob:none
+          persist-credentials: false
           sparse-checkout: |
             .github/workflows
             swrlz-core/tools/ci
@@ -51,16 +52,20 @@ jobs:
             resolve_swrlz_source.py \
             resolve_changed_source_identities.py \
             resolve_push_changed_paths.py \
+            resolve_swrlz_latest_identity.py \
             plan_swrlz_build_route.py \
             plan_swrlz_candidate_checkout.py \
+            plan_swrlz_integrity_route.py \
             prepare_swrlz_sparse_checkout.py \
             verify_swrlz_package_pair.py \
             verify_patch_note_accounting.py \
             test_resolve_swrlz_source.py \
             test_resolve_changed_source_identities.py \
             test_resolve_push_changed_paths.py \
+            test_resolve_swrlz_latest_identity.py \
             test_plan_swrlz_build_route.py \
             test_plan_swrlz_candidate_checkout.py \
+            test_plan_swrlz_integrity_route.py \
             test_prepare_swrlz_sparse_checkout.py \
             test_verify_swrlz_package_pair.py \
             test_verify_patch_note_accounting.py \
@@ -75,25 +80,32 @@ jobs:
           python3 test_resolve_swrlz_source.py
           python3 test_resolve_changed_source_identities.py
           python3 test_resolve_push_changed_paths.py
+          python3 test_resolve_swrlz_latest_identity.py
           python3 test_plan_swrlz_build_route.py
           python3 test_plan_swrlz_candidate_checkout.py
+          python3 test_plan_swrlz_integrity_route.py
           python3 test_prepare_swrlz_sparse_checkout.py
           python3 test_verify_swrlz_package_pair.py
           python3 test_verify_patch_note_accounting.py
           python3 test_build_swrlz_component.py
           python3 test_workflow_phase5_contract.py
 
-      - name: Smoke test Java 17 action
-        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
-        with:
-          distribution: temurin
-          java-version: '17'
-          check-latest: false
+      - name: Smoke test preinstalled Java 17 fast path
+        run: |
+          set -euo pipefail
+          JDK_DIR="${JAVA_HOME_17_X64:-}"
+          [[ -n "$JDK_DIR" && -x "$JDK_DIR/bin/java" && -x "$JDK_DIR/bin/javac" && -x "$JDK_DIR/bin/keytool" ]]
+          SPEC="$("$JDK_DIR/bin/java" -XshowSettings:properties -version 2>&1 | awk -F'= ' '/java.specification.version/{print $2; exit}')"
+          [[ "$SPEC" == '17' ]]
+          echo "JAVA_HOME=$JDK_DIR" >> "$GITHUB_ENV"
+          echo "$JDK_DIR/bin" >> "$GITHUB_PATH"
+          printf 'Java 17 fast path: %s\n' "$JDK_DIR"
 
       - name: Smoke test Gradle wrapper cache action
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
         with:
           cache-cleanup: on-success
+          cache-provider: basic
 
       - name: Smoke test preinstalled Android SDK fast path
         run: |
@@ -102,9 +114,10 @@ jobs:
           [[ -n "$SDK_DIR" && -d "$SDK_DIR" ]]
           APKSIGNER="$(find "$SDK_DIR/build-tools" -mindepth 2 -maxdepth 2 -type f -name apksigner -print 2>/dev/null | sort -V | tail -n 1)"
           ZIPALIGN="$(find "$SDK_DIR/build-tools" -mindepth 2 -maxdepth 2 -type f -name zipalign -print 2>/dev/null | sort -V | tail -n 1)"
-          [[ -x "$APKSIGNER" && -x "$ZIPALIGN" ]]
-          printf 'Android fast path: %s / %s
-' "$APKSIGNER" "$ZIPALIGN"
+          SDKMANAGER="$SDK_DIR/cmdline-tools/latest/bin/sdkmanager"
+          [[ -x "$APKSIGNER" && -x "$ZIPALIGN" && -x "$SDKMANAGER" ]]
+          printf 'Android fast path: %s / %s / %s
+' "$APKSIGNER" "$ZIPALIGN" "$SDKMANAGER"
 
       - name: Verify toolchain availability
         run: |

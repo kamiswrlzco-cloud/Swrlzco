@@ -3,11 +3,11 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import subprocess
 from pathlib import Path
 
-from prepare_swrlz_sparse_checkout import BASE_PATHS, LANES, build_sparse_paths, sparse_checkout_patterns
+from prepare_swrlz_sparse_checkout import LANES, build_sparse_paths, sparse_checkout_patterns
+from resolve_swrlz_latest_identity import resolve_latest_identity
 
 ACCOUNTING_GLOBAL = (
     'swrlz-core/docs/reference/CURRENT_CANDIDATE_LINEAGE.md',
@@ -35,14 +35,8 @@ def _source_stats(repo_root: Path, ref: str, actual: Path) -> tuple[int, int, st
     return size, 1, 'direct-git-zip'
 
 
-def _fallback_paths(component: str) -> list[Path]:
-    return [*BASE_PATHS, LANES[component]]
-
-
-def _label(size: int, mode: str) -> str:
-    if size > 0:
-        return f'{size / (1024 * 1024):.2f} MiB'
-    return 'lane fallback' if mode == 'full-lane-fallback' else 'unknown size'
+def _label(size: int) -> str:
+    return f'{size / (1024 * 1024):.2f} MiB' if size > 0 else 'unknown size'
 
 
 def enrich_matrix(repo_root: Path, matrix: dict, *, ref: str = 'HEAD') -> dict:
@@ -57,50 +51,46 @@ def enrich_matrix(repo_root: Path, matrix: dict, *, ref: str = 'HEAD') -> dict:
         component = str(raw.get('component') or '').upper()
         if component not in LANES:
             raise CandidateCheckoutPlanError(f'unsupported component: {component!r}')
-        source_identity = str(raw.get('source_identity') or '').strip()
+        requested_identity = str(raw.get('source_identity') or '').strip()
+        source_identity = requested_identity
+        checkout_mode = 'exact-candidate'
+        if not source_identity:
+            source_identity = resolve_latest_identity(repo_root, component, ref=ref)
+            checkout_mode = 'exact-latest-candidate'
+
+        paths, actual = build_sparse_paths(repo_root, component, source_identity, ref=ref)
+        size, chunk_count, source_kind = _source_stats(repo_root, ref, actual)
+
+        accounting_extras = [
+            f'swrlz-core/docs/patch-notes/{component}_PATCH_NOTES.md',
+            *ACCOUNTING_GLOBAL,
+        ]
+        try:
+            accounting_paths, _ = build_sparse_paths(
+                repo_root,
+                component,
+                source_identity,
+                ref=ref,
+                extra_paths=accounting_extras,
+            )
+            accounting_status = 'planned'
+        except Exception:
+            # Accounting is diagnostic-only. Missing/stale accounting evidence
+            # must never prevent the APK router from receiving an exact source.
+            accounting_paths = paths
+            accounting_status = 'source-only-fallback'
 
         row = dict(raw)
-        if source_identity:
-            paths, actual = build_sparse_paths(repo_root, component, source_identity, ref=ref)
-            size, chunk_count, source_kind = _source_stats(repo_root, ref, actual)
-            checkout_mode = 'exact-candidate'
-
-            accounting_extras = [
-                f'swrlz-core/docs/patch-notes/{component}_PATCH_NOTES.md',
-                *ACCOUNTING_GLOBAL,
-            ]
-            try:
-                accounting_paths, _ = build_sparse_paths(
-                    repo_root,
-                    component,
-                    source_identity,
-                    ref=ref,
-                    extra_paths=accounting_extras,
-                )
-                accounting_status = 'planned'
-            except Exception:
-                # Accounting is diagnostic-only. Missing/stale accounting evidence
-                # must never prevent the APK router from receiving an exact source.
-                accounting_paths = paths
-                accounting_status = 'source-only-fallback'
-        else:
-            paths = _fallback_paths(component)
-            accounting_paths = [*paths, Path('swrlz-core/docs')]
-            actual = LANES[component]
-            size = 0
-            chunk_count = 0
-            source_kind = 'full-lane-fallback'
-            checkout_mode = 'full-lane-fallback'
-            accounting_status = 'full-lane-fallback'
-
         row.update(
             {
+                'source_identity': actual.as_posix(),
+                'requested_source_identity': requested_identity,
                 'checkout_patterns': sparse_checkout_patterns(paths),
                 'accounting_checkout_patterns': sparse_checkout_patterns(accounting_paths),
                 'checkout_mode': checkout_mode,
                 'actual_source_identity': actual.as_posix(),
                 'source_size_bytes': size,
-                'source_size_label': _label(size, checkout_mode),
+                'source_size_label': _label(size),
                 'source_chunk_count': chunk_count,
                 'source_payload_kind': source_kind,
                 'accounting_checkout_status': accounting_status,
