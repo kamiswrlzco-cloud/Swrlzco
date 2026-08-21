@@ -11,6 +11,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: swrlz-phase5-pr-launcher-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 defaults:
   run:
     shell: bash
@@ -25,6 +29,10 @@ jobs:
         with:
           ref: checkpoint/forge-phase5-reliability-20260821
           fetch-depth: 2
+          filter: blob:none
+          sparse-checkout: |
+            .github/workflows
+            swrlz-core/tools/ci
 
       - name: Extract and execute staged Phase 5 patch
         run: |
