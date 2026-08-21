@@ -1,0 +1,95 @@
+name: SWRLZ Phase 5E Gradle Ordering PR Run
+
+on:
+  pull_request:
+    branches:
+      - checkpoint/forge-phase5e-all-20260821
+    paths:
+      - 'swrlz-core/tools/ci/.phase5e-gradle-ordering-trigger.txt'
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  apply-test-clean:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout Phase 5E production staging head
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: checkpoint/forge-phase5e-all-20260821
+          fetch-depth: 2
+          filter: blob:none
+          persist-credentials: true
+          sparse-checkout: |
+            .github/workflows
+            swrlz-core/tools/ci
+            swrlz-core/history
+            swrlz-core/requests
+
+      - name: Apply Gradle ordering transformation
+        run: |
+          set -euo pipefail
+          python3 swrlz-core/tools/ci/phase5e_gradle_ordering_apply.py
+
+      - name: Validate helper and workflow contracts
+        run: |
+          set -euo pipefail
+          bash -n swrlz-core/tools/ci/build_swrlz_component.sh
+          cd swrlz-core/tools/ci
+          python3 -m py_compile test_build_swrlz_component.py test_workflow_phase5_contract.py
+          python3 test_build_swrlz_component.py
+          python3 test_resolve_swrlz_latest_identity.py
+          python3 test_plan_swrlz_candidate_checkout.py
+          python3 test_plan_swrlz_integrity_route.py
+          python3 test_workflow_phase5_contract.py
+
+      - name: Create clean production commit
+        id: clean
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin main
+          PARENT_SHA="$(git rev-parse origin/main)"
+          rm -f \
+            .github/workflows/phase5e-gradle-ordering-fix.yml \
+            .github/workflows/phase5e-gradle-ordering-pr-run.yml \
+            swrlz-core/tools/ci/phase5e_gradle_ordering_apply.py \
+            swrlz-core/tools/ci/.phase5e-gradle-ordering-trigger.txt
+          find swrlz-core/tools/ci -type d -name '__pycache__' -prune -exec rm -rf {} +
+          find swrlz-core/tools/ci -type f -name '*.pyc' -delete
+          git add --sparse -A
+          git diff --cached --check
+          TREE_SHA="$(git write-tree)"
+          git config user.name 'SWRLZ Forge CI'
+          git config user.email 'swyrlz-forge@users.noreply.github.com'
+          CLEAN_SHA="$(printf '%s\n\n%s\n' \
+            'perf(ci): Phase 5E exact hydration and cold-build hardening' \
+            'Prepare each verified Android workspace once before Gradle basic-cache initialization, reuse the same extraction for the real build, retain exact-latest tree-only hydration, pinned Java/Android fast paths, hard package/signing gates, guarded configuration cache, and bounded release recovery.' \
+            | git commit-tree "$TREE_SHA" -p "$PARENT_SHA")"
+          PATHS="$(git diff --name-only "$PARENT_SHA" "$CLEAN_SHA")"
+          printf '%s\n' "$PATHS"
+          [[ "$(printf '%s\n' "$PATHS" | sed '/^$/d' | wc -l)" -eq 12 ]]
+          ! grep -q '^\.github/workflows/phase5e-' <<<"$PATHS"
+          ! grep -q 'phase5e_gradle_ordering_apply.py' <<<"$PATHS"
+          ! grep -q '__pycache__\|\.pyc$' <<<"$PATHS"
+          git diff --check "$PARENT_SHA" "$CLEAN_SHA"
+          echo "clean_sha=$CLEAN_SHA" >> "$GITHUB_OUTPUT"
+          echo "PHASE5E_GRADLE_ORDERING_CLEAN_SHA=$CLEAN_SHA"
+          echo "PHASE5E_GRADLE_ORDERING_PARENT_SHA=$PARENT_SHA"
+
+      - name: Upload clean object best-effort
+        env:
+          CLEAN_SHA: ${{ steps.clean.outputs.clean_sha }}
+        run: |
+          set -u
+          set +e
+          git push --force origin "$CLEAN_SHA:refs/heads/checkpoint/forge-phase5e-all-20260821"
+          RC=$?
+          set -e
+          echo "PHASE5E_GRADLE_ORDERING_PUSH_RC=$RC"
+          exit 0
