@@ -37,6 +37,20 @@ jobs:
             swrlz-core/tools/ci
             swrlz-core/history
 
+      - name: Align patcher with escaped Forge summary markup
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('swrlz-core/tools/ci/phase5_workflows_apply.py')
+          text = path.read_text(encoding='utf-8')
+          old = "summary_needle = '            echo \"- Source extraction: `${{ steps.build.outputs.extract_ms }} ms`\"\\n'"
+          new = "summary_needle = '            echo \"- Source extraction: \\\\`${{ steps.build.outputs.extract_ms }} ms\\\\`\"\\n'"
+          if text.count(old) != 1:
+              raise SystemExit(f'Forge timing summary patch marker count was {text.count(old)}')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+
       - name: Apply workflow and hydration fixes
         run: python3 swrlz-core/tools/ci/phase5_workflows_apply.py
 
