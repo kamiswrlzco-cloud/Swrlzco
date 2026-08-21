@@ -48,6 +48,32 @@ class BuildRouteTests(unittest.TestCase):
         )
         return path
 
+    def _write_request(
+        self,
+        *,
+        target: str,
+        source_mode: str,
+        source_identity: str = "",
+        enabled: bool = True,
+    ) -> None:
+        request = self.repo / "swrlz-core/requests/000_CURRENT.request"
+        request.write_text(
+            "\n".join(
+                [
+                    "schema=2",
+                    f"enabled={'true' if enabled else 'false'}",
+                    "request_id=TEST-REQUEST",
+                    f"target={target}",
+                    f"source_mode={source_mode}",
+                    f"source_identity={source_identity}",
+                    "build_variant=debug",
+                    "commit_release_artifacts=false",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+
     def test_push_preserves_exact_transport_identity(self):
         transport = self._write_transport("SERVER", 140)
         head = commit_all(self.repo, "server source")
@@ -161,6 +187,59 @@ class BuildRouteTests(unittest.TestCase):
         )
         self.assertFalse(plan["has_work"])
         self.assertEqual(plan["matrix"]["include"], [{"component": "CLIENT", "source_identity": ""}])
+
+    def test_enabled_exact_request_preserves_candidate_identity(self):
+        transport = self._write_transport("CLIENT", 114)
+        commit_all(self.repo, "client identity")
+        before = git(self.repo, "rev-parse", "HEAD")
+        identity = transport.relative_to(self.repo).as_posix()
+        self._write_request(target="CLIENT", source_mode="exact", source_identity=identity)
+        head = commit_all(self.repo, "exact client request")
+        plan = route.plan_route(
+            self.repo,
+            event_name="push",
+            before_sha=before,
+            after_sha=head,
+        )
+        self.assertEqual(
+            plan["matrix"]["include"],
+            [{"component": "CLIENT", "source_identity": identity}],
+        )
+
+    def test_enabled_exact_request_rejects_cross_lane_identity(self):
+        transport = self._write_transport("SERVER", 152)
+        commit_all(self.repo, "server identity")
+        before = git(self.repo, "rev-parse", "HEAD")
+        self._write_request(
+            target="CLIENT",
+            source_mode="exact",
+            source_identity=transport.relative_to(self.repo).as_posix(),
+        )
+        head = commit_all(self.repo, "invalid cross-lane request")
+        with self.assertRaises(route.RoutePlanningError):
+            route.plan_route(
+                self.repo,
+                event_name="push",
+                before_sha=before,
+                after_sha=head,
+            )
+
+    def test_enabled_lane_latest_request_keeps_compatibility_fallback(self):
+        self._write_transport("SERVER", 152)
+        commit_all(self.repo, "server identity")
+        before = git(self.repo, "rev-parse", "HEAD")
+        self._write_request(target="SERVER", source_mode="lane_latest")
+        head = commit_all(self.repo, "lane latest server request")
+        plan = route.plan_route(
+            self.repo,
+            event_name="push",
+            before_sha=before,
+            after_sha=head,
+        )
+        self.assertEqual(
+            plan["matrix"]["include"],
+            [{"component": "SERVER", "source_identity": ""}],
+        )
 
     def test_manual_explicit_identity_is_forwarded(self):
         plan = route.plan_route(
