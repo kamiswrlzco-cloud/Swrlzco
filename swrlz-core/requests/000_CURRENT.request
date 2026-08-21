@@ -3,7 +3,8 @@
 # Keep enabled=false unless an automatic request-triggered build is explicitly authorized.
 #
 # target: CLIENT or SERVER
-# source_mode=lane_latest uses the current authoritative source lane.
+# source_mode=lane_latest preserves the compatibility fallback for the target lane.
+# source_mode=exact requires source_identity to name one existing lane-root .zip or .transport.json.
 # source_zip records the last explicitly validated source identity for lineage only while disabled.
 # INT-FIX-CI-091A: SERVER R13 retry completed successfully after explicit ZIP -> chunked-v2 resolver repair.
 
@@ -12,6 +13,7 @@ enabled=false
 request_id=INT-FIX-CI-091A-SERVER-R13-RETRY-COMPLETE
 target=SERVER
 source_mode=lane_latest
+source_identity=
 source_zip=swrlz-core/sources/server/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R13.zip
 build_variant=debug
 commit_release_artifacts=false
