@@ -42,10 +42,14 @@ jobs:
           for line in source[start:end]:
               body.append(line[10:] if line.startswith('          ') else line)
           script = '\n'.join(body) + '\n'
-          brittle = "accounting = replace_once(accounting, old_fallback_run, new_fallback_run, 'accounting fallback warning mode')"
-          if script.count(brittle) != 1:
-              raise SystemExit('Unable to locate staged fallback accounting replacement')
-          script = script.replace(brittle, "# fallback accounting is patched by launcher v2 after the main transform", 1)
+          brittle_lines = [
+              "accounting = replace_once(accounting, old_fallback_run, new_fallback_run, 'accounting fallback warning mode')",
+              "planner = replace_once(planner, old_loop, new_loop, 'planner deletion-aware loop')",
+          ]
+          for brittle in brittle_lines:
+              if script.count(brittle) != 1:
+                  raise SystemExit(f'Unable to locate staged replacement: {brittle}')
+              script = script.replace(brittle, f'# deferred marker-based patch: {brittle}', 1)
           Path('/tmp/apply_phase5.py').write_text(script, encoding='utf-8')
           PY
           python3 /tmp/apply_phase5.py
@@ -90,6 +94,29 @@ jobs:
           ]
           replacement = '\n'.join(lines) + '\n'
           path.write_text(text[:start] + replacement, encoding='utf-8')
+          PY
+
+      - name: Make source routing deletion-aware
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('swrlz-core/tools/ci/plan_swrlz_build_route.py')
+          text = path.read_text(encoding='utf-8')
+          needle = '''        changed = _changed_paths(repo_root, before_sha, after_sha)
+        for path in changed:
+'''
+          replacement = '''        changed = _changed_paths(repo_root, before_sha, after_sha)
+        for path in changed:
+            # Deleted or renamed-away historical files are archival maintenance,
+            # not build requests. A rename's new path still exists and routes normally.
+            if not _path_exists(repo_root, after_sha, Path(path)):
+                continue
+'''
+          if text.count(needle) != 1:
+              raise SystemExit(f'Deletion-aware planner marker count was {text.count(needle)}')
+          path.write_text(text.replace(needle, replacement, 1), encoding='utf-8')
           PY
 
       - name: Validate Phase 5 patch
