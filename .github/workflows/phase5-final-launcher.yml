@@ -1,0 +1,108 @@
+name: SWRLZ Phase 5 Final Launcher
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/phase5-final-launcher.yml'
+      - 'swrlz-core/tools/ci/phase5_workflows_apply.py'
+      - 'swrlz-core/tools/ci/phase5_safety_apply.py'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: swrlz-phase5-final-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  apply-and-validate:
+    if: github.head_ref == 'checkpoint/forge-phase5-final-20260821'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout clean Phase 5 checkpoint
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: checkpoint/forge-phase5-final-20260821
+          fetch-depth: 2
+          filter: blob:none
+          sparse-checkout: |
+            .github/workflows
+            swrlz-core/tools/ci
+            swrlz-core/history
+
+      - name: Apply workflow and hydration fixes
+        run: python3 swrlz-core/tools/ci/phase5_workflows_apply.py
+
+      - name: Apply build and archive safety fixes
+        run: python3 swrlz-core/tools/ci/phase5_safety_apply.py
+
+      - name: Validate Python and shell syntax
+        working-directory: swrlz-core/tools/ci
+        run: |
+          set -euo pipefail
+          python3 -m py_compile \
+            resolve_swrlz_source.py \
+            resolve_changed_source_identities.py \
+            resolve_push_changed_paths.py \
+            plan_swrlz_build_route.py \
+            plan_swrlz_candidate_checkout.py \
+            prepare_swrlz_sparse_checkout.py \
+            verify_swrlz_package_pair.py \
+            verify_patch_note_accounting.py \
+            test_resolve_swrlz_source.py \
+            test_resolve_changed_source_identities.py \
+            test_resolve_push_changed_paths.py \
+            test_plan_swrlz_build_route.py \
+            test_plan_swrlz_candidate_checkout.py \
+            test_prepare_swrlz_sparse_checkout.py \
+            test_verify_swrlz_package_pair.py \
+            test_verify_patch_note_accounting.py \
+            test_build_swrlz_component.py \
+            test_workflow_phase5_contract.py
+          bash -n build_swrlz_component.sh
+
+      - name: Run complete CI tooling suite
+        working-directory: swrlz-core/tools/ci
+        run: |
+          set -euo pipefail
+          python3 test_resolve_swrlz_source.py
+          python3 test_resolve_changed_source_identities.py
+          python3 test_resolve_push_changed_paths.py
+          python3 test_plan_swrlz_build_route.py
+          python3 test_plan_swrlz_candidate_checkout.py
+          python3 test_prepare_swrlz_sparse_checkout.py
+          python3 test_verify_swrlz_package_pair.py
+          python3 test_verify_patch_note_accounting.py
+          python3 test_build_swrlz_component.py
+          python3 test_workflow_phase5_contract.py
+
+      - name: Validate final diff
+        run: |
+          set -euo pipefail
+          git diff --check
+          test ! -e .github/workflows/swrlz-server-r8-patch-build.yml
+          test -e swrlz-core/history/workflows/swrlz-server-r8-patch-build.yml
+          ! grep -R 'x-access-token:' .github/workflows/swrlz-apk-router.yml .github/workflows/source-package-integrity.yml .github/workflows/patch-note-accounting.yml
+          ! grep -R 'ubuntu-latest' .github/workflows/swrlz-apk-router.yml .github/workflows/source-package-integrity.yml .github/workflows/patch-note-accounting.yml .github/workflows/swrlz-ci-tooling-validation.yml
+
+      - name: Commit clean Phase 5 result
+        run: |
+          set -euo pipefail
+          rm -f \
+            .github/workflows/phase5-final-launcher.yml \
+            swrlz-core/tools/ci/phase5_workflows_apply.py \
+            swrlz-core/tools/ci/phase5_safety_apply.py
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git diff --cached --stat
+          git commit -m 'feat(ci): phase 5 harden Forge recovery and one-pass hydration'
+          git push origin HEAD:checkpoint/forge-phase5-final-20260821
