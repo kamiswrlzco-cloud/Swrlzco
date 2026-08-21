@@ -60,9 +60,20 @@ jobs:
               raise SystemExit(f'helper timing JSON Java fields: expected two markers, found {text.count(old)}')
           helper.write_text(text.replace(old, new, 2), encoding='utf-8')
           '''
+          obsolete = '''# The failure payload uses the same setup-field sequence as the primary timing payload.
+          text = helper.read_text(encoding='utf-8')
+          old = '    "source_hydration_ms": int(os.environ["SOURCE_HYDRATION_MS"]),\\n    "gradle_setup_ms": int(os.environ["GRADLE_SETUP_MS"]),\\n'
+          new = '    "source_hydration_ms": int(os.environ["SOURCE_HYDRATION_MS"]),\\n    "java_setup_ms": int(os.environ["JAVA_SETUP_MS"]),\\n    "gradle_setup_ms": int(os.environ["GRADLE_SETUP_MS"]),\\n'
+          if text.count(old) != 1:
+              raise SystemExit(f'helper failure JSON Java field: expected one remaining marker, found {text.count(old)}')
+          helper.write_text(text.replace(old, new, 1), encoding='utf-8')
+          '''
           if text.count(old) != 1:
               raise SystemExit(f'transformer timing marker count was {text.count(old)}')
-          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          text = text.replace(old, new, 1)
+          if text.count(obsolete) != 1:
+              raise SystemExit(f'obsolete failure timing pass count was {text.count(obsolete)}')
+          path.write_text(text.replace(obsolete, '', 1), encoding='utf-8')
           PY
 
       - name: Apply Phase 5D transformation in workspace
