@@ -187,9 +187,14 @@ def build_sparse_paths(
 
 def _pattern(path: Path) -> str:
     value = path.as_posix()
-    if path in BASE_PATHS or path == RELEASES_PATH:
+    if path in BASE_PATHS or path == RELEASES_PATH or path in LANES.values():
         return f"/{value}/"
     return f"/{value}"
+
+
+def sparse_checkout_patterns(paths: list[Path]) -> str:
+    """Return exact non-cone sparse patterns suitable for actions/checkout."""
+    return "\n".join(_pattern(path) for path in paths) + "\n"
 
 
 def apply_sparse_checkout(repo_root: Path, paths: list[Path]) -> None:

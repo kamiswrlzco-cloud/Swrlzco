@@ -68,33 +68,22 @@ env:
 jobs:
   prepare:
     name: Determine component and source route
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     outputs:
-      matrix: ${{ steps.route.outputs.matrix }}
+      matrix: ${{ steps.checkout-plan.outputs.matrix }}
       has_work: ${{ steps.route.outputs.has_work }}
       build_variant: ${{ steps.route.outputs.build_variant }}
     steps:
       - name: Sparse partial checkout for route resolution
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          git init .
-          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          git config gc.auto 0
-          git sparse-checkout init --cone
-          git sparse-checkout set \
-            swrlz-core/tools/ci \
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 2
+          filter: blob:none
+          persist-credentials: false
+          sparse-checkout: |
+            swrlz-core/tools/ci
             swrlz-core/requests
-          git -c protocol.version=2 fetch \
-            --no-tags \
-            --prune \
-            --depth=2 \
-            --filter=blob:none \
-            origin \
-            "+${GITHUB_SHA}:refs/remotes/origin/swrlz-ci"
-          git checkout --detach refs/remotes/origin/swrlz-ci
 
       - name: Resolve manual, source-path, or request route
         id: route
@@ -111,6 +100,17 @@ jobs:
           set -euo pipefail
           python3 "$SWRLZ_CI_ROOT/plan_swrlz_build_route.py"
 
+      - name: Plan one-pass candidate hydration
+        id: checkout-plan
+        env:
+          ROUTE_MATRIX: ${{ steps.route.outputs.matrix }}
+        run: |
+          set -euo pipefail
+          python3 "$SWRLZ_CI_ROOT/plan_swrlz_candidate_checkout.py" \
+            --matrix-json "$ROUTE_MATRIX" \
+            --ref "$GITHUB_SHA" \
+            --github-output "$GITHUB_OUTPUT"
+
   build:
     name: Build ${{ matrix.component }} APK
     needs: prepare
@@ -118,7 +118,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
       contents: read
@@ -142,46 +142,35 @@ jobs:
       queue: max
 
     steps:
-      - name: Candidate-targeted partial checkout
-        env:
-          COMPONENT: ${{ matrix.component }}
-          SOURCE_IDENTITY: ${{ matrix.source_identity }}
-          GH_TOKEN: ${{ github.token }}
+      - name: Start source hydration timer
+        run: |
+          echo "SWRLZ_HYDRATION_STARTED_MS=$(date +%s%3N)" >> "$GITHUB_ENV"
+
+      - name: Hydrate ${{ matrix.component }} source · ${{ matrix.source_size_label }}
+        id: hydrate-source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 1
+          filter: blob:none
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: ${{ matrix.checkout_patterns }}
+
+      - name: Record source hydration timing
+        id: hydration
         run: |
           set -euo pipefail
-          LANE="$(printf '%s' "$COMPONENT" | tr '[:upper:]' '[:lower:]')"
-          git init .
-          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          git config gc.auto 0
-          git sparse-checkout init --cone
-          git sparse-checkout set \
-            swrlz-core/tools/ci \
-            swrlz-core/requests
-          git -c protocol.version=2 fetch \
-            --no-tags \
-            --prune \
-            --depth=1 \
-            --filter=blob:none \
-            origin \
-            "+${GITHUB_SHA}:refs/remotes/origin/swrlz-ci"
-          git checkout --detach refs/remotes/origin/swrlz-ci
-
-          if [[ -n "$SOURCE_IDENTITY" ]]; then
-            python3 "$SWRLZ_CI_ROOT/prepare_swrlz_sparse_checkout.py" \
-              --component "$COMPONENT" \
-              --source-identity "$SOURCE_IDENTITY" \
-              --ref HEAD \
-              --extra-path "swrlz-core/docs/patch-notes/${COMPONENT}_PATCH_NOTES.md" \
-              --extra-path swrlz-core/docs/reference/CURRENT_CANDIDATE_LINEAGE.md \
-              --extra-path swrlz-core/docs/CURRENT_AUTHORITY.md
-          else
-            git sparse-checkout set \
-              swrlz-core/tools/ci \
-              swrlz-core/requests \
-              "swrlz-core/sources/$LANE" \
-              swrlz-core/docs
-            echo "SWRLZ checkout mode: compatible full-lane fallback for $COMPONENT"
-          fi
+          END_MS="$(date +%s%3N)"
+          ELAPSED_MS=$((END_MS - SWRLZ_HYDRATION_STARTED_MS))
+          echo "source_hydration_ms=$ELAPSED_MS" >> "$GITHUB_OUTPUT"
+          {
+            echo "## ${{ matrix.component }} source hydration"
+            echo
+            echo "- Mode: `${{ matrix.checkout_mode }}`"
+            echo "- Payload: `${{ matrix.source_size_label }}`"
+            echo "- Transport chunks: `${{ matrix.source_chunk_count }}`"
+            echo "- Hydration duration: `${ELAPSED_MS} ms`"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Resolve canonical source and checksum
         id: resolve
@@ -201,6 +190,7 @@ jobs:
             "${SOURCE_ARGUMENTS[@]}"
 
       - name: Verify selected source package
+        id: package-verify
         run: |
           set -euo pipefail
           VERIFY_ARGS=("${{ steps.resolve.outputs.selected_source }}")
@@ -211,44 +201,6 @@ jobs:
             VERIFY_ARGS+=(--manifest "${{ steps.resolve.outputs.manifest_file }}")
           fi
           python3 "$SWRLZ_CI_ROOT/verify_swrlz_package_pair.py" "${VERIFY_ARGS[@]}"
-
-      - name: Check patch-note and lineage accounting (non-blocking diagnostic)
-        id: accounting
-        env:
-          COMPONENT: ${{ matrix.component }}
-          SOURCE_IDENTITY: ${{ matrix.source_identity }}
-          RESOLVED_SOURCE: ${{ steps.resolve.outputs.selected_source }}
-          RESOLVED_MANIFEST: ${{ steps.resolve.outputs.manifest_file }}
-          RESOLVED_SHA256: ${{ steps.resolve.outputs.source_sha256 }}
-        run: |
-          set -euo pipefail
-          result="$RUNNER_TEMP/swrlz-patch-accounting-${COMPONENT}.json"
-
-          if [[ -z "$RESOLVED_MANIFEST" ]]; then
-            echo '::warning::Patch accounting skipped because no verified package manifest is available; APK build will continue.'
-            printf '%s\n' '{"schema":1,"status":"SKIPPED","reason":"verified package manifest unavailable","blocking":false}' > "$result"
-          else
-            set +e
-            python3 "$SWRLZ_CI_ROOT/verify_patch_note_accounting.py" \
-              --repo-root . \
-              --component "$COMPONENT" \
-              --identity "$SOURCE_IDENTITY" \
-              --resolved-source "$RESOLVED_SOURCE" \
-              --resolved-manifest "$RESOLVED_MANIFEST" \
-              --source-sha256 "$RESOLVED_SHA256" \
-              --json-output "$result"
-            ACCOUNTING_RC=$?
-            set -e
-
-            if [[ "$ACCOUNTING_RC" -ne 0 ]]; then
-              echo "::warning::Patch/lineage accounting diagnostic failed with exit $ACCOUNTING_RC; APK build will continue."
-              if [[ ! -s "$result" ]]; then
-                printf '{"schema":1,"status":"WARN","exit_code":%d,"blocking":false,"reason":"patch accounting diagnostic failed"}\n' "$ACCOUNTING_RC" > "$result"
-              fi
-            fi
-          fi
-
-          echo "result=$result" >> "$GITHUB_OUTPUT"
 
       - name: Define immutable artifact identity
         id: artifact-meta
@@ -270,6 +222,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Set up Java 17
+        id: setup-java
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
@@ -347,9 +300,11 @@ jobs:
           echo "V2 stable signing preflight passed. Keystore SHA-256: $ACTUAL_KEYSTORE_SHA256"
 
       - name: Set up Gradle wrapper cache
+        id: setup-gradle
         uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
 
       - name: Set up Android SDK tooling
+        id: setup-android
         uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4
         with:
           packages: ''
@@ -362,6 +317,7 @@ jobs:
           CANONICAL_STEM: ${{ steps.resolve.outputs.canonical_stem }}
           VARIANT: ${{ needs.prepare.outputs.build_variant }}
           SWRLZ_VERIFIED_SOURCE_SHA256: ${{ steps.resolve.outputs.source_sha256 }}
+          SWRLZ_SOURCE_HYDRATION_MS: ${{ steps.hydration.outputs.source_hydration_ms }}
           SWRLZ_BUILD_WORK_DIR: ${{ runner.temp }}/swrlz-build/router
           SWRLZ_ARTIFACT_ROOT: ${{ runner.temp }}/swrlz-artifacts/router
         run: |
@@ -518,17 +474,14 @@ jobs:
             echo "canonical_apks=$CANONICAL_APKS_CSV"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Record source, accounting, timing, and signing provenance
+      - name: Record source, timing, and signing provenance
         env:
           ARTIFACT_DIR: ${{ steps.build.outputs.artifact_dir }}
           RESOLUTION_JSON: ${{ steps.resolve.outputs.resolution_json }}
-          ACCOUNTING_JSON: ${{ steps.accounting.outputs.result }}
         run: |
           set -euo pipefail
           printf '%s\n' "$RESOLUTION_JSON" > "$ARTIFACT_DIR/SOURCE_RESOLUTION.json"
           sha256sum "$ARTIFACT_DIR/SOURCE_RESOLUTION.json" > "$ARTIFACT_DIR/SOURCE_RESOLUTION.json.sha256"
-          cp "$ACCOUNTING_JSON" "$ARTIFACT_DIR/PATCH_ACCOUNTING.json"
-          sha256sum "$ARTIFACT_DIR/PATCH_ACCOUNTING.json" > "$ARTIFACT_DIR/PATCH_ACCOUNTING.json.sha256"
           {
             echo "## ${{ matrix.component }} source resolution"
             echo
@@ -541,6 +494,9 @@ jobs:
             echo "- Manifest file: \`${{ steps.resolve.outputs.manifest_file || 'none supplied' }}\`"
             echo "- Transport manifest: \`${{ steps.resolve.outputs.transport_manifest || 'direct ZIP' }}\`"
             echo "- Patch/lineage accounting: \`diagnostic only — non-blocking\`"
+            echo "- Planned source payload: `${{ matrix.source_size_label }}`"
+            echo "- Source transport chunks: `${{ matrix.source_chunk_count }}`"
+            echo "- Source hydration: `${{ steps.hydration.outputs.source_hydration_ms }} ms`"
             echo "- Source extraction: \`${{ steps.build.outputs.extract_ms }} ms\`"
             echo "- Gradle execution: \`${{ steps.build.outputs.gradle_ms }} ms\`"
             echo "- Build helper total: \`${{ steps.build.outputs.build_helper_total_ms }} ms\`"
@@ -552,11 +508,6 @@ jobs:
             echo "- APK verification: \`apksigner verify --verbose --print-certs\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Attest canonical stable APK provenance
-        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
-        with:
-          subject-path: '${{ steps.build.outputs.artifact_dir }}/*_stable-signed.apk'
-
       - name: Upload canonical stable APK and provenance artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -566,11 +517,103 @@ jobs:
           retention-days: 30
           compression-level: 0
 
+      - name: Attest canonical stable APK provenance
+        id: attest
+        continue-on-error: true
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: '${{ steps.build.outputs.artifact_dir }}/*_stable-signed.apk'
+
+      - name: Collect failed-build diagnostics
+        if: failure()
+        id: failure-diagnostics
+        env:
+          COMPONENT: ${{ matrix.component }}
+          SOURCE_IDENTITY: ${{ matrix.source_identity }}
+          SOURCE_SHA256: ${{ steps.resolve.outputs.source_sha256 }}
+          CANONICAL_STEM: ${{ steps.resolve.outputs.canonical_stem }}
+          SOURCE_SIZE_BYTES: ${{ matrix.source_size_bytes }}
+          SOURCE_CHUNK_COUNT: ${{ matrix.source_chunk_count }}
+          HYDRATE_OUTCOME: ${{ steps.hydrate-source.outcome }}
+          HYDRATION_MS: ${{ steps.hydration.outputs.source_hydration_ms }}
+          RESOLVE_OUTCOME: ${{ steps.resolve.outcome }}
+          PACKAGE_VERIFY_OUTCOME: ${{ steps.package-verify.outcome }}
+          JAVA_OUTCOME: ${{ steps.setup-java.outcome }}
+          GRADLE_SETUP_OUTCOME: ${{ steps.setup-gradle.outcome }}
+          ANDROID_SETUP_OUTCOME: ${{ steps.setup-android.outcome }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+          SIGNING_OUTCOME: ${{ steps.signing.outcome }}
+        run: |
+          set -uo pipefail
+          DIAG="$RUNNER_TEMP/swrlz-failure/$COMPONENT"
+          mkdir -p "$DIAG"
+          BUILD_DIR="$RUNNER_TEMP/swrlz-artifacts/router/$COMPONENT"
+          if [[ -d "$BUILD_DIR" ]]; then cp -a "$BUILD_DIR"/. "$DIAG"/ 2>/dev/null || true; fi
+          RESOLVER_DIR="$RUNNER_TEMP/swrlz-source-resolver/$COMPONENT"
+          if [[ -d "$RESOLVER_DIR" ]]; then
+            while IFS= read -r file; do
+              cp "$file" "$DIAG/resolver_$(basename "$file")" 2>/dev/null || true
+            done < <(find "$RESOLVER_DIR" -maxdepth 3 -type f \
+              \( -name '*.json' -o -name '*.txt' -o -name '*.log' \) -print 2>/dev/null | sort)
+          fi
+          export DIAG COMPONENT SOURCE_IDENTITY SOURCE_SHA256 CANONICAL_STEM SOURCE_SIZE_BYTES SOURCE_CHUNK_COUNT \
+            HYDRATE_OUTCOME HYDRATION_MS RESOLVE_OUTCOME PACKAGE_VERIFY_OUTCOME JAVA_OUTCOME \
+            GRADLE_SETUP_OUTCOME ANDROID_SETUP_OUTCOME BUILD_OUTCOME SIGNING_OUTCOME
+          python3 - <<'PYFAIL'
+          import json, os
+          from pathlib import Path
+          outcomes = {
+              'source_hydration': os.environ.get('HYDRATE_OUTCOME', ''),
+              'source_resolution': os.environ.get('RESOLVE_OUTCOME', ''),
+              'package_verification': os.environ.get('PACKAGE_VERIFY_OUTCOME', ''),
+              'java_setup': os.environ.get('JAVA_OUTCOME', ''),
+              'gradle_setup': os.environ.get('GRADLE_SETUP_OUTCOME', ''),
+              'android_setup': os.environ.get('ANDROID_SETUP_OUTCOME', ''),
+              'gradle_build': os.environ.get('BUILD_OUTCOME', ''),
+              'stable_signing': os.environ.get('SIGNING_OUTCOME', ''),
+          }
+          failed_stage = next((stage for stage, outcome in outcomes.items() if outcome == 'failure'), 'unknown')
+          def number(name):
+              value = os.environ.get(name, '')
+              return int(value) if value.isdigit() else None
+          payload = {
+              'schema': 2,
+              'component': os.environ.get('COMPONENT', ''),
+              'source_identity': os.environ.get('SOURCE_IDENTITY', ''),
+              'source_sha256': os.environ.get('SOURCE_SHA256', ''),
+              'canonical_stem': os.environ.get('CANONICAL_STEM', ''),
+              'source_size_bytes': number('SOURCE_SIZE_BYTES'),
+              'source_chunk_count': number('SOURCE_CHUNK_COUNT'),
+              'source_hydration_ms': number('HYDRATION_MS'),
+              'failed_stage': failed_stage,
+              'step_outcomes': outcomes,
+              'repository': os.environ.get('GITHUB_REPOSITORY', ''),
+              'commit': os.environ.get('GITHUB_SHA', ''),
+              'run_id': os.environ.get('GITHUB_RUN_ID', ''),
+              'run_attempt': os.environ.get('GITHUB_RUN_ATTEMPT', ''),
+              'workflow': os.environ.get('GITHUB_WORKFLOW', ''),
+          }
+          target = Path(os.environ['DIAG']) / 'FORGE_FAILURE_CONTEXT.json'
+          target.write_text(json.dumps(payload, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          PYFAIL
+          sha256sum "$DIAG/FORGE_FAILURE_CONTEXT.json" > "$DIAG/FORGE_FAILURE_CONTEXT.json.sha256"
+          echo "diagnostic_dir=$DIAG" >> "$GITHUB_OUTPUT"
+
+      - name: Upload failed-build diagnostic bundle
+        if: failure() && steps.failure-diagnostics.outputs.diagnostic_dir != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ${{ matrix.component }}_FORGE_FAILURE_${{ github.run_id }}_${{ github.run_attempt }}
+          path: ${{ steps.failure-diagnostics.outputs.diagnostic_dir }}/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 6
+
   publish-release:
     name: Publish requested release artifact
     needs: [prepare, build]
     if: github.event_name == 'workflow_dispatch' && inputs.commit_release_artifacts
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: write

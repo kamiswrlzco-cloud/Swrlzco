@@ -169,6 +169,10 @@ def plan_route(
     else:
         changed = _changed_paths(repo_root, before_sha, after_sha)
         for path in changed:
+            # Deleted or renamed-away historical files are archival maintenance,
+            # not build requests. A rename's new path still exists and routes normally.
+            if not _path_exists(repo_root, after_sha, Path(path)):
+                continue
             lane_component = _lane_component(path)
             if lane_component is not None:
                 components.add(lane_component)

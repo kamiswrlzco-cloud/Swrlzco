@@ -29,7 +29,7 @@ defaults:
 jobs:
   validate-ci-tooling:
     name: Validate resolver, audits, actions, and build helper
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - name: Sparse checkout CI tooling
@@ -50,6 +50,7 @@ jobs:
             resolve_changed_source_identities.py \
             resolve_push_changed_paths.py \
             plan_swrlz_build_route.py \
+            plan_swrlz_candidate_checkout.py \
             prepare_swrlz_sparse_checkout.py \
             verify_swrlz_package_pair.py \
             verify_patch_note_accounting.py \
@@ -57,9 +58,12 @@ jobs:
             test_resolve_changed_source_identities.py \
             test_resolve_push_changed_paths.py \
             test_plan_swrlz_build_route.py \
+            test_plan_swrlz_candidate_checkout.py \
             test_prepare_swrlz_sparse_checkout.py \
             test_verify_swrlz_package_pair.py \
-            test_verify_patch_note_accounting.py
+            test_verify_patch_note_accounting.py \
+            test_build_swrlz_component.py \
+            test_workflow_phase5_contract.py
           bash -n build_swrlz_component.sh
 
       - name: Run CI tooling unit tests
@@ -70,9 +74,12 @@ jobs:
           python3 test_resolve_changed_source_identities.py
           python3 test_resolve_push_changed_paths.py
           python3 test_plan_swrlz_build_route.py
+          python3 test_plan_swrlz_candidate_checkout.py
           python3 test_prepare_swrlz_sparse_checkout.py
           python3 test_verify_swrlz_package_pair.py
           python3 test_verify_patch_note_accounting.py
+          python3 test_build_swrlz_component.py
+          python3 test_workflow_phase5_contract.py
 
       - name: Smoke test Java 17 action
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5

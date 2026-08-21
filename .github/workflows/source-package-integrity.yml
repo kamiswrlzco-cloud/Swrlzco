@@ -33,10 +33,10 @@ defaults:
 jobs:
   prepare:
     name: Determine source identities
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
-      matrix: ${{ steps.route.outputs.matrix }}
+      matrix: ${{ steps.checkout-plan.outputs.matrix }}
       has_work: ${{ steps.route.outputs.has_work }}
     steps:
       - name: Sparse checkout route tooling
@@ -70,6 +70,17 @@ jobs:
           fi
           python3 "$SWRLZ_CI_ROOT/plan_swrlz_build_route.py"
 
+      - name: Plan one-pass candidate hydration
+        id: checkout-plan
+        env:
+          ROUTE_MATRIX: ${{ steps.route.outputs.matrix }}
+        run: |
+          set -euo pipefail
+          python3 "$SWRLZ_CI_ROOT/plan_swrlz_candidate_checkout.py" \
+            --matrix-json "$ROUTE_MATRIX" \
+            --ref "$GITHUB_SHA" \
+            --github-output "$GITHUB_OUTPUT"
+
   verify:
     name: Verify ${{ matrix.component }} source package
     needs: prepare
@@ -77,38 +88,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
 
     steps:
-      - name: Candidate-targeted partial checkout
-        env:
-          COMPONENT: ${{ matrix.component }}
-          SOURCE_IDENTITY: ${{ matrix.source_identity }}
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          [[ -n "$SOURCE_IDENTITY" ]] || {
-            echo 'Source integrity requires an exact source identity.' >&2
-            exit 64
-          }
-          git init .
-          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          git config gc.auto 0
-          git sparse-checkout init --cone
-          git sparse-checkout set swrlz-core/tools/ci swrlz-core/requests
-          git -c protocol.version=2 fetch \
-            --no-tags \
-            --prune \
-            --depth=1 \
-            --filter=blob:none \
-            origin \
-            "+${GITHUB_SHA}:refs/remotes/origin/swrlz-ci"
-          git checkout --detach refs/remotes/origin/swrlz-ci
-          python3 "$SWRLZ_CI_ROOT/prepare_swrlz_sparse_checkout.py" \
-            --component "$COMPONENT" \
-            --source-identity "$SOURCE_IDENTITY" \
-            --ref HEAD
+      - name: Hydrate exact ${{ matrix.component }} source · ${{ matrix.source_size_label }}
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 1
+          filter: blob:none
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: ${{ matrix.checkout_patterns }}
 
       - name: Resolve selected source
         id: resolve
