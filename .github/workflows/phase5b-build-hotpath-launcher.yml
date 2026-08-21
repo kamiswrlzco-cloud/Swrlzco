@@ -1,0 +1,128 @@
+name: SWRLZ Phase 5B Build Hotpath Launcher
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/phase5b-build-hotpath-launcher.yml'
+      - 'swrlz-core/tools/ci/phase5b_build_hotpath_apply.py'
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  apply-validate-clean:
+    if: github.head_ref == 'checkpoint/forge-phase5-final-20260821'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout Phase 5 checkpoint
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: checkpoint/forge-phase5-final-20260821
+          fetch-depth: 2
+          filter: blob:none
+          sparse-checkout: |
+            .github/workflows
+            swrlz-core/tools/ci
+            swrlz-core/requests
+            swrlz-core/history
+
+      - name: Compile and apply hotpath patch
+        run: |
+          set -euo pipefail
+          python3 -m py_compile swrlz-core/tools/ci/phase5b_build_hotpath_apply.py
+          python3 swrlz-core/tools/ci/phase5b_build_hotpath_apply.py
+
+      - name: Validate Python and shell syntax
+        working-directory: swrlz-core/tools/ci
+        run: |
+          set -euo pipefail
+          python3 -m py_compile \
+            resolve_swrlz_source.py \
+            resolve_changed_source_identities.py \
+            resolve_push_changed_paths.py \
+            plan_swrlz_build_route.py \
+            plan_swrlz_candidate_checkout.py \
+            prepare_swrlz_sparse_checkout.py \
+            verify_swrlz_package_pair.py \
+            verify_patch_note_accounting.py \
+            test_resolve_swrlz_source.py \
+            test_resolve_changed_source_identities.py \
+            test_resolve_push_changed_paths.py \
+            test_plan_swrlz_build_route.py \
+            test_plan_swrlz_candidate_checkout.py \
+            test_prepare_swrlz_sparse_checkout.py \
+            test_verify_swrlz_package_pair.py \
+            test_verify_patch_note_accounting.py \
+            test_build_swrlz_component.py \
+            test_workflow_phase5_contract.py
+          bash -n build_swrlz_component.sh
+
+      - name: Run complete CI tooling suite
+        working-directory: swrlz-core/tools/ci
+        run: |
+          set -euo pipefail
+          python3 test_resolve_swrlz_source.py
+          python3 test_resolve_changed_source_identities.py
+          python3 test_resolve_push_changed_paths.py
+          python3 test_plan_swrlz_build_route.py
+          python3 test_plan_swrlz_candidate_checkout.py
+          python3 test_prepare_swrlz_sparse_checkout.py
+          python3 test_verify_swrlz_package_pair.py
+          python3 test_verify_patch_note_accounting.py
+          python3 test_build_swrlz_component.py
+          python3 test_workflow_phase5_contract.py
+
+      - name: Smoke test Gradle wrapper cache v6.3.0
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        with:
+          cache-cleanup: on-success
+
+      - name: Smoke test pinned-runner Android SDK fast path
+        run: |
+          set -euo pipefail
+          SDK_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          [[ -n "$SDK_DIR" && -d "$SDK_DIR" ]]
+          APKSIGNER="$(find "$SDK_DIR/build-tools" -mindepth 2 -maxdepth 2 -type f -name apksigner -print | sort -V | tail -n 1)"
+          ZIPALIGN="$(find "$SDK_DIR/build-tools" -mindepth 2 -maxdepth 2 -type f -name zipalign -print | sort -V | tail -n 1)"
+          [[ -x "$APKSIGNER" && -x "$ZIPALIGN" ]]
+          echo "Android SDK fast path OK: $APKSIGNER / $ZIPALIGN"
+
+      - name: Validate final diff
+        run: |
+          set -euo pipefail
+          git diff --check
+          ! grep -q 'gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c' .github/workflows/swrlz-apk-router.yml .github/workflows/swrlz-ci-tooling-validation.yml
+          grep -q 'gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb' .github/workflows/swrlz-apk-router.yml
+          grep -q 'Inspect preinstalled Android SDK' .github/workflows/swrlz-apk-router.yml
+          grep -q -- '--no-watch-fs' swrlz-core/tools/ci/build_swrlz_component.sh
+
+      - name: Create clean Phase 5B commit object
+        run: |
+          set -euo pipefail
+          rm -f \
+            .github/workflows/phase5b-build-hotpath-launcher.yml \
+            swrlz-core/tools/ci/phase5b_build_hotpath_apply.py
+          find swrlz-core/tools/ci -type d -name __pycache__ -prune -exec rm -rf {} +
+          find swrlz-core/tools/ci -type f -name '*.pyc' -delete
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          if git diff --cached --name-only | grep -E '(^|/)__pycache__/|\.pyc$|phase5b_build_hotpath_apply.py|phase5b-build-hotpath-launcher.yml'; then
+            echo 'Temporary Phase 5B staging content entered final commit.' >&2
+            exit 1
+          fi
+          git diff --cached --stat
+          git commit -m 'perf(ci): optimize Gradle Android build hotpath'
+          FINAL_SHA="$(git rev-parse HEAD)"
+          echo "PHASE5B_FINAL_COMMIT_SHA=$FINAL_SHA"
+          if ! git push origin HEAD:checkpoint/forge-phase5-final-20260821; then
+            echo '::warning::Workflow-file permission blocked branch update; attach the validated commit object with the authorized GitHub connector.'
+          fi
