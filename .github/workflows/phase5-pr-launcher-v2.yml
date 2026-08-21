@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - '.github/workflows/phase5-pr-launcher-v2.yml'
+      - 'swrlz-core/tools/ci/phase5_apply.py'
 
 permissions:
   contents: write
@@ -28,96 +29,13 @@ jobs:
           sparse-checkout: |
             .github/workflows
             swrlz-core/tools/ci
+            swrlz-core/history
 
-      - name: Extract and execute staged Phase 5 patch
+      - name: Apply Phase 5 reliability patch
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-
-          source = Path('.github/workflows/phase5-selfpatch.yml').read_text(encoding='utf-8').splitlines()
-          start = next(i for i, line in enumerate(source) if line.strip() == "python3 - <<'PY'") + 1
-          end = next(i for i in range(start, len(source)) if source[i].strip() == 'PY')
-          body = []
-          for line in source[start:end]:
-              body.append(line[10:] if line.startswith('          ') else line)
-          script = '\n'.join(body) + '\n'
-          brittle_lines = [
-              "accounting = replace_once(accounting, old_fallback_run, new_fallback_run, 'accounting fallback warning mode')",
-              "planner = replace_once(planner, old_loop, new_loop, 'planner deletion-aware loop')",
-          ]
-          for brittle in brittle_lines:
-              if script.count(brittle) != 1:
-                  raise SystemExit(f'Unable to locate staged replacement: {brittle}')
-              script = script.replace(brittle, f'# deferred marker-based patch: {brittle}', 1)
-          Path('/tmp/apply_phase5.py').write_text(script, encoding='utf-8')
-          PY
-          python3 /tmp/apply_phase5.py
-
-      - name: Make fallback accounting diagnostic-only
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-
-          path = Path('.github/workflows/patch-note-accounting.yml')
-          text = path.read_text(encoding='utf-8')
-          marker = '      - name: Audit current repository accounting\n'
-          start = text.find(marker)
-          if start < 0:
-              raise SystemExit('Fallback accounting step marker not found')
-          lines = [
-              '      - name: Audit current repository accounting',
-              '        run: |',
-              '          set -uo pipefail',
-              '          identities="$RUNNER_TEMP/swrlz-patch-accounting-identities.tsv"',
-              '          result="$RUNNER_TEMP/swrlz-patch-accounting.json"',
-              '          : > "$identities"',
-              '          rc=0',
-              '          python3 "$SWRLZ_CI_ROOT/verify_patch_note_accounting.py" \\',
-              '            --repo-root . \\',
-              '            --identity-file "$identities" \\',
-              '            --json-output "$result" || rc=$?',
-              '          if [[ ! -s "$result" ]]; then',
-              '            printf \'{"schema":1,"status":"WARN","blocking":false,"exit_code":%d}\\n\' "$rc" > "$result"',
-              '          fi',
-              '          if [[ "$rc" -ne 0 ]]; then',
-              '            echo "::warning::Current-candidate accounting diagnostic failed with exit $rc; source/build authority is unaffected."',
-              '          fi',
-              '          {',
-              "            echo '## SWRLZ Patch Note Accounting (diagnostic only)'",
-              '            echo',
-              "            echo '```json'",
-              '            cat "$result"',
-              "            echo '```'",
-              '          } >> "$GITHUB_STEP_SUMMARY"',
-          ]
-          replacement = '\n'.join(lines) + '\n'
-          path.write_text(text[:start] + replacement, encoding='utf-8')
-          PY
-
-      - name: Make source routing deletion-aware
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-
-          path = Path('swrlz-core/tools/ci/plan_swrlz_build_route.py')
-          text = path.read_text(encoding='utf-8')
-          needle = '''        changed = _changed_paths(repo_root, before_sha, after_sha)
-        for path in changed:
-'''
-          replacement = '''        changed = _changed_paths(repo_root, before_sha, after_sha)
-        for path in changed:
-            # Deleted or renamed-away historical files are archival maintenance,
-            # not build requests. A rename's new path still exists and routes normally.
-            if not _path_exists(repo_root, after_sha, Path(path)):
-                continue
-'''
-          if text.count(needle) != 1:
-              raise SystemExit(f'Deletion-aware planner marker count was {text.count(needle)}')
-          path.write_text(text.replace(needle, replacement, 1), encoding='utf-8')
-          PY
+          python3 -m py_compile swrlz-core/tools/ci/phase5_apply.py
+          python3 swrlz-core/tools/ci/phase5_apply.py
 
       - name: Validate Phase 5 patch
         run: |
@@ -154,7 +72,8 @@ jobs:
           set -euo pipefail
           rm -f \
             .github/workflows/phase5-selfpatch.yml \
-            .github/workflows/phase5-pr-launcher-v2.yml
+            .github/workflows/phase5-pr-launcher-v2.yml \
+            swrlz-core/tools/ci/phase5_apply.py
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
