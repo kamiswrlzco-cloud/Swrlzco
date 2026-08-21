@@ -132,6 +132,10 @@ GRADLE_ARGS=(
   --no-watch-fs
 )
 if [[ "$CONFIGURATION_CACHE_ENABLED" == 'true' ]]; then
+  # Android creates this cache directory during the first Gradle build. Ensure the
+  # watched filesystem entry already exists before Gradle snapshots configuration
+  # state so a second identical build can reuse the configuration-cache entry.
+  mkdir -p "$HOME/.config/.android/cache"
   GRADLE_ARGS+=(--configuration-cache)
 fi
 
