@@ -93,6 +93,61 @@ class BuildRouteTests(unittest.TestCase):
                 after_sha=head,
             )
 
+    def test_multi_commit_push_fetches_missing_before_boundary(self):
+        with tempfile.TemporaryDirectory() as origin_tmp, tempfile.TemporaryDirectory() as clone_tmp:
+            origin = Path(origin_tmp) / "origin.git"
+            subprocess.run(
+                ["git", "init", "--bare", str(origin)],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            git(self.repo, "branch", "-M", "main")
+            git(self.repo, "remote", "add", "origin", f"file://{origin}")
+            git(self.repo, "push", "-u", "origin", "main")
+            before = git(self.repo, "rev-parse", "HEAD")
+
+            transport = self._write_transport("CLIENT", 101)
+            commit_all(self.repo, "client source")
+            (self.repo / "unrelated.txt").write_text("second commit\n", encoding="utf-8")
+            after = commit_all(self.repo, "second commit in push")
+            git(self.repo, "push", "origin", "main")
+
+            shallow = Path(clone_tmp) / "shallow"
+            subprocess.run(
+                ["git", "clone", "--depth", "1", "--branch", "main", f"file://{origin}", str(shallow)],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            missing = subprocess.run(
+                ["git", "cat-file", "-e", f"{before}^{{commit}}"],
+                cwd=shallow,
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            self.assertNotEqual(missing.returncode, 0)
+
+            plan = route.plan_route(
+                shallow,
+                event_name="push",
+                before_sha=before,
+                after_sha=after,
+            )
+            self.assertEqual(
+                plan["matrix"]["include"],
+                [{"component": "CLIENT", "source_identity": transport.relative_to(self.repo).as_posix()}],
+            )
+            self.assertEqual(
+                subprocess.run(
+                    ["git", "cat-file", "-e", f"{before}^{{commit}}"],
+                    cwd=shallow,
+                    check=False,
+                ).returncode,
+                0,
+            )
+
     def test_manual_explicit_identity_is_forwarded(self):
         plan = route.plan_route(
             self.repo,
