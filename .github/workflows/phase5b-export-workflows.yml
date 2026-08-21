@@ -1,0 +1,67 @@
+name: SWRLZ Phase 5B Export Workflow Files
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/phase5b-export-workflows.yml'
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  export:
+    if: github.head_ref == 'checkpoint/forge-phase5-final-20260821'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout staging branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: checkpoint/forge-phase5-final-20260821
+          fetch-depth: 8
+          filter: blob:none
+          sparse-checkout: |
+            .github/workflows
+            swrlz-core/tools/ci
+            swrlz-core/requests
+            swrlz-core/history
+
+      - name: Apply exact validated hotpath transformation
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('swrlz-core/tools/ci/phase5b_build_hotpath_apply.py')
+          text = path.read_text(encoding='utf-8')
+          old = "    if count != 1:\n        raise SystemExit(f'{label}: expected exactly one marker, found {count}')\n"
+          new = "    expected = 2 if label == 'helper timing JSON setup fields' else 1\n    if count != expected:\n        raise SystemExit(f'{label}: expected {expected} marker(s), found {count}')\n"
+          if text.count(old) != 1:
+              raise SystemExit(f'patcher count-policy marker count was {text.count(old)}')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+          python3 swrlz-core/tools/ci/phase5b_build_hotpath_apply.py
+          git diff --check
+
+      - name: Package workflow files under non-hidden artifact paths
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/phase5b-workflows"
+          mkdir -p "$OUT"
+          cp .github/workflows/swrlz-apk-router.yml "$OUT/swrlz-apk-router.yml"
+          cp .github/workflows/swrlz-ci-tooling-validation.yml "$OUT/swrlz-ci-tooling-validation.yml"
+          sha256sum "$OUT"/*
+
+      - name: Upload workflow files
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: swrlz-phase5b-workflows-${{ github.run_id }}
+          path: ${{ runner.temp }}/phase5b-workflows/
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
