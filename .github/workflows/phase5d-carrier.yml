@@ -1,0 +1,89 @@
+name: SWRLZ Phase 5D Carrier Validation
+
+on:
+  push:
+    branches:
+      - checkpoint/forge-phase5d-workflow-hardening-20260821
+    paths:
+      - '.github/workflows/phase5d-carrier.yml'
+      - 'swrlz-core/tools/ci/phase5d_prepare.py'
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  prepare-validate-carrier:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout staging branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: checkpoint/forge-phase5d-workflow-hardening-20260821
+          fetch-depth: 3
+          filter: blob:none
+          sparse-checkout: |
+            .github/workflows
+            swrlz-core/tools/ci
+            swrlz-core/requests
+            swrlz-core/history
+
+      - name: Apply Phase 5D transformation in workspace
+        run: |
+          set -euo pipefail
+          python3 -m py_compile swrlz-core/tools/ci/phase5d_prepare.py
+          python3 swrlz-core/tools/ci/phase5d_prepare.py
+
+      - name: Validate transformed tooling
+        working-directory: swrlz-core/tools/ci
+        run: |
+          set -euo pipefail
+          python3 -m py_compile \
+            test_build_swrlz_component.py \
+            test_workflow_phase5_contract.py
+          bash -n build_swrlz_component.sh
+          python3 test_build_swrlz_component.py
+          python3 test_workflow_phase5_contract.py
+
+      - name: Validate workflow syntax invariants
+        run: |
+          set -euo pipefail
+          git diff --check
+          ! grep -q 'actions/setup-java@' .github/workflows/swrlz-apk-router.yml
+          ! grep -q 'actions/setup-java@' .github/workflows/swrlz-ci-tooling-validation.yml
+          grep -q 'Validate preinstalled Java 17' .github/workflows/swrlz-apk-router.yml
+          grep -q 'for attempt in 1 2 3; do' .github/workflows/swrlz-apk-router.yml
+          grep -q "plan_swrlz_candidate_checkout.py'" .github/workflows/source-package-integrity.yml
+          grep -q "verify_swrlz_package_pair.py'" .github/workflows/source-package-integrity.yml
+
+      - name: Export validated production files to carrier paths
+        run: |
+          set -euo pipefail
+          CARRIER=swrlz-core/.phase5d-carrier
+          rm -rf "$CARRIER"
+          mkdir -p "$CARRIER"
+          cp .github/workflows/swrlz-apk-router.yml "$CARRIER/swrlz-apk-router.yml.txt"
+          cp .github/workflows/swrlz-ci-tooling-validation.yml "$CARRIER/swrlz-ci-tooling-validation.yml.txt"
+          cp swrlz-core/tools/ci/build_swrlz_component.sh "$CARRIER/build_swrlz_component.sh.txt"
+          cp swrlz-core/tools/ci/test_build_swrlz_component.py "$CARRIER/test_build_swrlz_component.py.txt"
+          cp swrlz-core/tools/ci/test_workflow_phase5_contract.py "$CARRIER/test_workflow_phase5_contract.py.txt"
+          sha256sum "$CARRIER"/* > "$CARRIER/SHA256SUMS.txt"
+
+          git restore .github/workflows/swrlz-apk-router.yml \
+            .github/workflows/swrlz-ci-tooling-validation.yml \
+            swrlz-core/tools/ci/build_swrlz_component.sh \
+            swrlz-core/tools/ci/test_build_swrlz_component.py \
+            swrlz-core/tools/ci/test_workflow_phase5_contract.py
+          find swrlz-core/tools/ci -type d -name __pycache__ -prune -exec rm -rf {} +
+          find swrlz-core/tools/ci -type f -name '*.pyc' -delete
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "$CARRIER"
+          git diff --cached --check
+          git commit -m 'chore(ci): export validated Phase 5D carrier files'
+          git push origin HEAD:checkpoint/forge-phase5d-workflow-hardening-20260821
