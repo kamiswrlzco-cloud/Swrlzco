@@ -62,31 +62,33 @@ jobs:
           start = text.find(marker)
           if start < 0:
               raise SystemExit('Fallback accounting step marker not found')
-          replacement = '''      - name: Audit current repository accounting
-        run: |
-          set -uo pipefail
-          identities="$RUNNER_TEMP/swrlz-patch-accounting-identities.tsv"
-          result="$RUNNER_TEMP/swrlz-patch-accounting.json"
-          : > "$identities"
-          rc=0
-          python3 "$SWRLZ_CI_ROOT/verify_patch_note_accounting.py" \\
-            --repo-root . \\
-            --identity-file "$identities" \\
-            --json-output "$result" || rc=$?
-          if [[ ! -s "$result" ]]; then
-            printf '{"schema":1,"status":"WARN","blocking":false,"exit_code":%d}\\n' "$rc" > "$result"
-          fi
-          if [[ "$rc" -ne 0 ]]; then
-            echo "::warning::Current-candidate accounting diagnostic failed with exit $rc; source/build authority is unaffected."
-          fi
-          {
-            echo '## SWRLZ Patch Note Accounting (diagnostic only)'
-            echo
-            echo '```json'
-            cat "$result"
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-'''
+          lines = [
+              '      - name: Audit current repository accounting',
+              '        run: |',
+              '          set -uo pipefail',
+              '          identities="$RUNNER_TEMP/swrlz-patch-accounting-identities.tsv"',
+              '          result="$RUNNER_TEMP/swrlz-patch-accounting.json"',
+              '          : > "$identities"',
+              '          rc=0',
+              '          python3 "$SWRLZ_CI_ROOT/verify_patch_note_accounting.py" \\',
+              '            --repo-root . \\',
+              '            --identity-file "$identities" \\',
+              '            --json-output "$result" || rc=$?',
+              '          if [[ ! -s "$result" ]]; then',
+              '            printf \'{"schema":1,"status":"WARN","blocking":false,"exit_code":%d}\\n\' "$rc" > "$result"',
+              '          fi',
+              '          if [[ "$rc" -ne 0 ]]; then',
+              '            echo "::warning::Current-candidate accounting diagnostic failed with exit $rc; source/build authority is unaffected."',
+              '          fi',
+              '          {',
+              "            echo '## SWRLZ Patch Note Accounting (diagnostic only)'",
+              '            echo',
+              "            echo '```json'",
+              '            cat "$result"',
+              "            echo '```'",
+              '          } >> "$GITHUB_STEP_SUMMARY"',
+          ]
+          replacement = '\n'.join(lines) + '\n'
           path.write_text(text[:start] + replacement, encoding='utf-8')
           PY
 
@@ -125,7 +127,6 @@ jobs:
           set -euo pipefail
           rm -f \
             .github/workflows/phase5-selfpatch.yml \
-            .github/workflows/phase5-pr-trigger.yml \
             .github/workflows/phase5-pr-launcher-v2.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
