@@ -39,6 +39,32 @@ jobs:
             swrlz-core/requests
             swrlz-core/history
 
+      - name: Align timing transformer with two payloads
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('swrlz-core/tools/ci/phase5d_prepare.py')
+          text = path.read_text(encoding='utf-8')
+          old = '''replace_once(
+              helper,
+              """    \\"source_hydration_ms\\": int(os.environ[\\"SOURCE_HYDRATION_MS\\"]),\\n    \\"gradle_setup_ms\\": int(os.environ[\\"GRADLE_SETUP_MS\\"]),\\n""",
+              """    \\"source_hydration_ms\\": int(os.environ[\\"SOURCE_HYDRATION_MS\\"]),\\n    \\"java_setup_ms\\": int(os.environ[\\"JAVA_SETUP_MS\\"]),\\n    \\"gradle_setup_ms\\": int(os.environ[\\"GRADLE_SETUP_MS\\"]),\\n""",
+              'helper timing JSON Java field',
+          )
+          '''
+          new = '''text = helper.read_text(encoding='utf-8')
+          old = '    "source_hydration_ms": int(os.environ["SOURCE_HYDRATION_MS"]),\\n    "gradle_setup_ms": int(os.environ["GRADLE_SETUP_MS"]),\\n'
+          new = '    "source_hydration_ms": int(os.environ["SOURCE_HYDRATION_MS"]),\\n    "java_setup_ms": int(os.environ["JAVA_SETUP_MS"]),\\n    "gradle_setup_ms": int(os.environ["GRADLE_SETUP_MS"]),\\n'
+          if text.count(old) != 2:
+              raise SystemExit(f'helper timing JSON Java fields: expected two markers, found {text.count(old)}')
+          helper.write_text(text.replace(old, new, 2), encoding='utf-8')
+          '''
+          if text.count(old) != 1:
+              raise SystemExit(f'transformer timing marker count was {text.count(old)}')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+
       - name: Apply Phase 5D transformation in workspace
         run: |
           set -euo pipefail
