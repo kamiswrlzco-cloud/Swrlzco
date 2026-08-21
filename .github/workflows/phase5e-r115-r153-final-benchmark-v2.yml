@@ -1,0 +1,177 @@
+name: SWRLZ Phase 5E R115 R153 Final Benchmark v2
+
+on:
+  pull_request:
+    branches:
+      - checkpoint/forge-phase5e-r115-r153-benchmark-v2-base-20260821
+    paths:
+      - 'swrlz-core/tools/ci/.phase5e-r115-r153-final-v2-trigger.txt'
+      - '.github/workflows/phase5e-r115-r153-final-benchmark-v2.yml'
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  PRODUCTION_SHA: 63855edccb58a712ac463a0e6dfc3aee00f688d1
+  SWRLZ_CI_ROOT: swrlz-core/tools/ci
+
+jobs:
+  tooling:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ env.PRODUCTION_SHA }}
+          fetch-depth: 2
+          filter: blob:none
+          persist-credentials: false
+          sparse-checkout: |
+            .github/workflows
+            swrlz-core/tools/ci
+            swrlz-core/requests
+            swrlz-core/history
+      - name: Validate exact production tooling
+        working-directory: swrlz-core/tools/ci
+        run: |
+          set -euo pipefail
+          bash -n build_swrlz_component.sh
+          python3 -m py_compile *.py
+          python3 test_build_swrlz_component.py
+          python3 test_resolve_swrlz_latest_identity.py
+          python3 test_plan_swrlz_candidate_checkout.py
+          python3 test_plan_swrlz_integrity_route.py
+          python3 test_verify_swrlz_package_pair.py
+          python3 test_workflow_phase5_contract.py
+
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      resolution_ms: ${{ steps.timing.outputs.ms }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ env.PRODUCTION_SHA }}
+          fetch-depth: 2
+          filter: blob:none
+          persist-credentials: false
+          sparse-checkout: |
+            swrlz-core/tools/ci
+            swrlz-core/requests
+      - run: echo "START=$(date +%s%3N)" >> "$GITHUB_ENV"
+      - id: plan
+        run: |
+          MATRIX='{"include":[{"component":"CLIENT","source_identity":""},{"component":"SERVER","source_identity":""}]}'
+          python3 "$SWRLZ_CI_ROOT/plan_swrlz_candidate_checkout.py" --matrix-json "$MATRIX" --ref "$PRODUCTION_SHA" --github-output "$GITHUB_OUTPUT"
+      - id: timing
+        env:
+          MATRIX_JSON: ${{ steps.plan.outputs.matrix }}
+        run: |
+          echo "ms=$(($(date +%s%3N) - START))" >> "$GITHUB_OUTPUT"
+          python3 - <<'PY'
+          import json, os
+          rows=json.loads(os.environ['MATRIX_JSON'])['include']
+          assert {r['component'] for r in rows}=={'CLIENT','SERVER'}
+          for r in rows:
+            assert r['checkout_mode']=='exact-latest-candidate',r
+            assert r['source_identity'] and r['source_chunk_count']>0,r
+            print(r['component'],r['source_identity'],r['source_size_label'],r['source_chunk_count'])
+          PY
+
+  real-build:
+    needs: prepare
+    name: ${{ matrix.component }} · final config-cache reuse v2
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
+    steps:
+      - run: echo "HYDRATE_START=$(date +%s%3N)" >> "$GITHUB_ENV"
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ env.PRODUCTION_SHA }}
+          fetch-depth: 1
+          filter: blob:none
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: ${{ matrix.checkout_patterns }}
+      - id: hydration
+        run: echo "ms=$(($(date +%s%3N) - HYDRATE_START))" >> "$GITHUB_OUTPUT"
+      - id: source
+        run: |
+          python3 "$SWRLZ_CI_ROOT/resolve_swrlz_source.py" --component '${{ matrix.component }}' --source-zip '${{ matrix.source_identity }}' --work-dir "$RUNNER_TEMP/p5e-v2/source/${{ matrix.component }}" --github-output "$GITHUB_OUTPUT"
+      - name: Verify package
+        run: |
+          A=("${{ steps.source.outputs.selected_source }}")
+          [[ -z '${{ steps.source.outputs.checksum_file }}' ]] || A+=(--checksum '${{ steps.source.outputs.checksum_file }}')
+          [[ -z '${{ steps.source.outputs.manifest_file }}' ]] || A+=(--manifest '${{ steps.source.outputs.manifest_file }}')
+          python3 "$SWRLZ_CI_ROOT/verify_swrlz_package_pair.py" "${A[@]}"
+      - id: java
+        run: |
+          START=$(date +%s%3N)
+          J="${JAVA_HOME_17_X64:-}"
+          [[ -x "$J/bin/java" && -x "$J/bin/javac" && -x "$J/bin/keytool" ]]
+          echo "JAVA_HOME=$J" >> "$GITHUB_ENV"
+          echo "$J/bin" >> "$GITHUB_PATH"
+          echo "ms=$(($(date +%s%3N) - START))" >> "$GITHUB_OUTPUT"
+      - name: Prepare verified Gradle workspace
+        id: prep
+        env:
+          SWRLZ_PREPARE_ONLY: 'true'
+        run: |
+          bash "$SWRLZ_CI_ROOT/build_swrlz_component.sh" '${{ matrix.component }}' '${{ steps.source.outputs.selected_source }}' '${{ steps.source.outputs.canonical_stem }}' debug "$GITHUB_WORKSPACE/swrlz-gradle-workspace/v2/${{ matrix.component }}" "$RUNNER_TEMP/p5e-v2/prep/${{ matrix.component }}"
+      - run: echo "GRADLE_START=$(date +%s%3N)" >> "$GITHUB_ENV"
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb
+        with:
+          cache-provider: basic
+          cache-read-only: true
+          cache-cleanup: on-success
+      - id: gradle
+        run: echo "ms=$(($(date +%s%3N) - GRADLE_START))" >> "$GITHUB_OUTPUT"
+      - id: android
+        run: |
+          START=$(date +%s%3N)
+          S="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          [[ -x "$S/cmdline-tools/latest/bin/sdkmanager" ]]
+          [[ -n "$(find "$S/build-tools" -mindepth 2 -maxdepth 2 -type f -name apksigner -print | head -1)" ]]
+          [[ -n "$(find "$S/build-tools" -mindepth 2 -maxdepth 2 -type f -name zipalign -print | head -1)" ]]
+          echo "ms=$(($(date +%s%3N) - START))" >> "$GITHUB_OUTPUT"
+      - name: First real build
+        id: build1
+        env:
+          SWRLZ_VERIFIED_SOURCE_SHA256: ${{ steps.source.outputs.source_sha256 }}
+          SWRLZ_SOURCE_HYDRATION_MS: ${{ steps.hydration.outputs.ms }}
+          SWRLZ_JAVA_SETUP_MS: ${{ steps.java.outputs.ms }}
+          SWRLZ_GRADLE_SETUP_MS: ${{ steps.gradle.outputs.ms }}
+          SWRLZ_ANDROID_SDK_SETUP_MS: ${{ steps.android.outputs.ms }}
+          SWRLZ_GRADLE_CONFIGURATION_CACHE: 'true'
+          SWRLZ_REUSE_EXTRACTED_WORKSPACE: 'true'
+          SWRLZ_PREPARED_EXTRACT_MS: ${{ steps.prep.outputs.extract_ms }}
+        run: |
+          bash "$SWRLZ_CI_ROOT/build_swrlz_component.sh" '${{ matrix.component }}' '${{ steps.source.outputs.selected_source }}' '${{ steps.source.outputs.canonical_stem }}' debug "$GITHUB_WORKSPACE/swrlz-gradle-workspace/v2/${{ matrix.component }}" "$RUNNER_TEMP/p5e-v2/artifacts/${{ matrix.component }}"
+      - name: Require actual configuration-cache reuse
+        id: build2
+        env:
+          PROJECT_ROOT: ${{ steps.prep.outputs.project_root }}
+        run: |
+          LOG="$RUNNER_TEMP/p5e-v2/${{ matrix.component }}-reuse.log"
+          START=$(date +%s%3N)
+          (cd "$PROJECT_ROOT" && ./gradlew --no-daemon --stacktrace --build-cache --parallel --no-watch-fs --configuration-cache :app:assembleDebug) 2>&1 | tee "$LOG"
+          echo "ms=$(($(date +%s%3N) - START))" >> "$GITHUB_OUTPUT"
+          grep -Eq 'Reusing configuration cache|Configuration cache entry reused' "$LOG"
+      - if: always()
+        run: |
+          echo "### ${{ matrix.component }} Phase 5E v2" >> "$GITHUB_STEP_SUMMARY"
+          echo "- resolve both: ${{ needs.prepare.outputs.resolution_ms }} ms" >> "$GITHUB_STEP_SUMMARY"
+          echo "- hydration: ${{ steps.hydration.outputs.ms || 'NA' }} ms" >> "$GITHUB_STEP_SUMMARY"
+          echo "- extract: ${{ steps.prep.outputs.extract_ms || 'NA' }} ms" >> "$GITHUB_STEP_SUMMARY"
+          echo "- first Gradle: ${{ steps.build1.outputs.gradle_ms || 'NA' }} ms" >> "$GITHUB_STEP_SUMMARY"
+          echo "- reuse Gradle: ${{ steps.build2.outputs.ms || 'NA' }} ms" >> "$GITHUB_STEP_SUMMARY"
+          echo "- reuse gate: ${{ steps.build2.outcome }}" >> "$GITHUB_STEP_SUMMARY"
