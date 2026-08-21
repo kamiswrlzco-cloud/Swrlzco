@@ -1,0 +1,144 @@
+name: SWRLZ CI Tooling Validation
+
+on:
+  pull_request:
+    paths:
+      - 'swrlz-core/tools/ci/**'
+      - '.github/workflows/swrlz-apk-router.yml'
+      - '.github/workflows/source-package-integrity.yml'
+      - '.github/workflows/patch-note-accounting.yml'
+      - '.github/workflows/swrlz-ci-tooling-validation.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'swrlz-core/tools/ci/**'
+      - '.github/workflows/swrlz-apk-router.yml'
+      - '.github/workflows/source-package-integrity.yml'
+      - '.github/workflows/patch-note-accounting.yml'
+      - '.github/workflows/swrlz-ci-tooling-validation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  validate-ci-tooling:
+    name: Validate resolver, audits, actions, and build helper
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Sparse checkout CI tooling
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 2
+          filter: blob:none
+          persist-credentials: false
+          sparse-checkout: |
+            .github/workflows
+            swrlz-core/tools/ci
+            swrlz-core/requests
+            swrlz-core/history
+
+      - name: Validate Python and shell syntax
+        working-directory: swrlz-core/tools/ci
+        run: |
+          set -euo pipefail
+          python3 -m py_compile \
+            resolve_swrlz_source.py \
+            resolve_changed_source_identities.py \
+            resolve_push_changed_paths.py \
+            plan_swrlz_build_route.py \
+            plan_swrlz_candidate_checkout.py \
+            prepare_swrlz_sparse_checkout.py \
+            verify_swrlz_package_pair.py \
+            verify_patch_note_accounting.py \
+            test_resolve_swrlz_source.py \
+            test_resolve_changed_source_identities.py \
+            test_resolve_push_changed_paths.py \
+            test_plan_swrlz_build_route.py \
+            test_plan_swrlz_candidate_checkout.py \
+            test_prepare_swrlz_sparse_checkout.py \
+            test_verify_swrlz_package_pair.py \
+            test_verify_patch_note_accounting.py \
+            test_build_swrlz_component.py \
+            test_workflow_phase5_contract.py
+          bash -n build_swrlz_component.sh
+
+      - name: Run CI tooling unit tests
+        working-directory: swrlz-core/tools/ci
+        run: |
+          set -euo pipefail
+          python3 test_resolve_swrlz_source.py
+          python3 test_resolve_changed_source_identities.py
+          python3 test_resolve_push_changed_paths.py
+          python3 test_plan_swrlz_build_route.py
+          python3 test_plan_swrlz_candidate_checkout.py
+          python3 test_prepare_swrlz_sparse_checkout.py
+          python3 test_verify_swrlz_package_pair.py
+          python3 test_verify_patch_note_accounting.py
+          python3 test_build_swrlz_component.py
+          python3 test_workflow_phase5_contract.py
+
+      - name: Smoke test preinstalled Java 17 fast path
+        run: |
+          set -euo pipefail
+          JDK_DIR="${JAVA_HOME_17_X64:-}"
+          [[ -n "$JDK_DIR" && -x "$JDK_DIR/bin/java" && -x "$JDK_DIR/bin/javac" && -x "$JDK_DIR/bin/keytool" ]]
+          SPEC="$("$JDK_DIR/bin/java" -XshowSettings:properties -version 2>&1 | awk -F'= ' '/java.specification.version/{print $2; exit}')"
+          [[ "$SPEC" == '17' ]]
+          echo "JAVA_HOME=$JDK_DIR" >> "$GITHUB_ENV"
+          echo "$JDK_DIR/bin" >> "$GITHUB_PATH"
+          printf 'Java 17 fast path: %s\n' "$JDK_DIR"
+
+      - name: Smoke test Gradle wrapper cache action
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        with:
+          cache-cleanup: on-success
+
+      - name: Smoke test preinstalled Android SDK fast path
+        run: |
+          set -euo pipefail
+          SDK_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          [[ -n "$SDK_DIR" && -d "$SDK_DIR" ]]
+          APKSIGNER="$(find "$SDK_DIR/build-tools" -mindepth 2 -maxdepth 2 -type f -name apksigner -print 2>/dev/null | sort -V | tail -n 1)"
+          ZIPALIGN="$(find "$SDK_DIR/build-tools" -mindepth 2 -maxdepth 2 -type f -name zipalign -print 2>/dev/null | sort -V | tail -n 1)"
+          [[ -x "$APKSIGNER" && -x "$ZIPALIGN" ]]
+          printf 'Android fast path: %s / %s
+' "$APKSIGNER" "$ZIPALIGN"
+
+      - name: Verify toolchain availability
+        run: |
+          set -euo pipefail
+          java -version
+          command -v keytool
+
+      - name: Create action round-trip fixture
+        run: |
+          printf 'SWRLZ Phase 4 action stack OK\n' > "$RUNNER_TEMP/swrlz-action-smoke.txt"
+
+      - name: Smoke test artifact upload
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: swrlz-phase4-action-smoke-${{ github.run_id }}
+          path: ${{ runner.temp }}/swrlz-action-smoke.txt
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+      - name: Smoke test artifact download
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: swrlz-phase4-action-smoke-${{ github.run_id }}
+          path: ${{ runner.temp }}/swrlz-action-smoke-download
+
+      - name: Verify artifact round trip
+        run: |
+          set -euo pipefail
+          cmp \
+            "$RUNNER_TEMP/swrlz-action-smoke.txt" \
+            "$RUNNER_TEMP/swrlz-action-smoke-download/swrlz-action-smoke.txt"
