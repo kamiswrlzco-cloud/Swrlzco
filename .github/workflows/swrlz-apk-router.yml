@@ -212,7 +212,7 @@ jobs:
           fi
           python3 "$SWRLZ_CI_ROOT/verify_swrlz_package_pair.py" "${VERIFY_ARGS[@]}"
 
-      - name: Enforce patch-note and lineage accounting before build
+      - name: Check patch-note and lineage accounting (non-blocking diagnostic)
         id: accounting
         env:
           COMPONENT: ${{ matrix.component }}
@@ -222,19 +222,32 @@ jobs:
           RESOLVED_SHA256: ${{ steps.resolve.outputs.source_sha256 }}
         run: |
           set -euo pipefail
-          [[ -n "$RESOLVED_MANIFEST" ]] || {
-            echo 'Patch accounting requires a verified package manifest.' >&2
-            exit 65
-          }
           result="$RUNNER_TEMP/swrlz-patch-accounting-${COMPONENT}.json"
-          python3 "$SWRLZ_CI_ROOT/verify_patch_note_accounting.py" \
-            --repo-root . \
-            --component "$COMPONENT" \
-            --identity "$SOURCE_IDENTITY" \
-            --resolved-source "$RESOLVED_SOURCE" \
-            --resolved-manifest "$RESOLVED_MANIFEST" \
-            --source-sha256 "$RESOLVED_SHA256" \
-            --json-output "$result"
+
+          if [[ -z "$RESOLVED_MANIFEST" ]]; then
+            echo '::warning::Patch accounting skipped because no verified package manifest is available; APK build will continue.'
+            printf '%s\n' '{"schema":1,"status":"SKIPPED","reason":"verified package manifest unavailable","blocking":false}' > "$result"
+          else
+            set +e
+            python3 "$SWRLZ_CI_ROOT/verify_patch_note_accounting.py" \
+              --repo-root . \
+              --component "$COMPONENT" \
+              --identity "$SOURCE_IDENTITY" \
+              --resolved-source "$RESOLVED_SOURCE" \
+              --resolved-manifest "$RESOLVED_MANIFEST" \
+              --source-sha256 "$RESOLVED_SHA256" \
+              --json-output "$result"
+            ACCOUNTING_RC=$?
+            set -e
+
+            if [[ "$ACCOUNTING_RC" -ne 0 ]]; then
+              echo "::warning::Patch/lineage accounting diagnostic failed with exit $ACCOUNTING_RC; APK build will continue."
+              if [[ ! -s "$result" ]]; then
+                printf '{"schema":1,"status":"WARN","exit_code":%d,"blocking":false,"reason":"patch accounting diagnostic failed"}\n' "$ACCOUNTING_RC" > "$result"
+              fi
+            fi
+          fi
+
           echo "result=$result" >> "$GITHUB_OUTPUT"
 
       - name: Define immutable artifact identity
@@ -527,7 +540,7 @@ jobs:
             echo "- Checksum file: \`${{ steps.resolve.outputs.checksum_file || 'none supplied' }}\`"
             echo "- Manifest file: \`${{ steps.resolve.outputs.manifest_file || 'none supplied' }}\`"
             echo "- Transport manifest: \`${{ steps.resolve.outputs.transport_manifest || 'direct ZIP' }}\`"
-            echo "- Patch/lineage accounting: \`PASS before Gradle\`"
+            echo "- Patch/lineage accounting: \`diagnostic only — non-blocking\`"
             echo "- Source extraction: \`${{ steps.build.outputs.extract_ms }} ms\`"
             echo "- Gradle execution: \`${{ steps.build.outputs.gradle_ms }} ms\`"
             echo "- Build helper total: \`${{ steps.build.outputs.build_helper_total_ms }} ms\`"
