@@ -1,0 +1,168 @@
+name: SWRLZ Flat-Root Real Build Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/swrlz-flat-root-real-build-validation.yml'
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  validate:
+    name: ${{ matrix.component }} · Java ${{ matrix.java_mode }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [CLIENT, SERVER]
+        java_mode: [action, preinstalled]
+
+    steps:
+      - name: Hydrate exact current candidates and CI tooling
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 1
+          filter: blob:none
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            swrlz-core/tools/ci
+            swrlz-core/sources/client/CLIENT_CFv2.1.27_SWRLZ_CANDIDATE_R114.transport.json
+            swrlz-core/sources/client/CLIENT_CFv2.1.27_SWRLZ_CANDIDATE_R114_METADATA.zip
+            swrlz-core/sources/client/.transport/CLIENT_CFv2.1.27_SWRLZ_CANDIDATE_R114/CLIENT_CFv2.1.27_SWRLZ_CANDIDATE_R114.zip.part0001
+            swrlz-core/sources/client/.transport/CLIENT_CFv2.1.27_SWRLZ_CANDIDATE_R114/CLIENT_CFv2.1.27_SWRLZ_CANDIDATE_R114.zip.part0002
+            swrlz-core/sources/server/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R152.transport.json
+            swrlz-core/sources/server/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R152_METADATA.zip
+            swrlz-core/sources/server/.transport/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R152/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R152.zip.part0001
+            swrlz-core/sources/server/.transport/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R152/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R152.zip.part0002
+            swrlz-core/sources/server/.transport/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R152/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R152.zip.part0003
+            swrlz-core/sources/server/.transport/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R152/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R152.zip.part0004
+
+      - name: Run flat-root verifier regression suite
+        run: |
+          set -euo pipefail
+          cd swrlz-core/tools/ci
+          python3 -m py_compile verify_swrlz_package_pair.py test_verify_swrlz_package_pair.py
+          python3 test_verify_swrlz_package_pair.py
+
+      - name: Select exact current candidate
+        id: select
+        run: |
+          set -euo pipefail
+          if [[ '${{ matrix.component }}' == 'CLIENT' ]]; then
+            echo 'identity=swrlz-core/sources/client/CLIENT_CFv2.1.27_SWRLZ_CANDIDATE_R114.transport.json' >> "$GITHUB_OUTPUT"
+          else
+            echo 'identity=swrlz-core/sources/server/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R152.transport.json' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Resolve exact source
+        id: source
+        env:
+          COMPONENT: ${{ matrix.component }}
+          SOURCE_IDENTITY: ${{ steps.select.outputs.identity }}
+        run: |
+          set -euo pipefail
+          python3 swrlz-core/tools/ci/resolve_swrlz_source.py \
+            --component "$COMPONENT" \
+            --source-zip "$SOURCE_IDENTITY" \
+            --work-dir "$RUNNER_TEMP/source/$COMPONENT" \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Verify real current source package
+        run: |
+          set -euo pipefail
+          args=("${{ steps.source.outputs.selected_source }}")
+          if [[ -n "${{ steps.source.outputs.checksum_file }}" ]]; then
+            args+=(--checksum "${{ steps.source.outputs.checksum_file }}")
+          fi
+          if [[ -n "${{ steps.source.outputs.manifest_file }}" ]]; then
+            args+=(--manifest "${{ steps.source.outputs.manifest_file }}")
+          fi
+          python3 swrlz-core/tools/ci/verify_swrlz_package_pair.py "${args[@]}"
+
+      - name: Start Java setup timer
+        run: echo "BENCH_JAVA_STARTED_MS=$(date +%s%3N)" >> "$GITHUB_ENV"
+
+      - name: Set up Java 17 action path
+        if: matrix.java_mode == 'action'
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          check-latest: false
+
+      - name: Select preinstalled Java 17 path
+        if: matrix.java_mode == 'preinstalled'
+        run: |
+          set -euo pipefail
+          JDK_DIR="${JAVA_HOME_17_X64:-}"
+          [[ -n "$JDK_DIR" && -x "$JDK_DIR/bin/java" && -x "$JDK_DIR/bin/javac" && -x "$JDK_DIR/bin/keytool" ]]
+          spec="$($JDK_DIR/bin/java -XshowSettings:properties -version 2>&1 | awk -F'= ' '/java.specification.version/{print $2; exit}')"
+          [[ "$spec" == '17' ]]
+          echo "JAVA_HOME=$JDK_DIR" >> "$GITHUB_ENV"
+          echo "$JDK_DIR/bin" >> "$GITHUB_PATH"
+
+      - name: Validate Java and record setup timing
+        id: java
+        run: |
+          set -euo pipefail
+          command -v java >/dev/null
+          command -v javac >/dev/null
+          command -v keytool >/dev/null
+          spec="$(java -XshowSettings:properties -version 2>&1 | awk -F'= ' '/java.specification.version/{print $2; exit}')"
+          [[ "$spec" == '17' ]]
+          elapsed=$(($(date +%s%3N) - BENCH_JAVA_STARTED_MS))
+          echo "ms=$elapsed" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Gradle wrapper cache
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        with:
+          cache-cleanup: on-success
+
+      - name: Validate pinned Android SDK fast path
+        run: |
+          set -euo pipefail
+          SDK_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          [[ -n "$SDK_DIR" && -d "$SDK_DIR" ]]
+          apksigner="$(find "$SDK_DIR/build-tools" -mindepth 2 -maxdepth 2 -type f -name apksigner -print 2>/dev/null | sort -V | tail -n 1)"
+          zipalign="$(find "$SDK_DIR/build-tools" -mindepth 2 -maxdepth 2 -type f -name zipalign -print 2>/dev/null | sort -V | tail -n 1)"
+          [[ -x "$apksigner" && -x "$zipalign" ]]
+
+      - name: Build exact current ${{ matrix.component }} debug APK
+        id: build
+        env:
+          SWRLZ_VERIFIED_SOURCE_SHA256: ${{ steps.source.outputs.source_sha256 }}
+          SWRLZ_SOURCE_HYDRATION_MS: '0'
+          SWRLZ_GRADLE_SETUP_MS: '0'
+          SWRLZ_ANDROID_SDK_SETUP_MS: '0'
+        run: |
+          set -euo pipefail
+          bash swrlz-core/tools/ci/build_swrlz_component.sh \
+            '${{ matrix.component }}' \
+            '${{ steps.source.outputs.selected_source }}' \
+            '${{ steps.source.outputs.canonical_stem }}' \
+            debug \
+            "$RUNNER_TEMP/build/${{ matrix.component }}-${{ matrix.java_mode }}" \
+            "$RUNNER_TEMP/artifacts/${{ matrix.component }}-${{ matrix.java_mode }}"
+
+      - name: Publish validation result
+        if: always()
+        run: |
+          {
+            echo '## Flat-root + Java validation'
+            echo
+            echo '- Component: `${{ matrix.component }}`'
+            echo '- Java mode: `${{ matrix.java_mode }}`'
+            echo '- Java setup: `${{ steps.java.outputs.ms || 'NA' }} ms`'
+            echo '- Source extraction: `${{ steps.build.outputs.extract_ms || 'NA' }} ms`'
+            echo '- Gradle compile: `${{ steps.build.outputs.gradle_ms || 'NA' }} ms`'
+            echo '- Build helper total: `${{ steps.build.outputs.build_helper_total_ms || 'NA' }} ms`'
+          } >> "$GITHUB_STEP_SUMMARY"
