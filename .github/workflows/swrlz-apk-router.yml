@@ -299,15 +299,79 @@ jobs:
 
           echo "V2 stable signing preflight passed. Keystore SHA-256: $ACTUAL_KEYSTORE_SHA256"
 
+      - name: Start Gradle wrapper/cache timer
+        run: echo "SWRLZ_GRADLE_SETUP_STARTED_MS=$(date +%s%3N)" >> "$GITHUB_ENV"
+
       - name: Set up Gradle wrapper cache
         id: setup-gradle
-        uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        with:
+          cache-cleanup: on-success
 
-      - name: Set up Android SDK tooling
-        id: setup-android
+      - name: Record Gradle wrapper/cache timing
+        id: gradle-setup-timing
+        run: |
+          set -euo pipefail
+          END_MS="$(date +%s%3N)"
+          ELAPSED_MS=$((END_MS - SWRLZ_GRADLE_SETUP_STARTED_MS))
+          echo "gradle_setup_ms=$ELAPSED_MS" >> "$GITHUB_OUTPUT"
+          echo "Gradle wrapper/cache setup: ${ELAPSED_MS} ms" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Start Android SDK tooling timer
+        run: echo "SWRLZ_ANDROID_SDK_STARTED_MS=$(date +%s%3N)" >> "$GITHUB_ENV"
+
+      - name: Inspect preinstalled Android SDK
+        id: android-sdk-preflight
+        run: |
+          set -euo pipefail
+          SDK_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          FALLBACK_REQUIRED=false
+          if [[ -z "$SDK_DIR" || ! -d "$SDK_DIR" ]]; then
+            FALLBACK_REQUIRED=true
+          else
+            APKSIGNER="$(find "$SDK_DIR/build-tools" -mindepth 2 -maxdepth 2 -type f -name apksigner -print 2>/dev/null | sort -V | tail -n 1 || true)"
+            ZIPALIGN="$(find "$SDK_DIR/build-tools" -mindepth 2 -maxdepth 2 -type f -name zipalign -print 2>/dev/null | sort -V | tail -n 1 || true)"
+            [[ -n "$APKSIGNER" && -x "$APKSIGNER" && -n "$ZIPALIGN" && -x "$ZIPALIGN" ]] || FALLBACK_REQUIRED=true
+          fi
+          echo "fallback_required=$FALLBACK_REQUIRED" >> "$GITHUB_OUTPUT"
+          if [[ "$FALLBACK_REQUIRED" == 'false' ]]; then
+            echo 'Android SDK fast path: using tools already present on the pinned Ubuntu 24.04 runner.'
+          else
+            echo '::notice::Pinned runner Android SDK is incomplete; invoking the setup-android fallback.'
+          fi
+
+      - name: Set up Android SDK tooling fallback
+        if: steps.android-sdk-preflight.outputs.fallback_required == 'true'
         uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4
         with:
-          packages: ''
+          packages: 'platform-tools build-tools;35.0.0'
+
+      - name: Validate Android SDK tooling
+        id: android-sdk
+        run: |
+          set -euo pipefail
+          SDK_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          [[ -n "$SDK_DIR" && -d "$SDK_DIR" ]] || {
+            echo 'Android SDK root is unavailable after preflight/fallback.' >&2
+            exit 1
+          }
+          APKSIGNER="$(find "$SDK_DIR/build-tools" -mindepth 2 -maxdepth 2 -type f -name apksigner -print 2>/dev/null | sort -V | tail -n 1 || true)"
+          ZIPALIGN="$(find "$SDK_DIR/build-tools" -mindepth 2 -maxdepth 2 -type f -name zipalign -print 2>/dev/null | sort -V | tail -n 1 || true)"
+          [[ -n "$APKSIGNER" && -x "$APKSIGNER" ]] || { echo 'apksigner not found in Android build-tools.' >&2; exit 1; }
+          [[ -n "$ZIPALIGN" && -x "$ZIPALIGN" ]] || { echo 'zipalign not found in Android build-tools.' >&2; exit 1; }
+          END_MS="$(date +%s%3N)"
+          ELAPSED_MS=$((END_MS - SWRLZ_ANDROID_SDK_STARTED_MS))
+          {
+            echo "sdk_dir=$SDK_DIR"
+            echo "apksigner=$APKSIGNER"
+            echo "zipalign=$ZIPALIGN"
+            echo "android_sdk_setup_ms=$ELAPSED_MS"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "Android SDK tooling: ${ELAPSED_MS} ms"
+            echo "Android SDK root: \`$SDK_DIR\`"
+            echo "Android SDK fallback used: \`${{ steps.android-sdk-preflight.outputs.fallback_required }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Build selected Android component
         id: build
@@ -318,6 +382,8 @@ jobs:
           VARIANT: ${{ needs.prepare.outputs.build_variant }}
           SWRLZ_VERIFIED_SOURCE_SHA256: ${{ steps.resolve.outputs.source_sha256 }}
           SWRLZ_SOURCE_HYDRATION_MS: ${{ steps.hydration.outputs.source_hydration_ms }}
+          SWRLZ_GRADLE_SETUP_MS: ${{ steps.gradle-setup-timing.outputs.gradle_setup_ms }}
+          SWRLZ_ANDROID_SDK_SETUP_MS: ${{ steps.android-sdk.outputs.android_sdk_setup_ms }}
           SWRLZ_BUILD_WORK_DIR: ${{ runner.temp }}/swrlz-build/router
           SWRLZ_ARTIFACT_ROOT: ${{ runner.temp }}/swrlz-artifacts/router
         run: |
@@ -333,6 +399,8 @@ jobs:
           ARTIFACT_DIR: ${{ steps.build.outputs.artifact_dir }}
           SWRLZ_DEV_KEYSTORE_PASSWORD: ${{ secrets.SWRLZ_DEV_KEYSTORE_PASSWORD }}
           SWRLZ_DEV_KEY_ALIAS: ${{ secrets.SWRLZ_DEV_KEY_ALIAS }}
+          APKSIGNER: ${{ steps.android-sdk.outputs.apksigner }}
+          ZIPALIGN: ${{ steps.android-sdk.outputs.zipalign }}
         run: |
           set -euo pipefail
 
@@ -348,10 +416,8 @@ jobs:
             exit 1
           }
 
-          APKSIGNER="$(find "${ANDROID_HOME:-$HOME}" -type f -name apksigner -print 2>/dev/null | sort -V | tail -n 1 || true)"
-          ZIPALIGN="$(find "${ANDROID_HOME:-$HOME}" -type f -name zipalign -print 2>/dev/null | sort -V | tail -n 1 || true)"
-          [[ -n "$APKSIGNER" && -n "$ZIPALIGN" ]] || {
-            echo 'apksigner/zipalign not found.' >&2
+          [[ -n "$APKSIGNER" && -x "$APKSIGNER" && -n "$ZIPALIGN" && -x "$ZIPALIGN" ]] || {
+            echo 'Validated apksigner/zipalign paths are unavailable.' >&2
             exit 1
           }
 
@@ -497,6 +563,8 @@ jobs:
             echo "- Planned source payload: `${{ matrix.source_size_label }}`"
             echo "- Source transport chunks: `${{ matrix.source_chunk_count }}`"
             echo "- Source hydration: `${{ steps.hydration.outputs.source_hydration_ms }} ms`"
+            echo "- Gradle wrapper/cache setup: \`${{ steps.gradle-setup-timing.outputs.gradle_setup_ms }} ms\`"
+            echo "- Android SDK tooling: \`${{ steps.android-sdk.outputs.android_sdk_setup_ms }} ms\`"
             echo "- Source extraction: \`${{ steps.build.outputs.extract_ms }} ms\`"
             echo "- Gradle execution: \`${{ steps.build.outputs.gradle_ms }} ms\`"
             echo "- Build helper total: \`${{ steps.build.outputs.build_helper_total_ms }} ms\`"

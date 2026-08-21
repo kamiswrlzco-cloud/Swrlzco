@@ -30,6 +30,20 @@ class Phase5WorkflowContractTests(unittest.TestCase):
         self.assertIn('source_hydration_ms', router)
         self.assertNotIn('Check patch-note and lineage accounting', router)
         self.assertIn('FORGE_FAILURE_CONTEXT.json', router)
+        self.assertIn('gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb', router)
+        self.assertIn('Inspect preinstalled Android SDK', router)
+        self.assertIn("if: steps.android-sdk-preflight.outputs.fallback_required == 'true'", router)
+        self.assertIn('android_sdk_setup_ms', router)
+        self.assertIn('APKSIGNER: ${{ steps.android-sdk.outputs.apksigner }}', router)
+        self.assertNotIn('find "${ANDROID_HOME:-$HOME}" -type f -name apksigner', router)
+
+
+    def test_tooling_validator_hydrates_contract_inputs_and_smokes_fast_path(self):
+        validation = self.text('swrlz-ci-tooling-validation.yml')
+        self.assertIn('.github/workflows', validation)
+        self.assertIn('swrlz-core/history', validation)
+        self.assertIn('gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb', validation)
+        self.assertIn('Smoke test preinstalled Android SDK fast path', validation)
 
     def test_success_artifact_upload_precedes_best_effort_attestation(self):
         router = self.text('swrlz-apk-router.yml')

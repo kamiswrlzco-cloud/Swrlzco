@@ -38,8 +38,10 @@ jobs:
           fetch-depth: 2
           filter: blob:none
           sparse-checkout: |
+            .github/workflows
             swrlz-core/tools/ci
             swrlz-core/requests
+            swrlz-core/history
 
       - name: Validate Python and shell syntax
         working-directory: swrlz-core/tools/ci
@@ -89,18 +91,25 @@ jobs:
           check-latest: false
 
       - name: Smoke test Gradle wrapper cache action
-        uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
-
-      - name: Smoke test Android SDK action
-        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
         with:
-          packages: ''
+          cache-cleanup: on-success
+
+      - name: Smoke test preinstalled Android SDK fast path
+        run: |
+          set -euo pipefail
+          SDK_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          [[ -n "$SDK_DIR" && -d "$SDK_DIR" ]]
+          APKSIGNER="$(find "$SDK_DIR/build-tools" -mindepth 2 -maxdepth 2 -type f -name apksigner -print 2>/dev/null | sort -V | tail -n 1)"
+          ZIPALIGN="$(find "$SDK_DIR/build-tools" -mindepth 2 -maxdepth 2 -type f -name zipalign -print 2>/dev/null | sort -V | tail -n 1)"
+          [[ -x "$APKSIGNER" && -x "$ZIPALIGN" ]]
+          printf 'Android fast path: %s / %s
+' "$APKSIGNER" "$ZIPALIGN"
 
       - name: Verify toolchain availability
         run: |
           set -euo pipefail
           java -version
-          sdkmanager --version
           command -v keytool
 
       - name: Create action round-trip fixture

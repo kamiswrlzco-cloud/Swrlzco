@@ -39,6 +39,8 @@ class BuildHelperTests(unittest.TestCase):
         env = os.environ.copy()
         env['SWRLZ_VERIFIED_SOURCE_SHA256'] = digest(source)
         env['SWRLZ_SOURCE_HYDRATION_MS'] = str(hydration)
+        env['SWRLZ_GRADLE_SETUP_MS'] = '45'
+        env['SWRLZ_ANDROID_SDK_SETUP_MS'] = '67'
         env['GITHUB_OUTPUT'] = str(output)
         result = subprocess.run(
             ['bash', str(HELPER), 'SERVER', str(source), source.stem, 'debug', str(work), str(artifact)],
@@ -58,6 +60,8 @@ class BuildHelperTests(unittest.TestCase):
             timing = json.loads((artifact / 'CI_TIMING.json').read_text())
             self.assertEqual(timing['status'], 'succeeded')
             self.assertEqual(timing['source_hydration_ms'], 123)
+            self.assertEqual(timing['gradle_setup_ms'], 45)
+            self.assertEqual(timing['android_sdk_setup_ms'], 67)
             self.assertEqual(timing['gradle_exit_code'], 0)
             self.assertTrue(any(artifact.glob('*_DEBUG.apk')))
 
@@ -71,7 +75,19 @@ class BuildHelperTests(unittest.TestCase):
             self.assertEqual(timing['status'], 'failed')
             self.assertEqual(timing['gradle_exit_code'], 7)
             self.assertEqual(timing['source_hydration_ms'], 321)
+            self.assertEqual(timing['gradle_setup_ms'], 45)
+            self.assertEqual(timing['android_sdk_setup_ms'], 67)
+            failure = json.loads((artifact / 'BUILD_FAILURE.json').read_text())
+            self.assertEqual(failure['gradle_setup_ms'], 45)
+            self.assertEqual(failure['android_sdk_setup_ms'], 67)
             self.assertTrue((artifact / 'BUILD_FAILURE.json').is_file())
+
+
+    def test_ephemeral_gradle_flags_are_present(self):
+        text = HELPER.read_text(encoding='utf-8')
+        self.assertIn('--no-watch-fs', text)
+        self.assertIn('--build-cache', text)
+        self.assertNotIn('--configuration-cache', text)
 
     def test_multiple_android_roots_fail_closed(self):
         with tempfile.TemporaryDirectory() as temp:

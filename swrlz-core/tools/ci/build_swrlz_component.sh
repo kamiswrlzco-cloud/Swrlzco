@@ -18,6 +18,8 @@ VARIANT="${4,,}"
 WORK_DIR="$5"
 ARTIFACT_DIR="$6"
 SOURCE_HYDRATION_MS="${SWRLZ_SOURCE_HYDRATION_MS:-0}"
+GRADLE_SETUP_MS="${SWRLZ_GRADLE_SETUP_MS:-0}"
+ANDROID_SDK_SETUP_MS="${SWRLZ_ANDROID_SDK_SETUP_MS:-0}"
 
 case "$COMPONENT" in CLIENT|SERVER) ;; *) usage ;; esac
 case "$VARIANT" in
@@ -25,10 +27,13 @@ case "$VARIANT" in
   release) GRADLE_TASK=':app:assembleRelease' ;;
   *) usage ;;
 esac
-[[ "$SOURCE_HYDRATION_MS" =~ ^[0-9]+$ ]] || {
-  echo 'SWRLZ_SOURCE_HYDRATION_MS must be a non-negative integer.' >&2
-  exit 65
-}
+for timing_name in SOURCE_HYDRATION_MS GRADLE_SETUP_MS ANDROID_SDK_SETUP_MS; do
+  timing_value="${!timing_name}"
+  [[ "$timing_value" =~ ^[0-9]+$ ]] || {
+    echo "$timing_name must be a non-negative integer." >&2
+    exit 65
+  }
+done
 
 SOURCE_ZIP="$(python3 -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "$SOURCE_ZIP")"
 WORK_DIR="$(python3 -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "$WORK_DIR")"
@@ -40,7 +45,11 @@ rm -rf "$WORK_DIR" "$ARTIFACT_DIR"
 mkdir -p "$WORK_DIR/extracted" "$ARTIFACT_DIR"
 EXTRACT_STARTED_MS="$(now_ms)"
 unzip -q "$SOURCE_ZIP" -d "$WORK_DIR/extracted"
-chmod -R u+rwX,go+rX "$WORK_DIR/extracted"
+# Source packages are already topology-validated before this helper runs. Repair
+# traversal on directories first, then only touch regular files that are actually
+# unreadable instead of chmod-ing every source/resource file on every build.
+find "$WORK_DIR/extracted" -type d -exec chmod u+rwx,go+rx {} +
+find "$WORK_DIR/extracted" -type f ! -readable -exec chmod u+rw,go+r {} +
 EXTRACT_FINISHED_MS="$(now_ms)"
 EXTRACT_DURATION_MS=$((EXTRACT_FINISHED_MS - EXTRACT_STARTED_MS))
 
@@ -71,6 +80,7 @@ GRADLE_ARGS=(
   --stacktrace
   --build-cache
   --parallel
+  --no-watch-fs
 )
 
 BUILD_LOG="$ARTIFACT_DIR/BUILD_LOG.txt"
@@ -90,7 +100,7 @@ write_timing() {
   local gradle_rc="$2"
   local total_ms="$3"
   local timing_json="$ARTIFACT_DIR/CI_TIMING.json"
-  export COMPONENT CANONICAL_STEM VARIANT EXTRACT_DURATION_MS GRADLE_DURATION_MS SOURCE_HYDRATION_MS
+  export COMPONENT CANONICAL_STEM VARIANT EXTRACT_DURATION_MS GRADLE_DURATION_MS SOURCE_HYDRATION_MS GRADLE_SETUP_MS ANDROID_SDK_SETUP_MS
   export SWRLZ_TIMING_STATUS="$status" SWRLZ_TIMING_GRADLE_RC="$gradle_rc" SWRLZ_TIMING_TOTAL_MS="$total_ms" SWRLZ_TIMING_JSON="$timing_json"
   python3 - <<'PY'
 import json, os
@@ -102,6 +112,8 @@ payload = {
     "variant": os.environ["VARIANT"],
     "status": os.environ["SWRLZ_TIMING_STATUS"],
     "source_hydration_ms": int(os.environ["SOURCE_HYDRATION_MS"]),
+    "gradle_setup_ms": int(os.environ["GRADLE_SETUP_MS"]),
+    "android_sdk_setup_ms": int(os.environ["ANDROID_SDK_SETUP_MS"]),
     "extract_ms": int(os.environ["EXTRACT_DURATION_MS"]),
     "gradle_ms": int(os.environ["GRADLE_DURATION_MS"]),
     "gradle_exit_code": int(os.environ["SWRLZ_TIMING_GRADLE_RC"]),
@@ -129,6 +141,8 @@ payload = {
     "variant": os.environ["VARIANT"],
     "gradle_exit_code": int(os.environ["GRADLE_RC"]),
     "source_hydration_ms": int(os.environ["SOURCE_HYDRATION_MS"]),
+    "gradle_setup_ms": int(os.environ["GRADLE_SETUP_MS"]),
+    "android_sdk_setup_ms": int(os.environ["ANDROID_SDK_SETUP_MS"]),
     "extract_ms": int(os.environ["EXTRACT_DURATION_MS"]),
     "gradle_ms": int(os.environ["GRADLE_DURATION_MS"]),
     "total_ms": int(os.environ["TOTAL_DURATION_MS"]),
@@ -140,10 +154,21 @@ PY
   exit "$GRADLE_RC"
 fi
 
-mapfile -t APKS < <(
-  find "$PROJECT_ROOT" -type f -path '*/build/outputs/apk/*' -name '*.apk' \
-    ! -name '*aligned*.apk' ! -name '*stable-signed*.apk' -print 2>/dev/null | sort -u
-)
+EXPECTED_APK_DIR="$PROJECT_ROOT/app/build/outputs/apk/$VARIANT"
+APKS=()
+if [[ -d "$EXPECTED_APK_DIR" ]]; then
+  mapfile -t APKS < <(
+    find "$EXPECTED_APK_DIR" -maxdepth 1 -type f -name '*.apk' \
+      ! -name '*aligned*.apk' ! -name '*stable-signed*.apk' -print 2>/dev/null | sort -u
+  )
+fi
+if [[ "${#APKS[@]}" -eq 0 ]]; then
+  echo '::notice::Expected app APK directory was empty; using compatibility-wide APK discovery.'
+  mapfile -t APKS < <(
+    find "$PROJECT_ROOT" -type f -path '*/build/outputs/apk/*' -name '*.apk' \
+      ! -name '*aligned*.apk' ! -name '*stable-signed*.apk' -print 2>/dev/null | sort -u
+  )
+fi
 [[ "${#APKS[@]}" -gt 0 ]] || { echo "Build completed without a discoverable APK." >&2; exit 65; }
 
 EXPECTED="app-${VARIANT}.apk"
@@ -192,8 +217,11 @@ PROVENANCE="$ARTIFACT_DIR/BUILD_PROVENANCE_REPORT.md"
   echo "- Gradle task: $GRADLE_TASK"
   echo "- Gradle build cache: enabled"
   echo "- Gradle parallel execution: enabled"
+  echo "- Gradle filesystem watching: disabled (ephemeral extracted workspace)"
   echo "- Gradle clean task: omitted (fresh isolated extraction workspace)"
   echo "- Source hydration duration: ${SOURCE_HYDRATION_MS} ms"
+  echo "- Gradle wrapper/cache setup duration: ${GRADLE_SETUP_MS} ms"
+  echo "- Android SDK tooling duration: ${ANDROID_SDK_SETUP_MS} ms"
   echo "- Source extraction duration: ${EXTRACT_DURATION_MS} ms"
   echo "- Gradle duration: ${GRADLE_DURATION_MS} ms"
   echo "- Build helper total duration: ${TOTAL_DURATION_MS} ms"
@@ -215,6 +243,8 @@ if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
     echo "final_apk=$FINAL_APK"
     echo "gradle_task=$GRADLE_TASK"
     echo "source_hydration_ms=$SOURCE_HYDRATION_MS"
+    echo "gradle_setup_ms=$GRADLE_SETUP_MS"
+    echo "android_sdk_setup_ms=$ANDROID_SDK_SETUP_MS"
     echo "extract_ms=$EXTRACT_DURATION_MS"
     echo "gradle_ms=$GRADLE_DURATION_MS"
     echo "build_helper_total_ms=$TOTAL_DURATION_MS"
