@@ -9,7 +9,9 @@ on:
       - 'swrlz-core/tools/ci/resolve_changed_source_identities.py'
       - 'swrlz-core/tools/ci/resolve_push_changed_paths.py'
       - 'swrlz-core/tools/ci/plan_swrlz_build_route.py'
+      - 'swrlz-core/tools/ci/plan_swrlz_candidate_checkout.py'
       - 'swrlz-core/tools/ci/prepare_swrlz_sparse_checkout.py'
+      - 'swrlz-core/tools/ci/verify_swrlz_package_pair.py'
       - '.github/workflows/source-package-integrity.yml'
 
   workflow_dispatch:
@@ -44,6 +46,7 @@ jobs:
         with:
           fetch-depth: 2
           filter: blob:none
+          persist-credentials: false
           sparse-checkout: |
             swrlz-core/tools/ci
             swrlz-core/requests
