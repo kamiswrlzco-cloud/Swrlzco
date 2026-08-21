@@ -70,6 +70,20 @@ jobs:
       - name: Apply workflow and hydration fixes
         run: python3 swrlz-core/tools/ci/phase5_workflows_apply.py
 
+      - name: Make fallback lane sparse patterns explicitly recursive
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('swrlz-core/tools/ci/prepare_swrlz_sparse_checkout.py')
+          text = path.read_text(encoding='utf-8')
+          old = '    if path in BASE_PATHS or path == RELEASES_PATH:\n'
+          new = '    if path in BASE_PATHS or path == RELEASES_PATH or path in LANES.values():\n'
+          if text.count(old) != 1:
+              raise SystemExit(f'Lane sparse-pattern marker count was {text.count(old)}')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+
       - name: Apply build and archive safety fixes
         run: python3 swrlz-core/tools/ci/phase5_safety_apply.py
 
