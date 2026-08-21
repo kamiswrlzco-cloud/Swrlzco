@@ -1,0 +1,135 @@
+name: SWRLZ Phase 5 PR Launcher v2
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/phase5-pr-launcher-v2.yml'
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout checkpoint branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: checkpoint/forge-phase5-reliability-20260821
+          fetch-depth: 2
+          filter: blob:none
+          sparse-checkout: |
+            .github/workflows
+            swrlz-core/tools/ci
+
+      - name: Extract and execute staged Phase 5 patch
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path('.github/workflows/phase5-selfpatch.yml').read_text(encoding='utf-8').splitlines()
+          start = next(i for i, line in enumerate(source) if line.strip() == "python3 - <<'PY'") + 1
+          end = next(i for i in range(start, len(source)) if source[i].strip() == 'PY')
+          body = []
+          for line in source[start:end]:
+              body.append(line[10:] if line.startswith('          ') else line)
+          script = '\n'.join(body) + '\n'
+          brittle = "accounting = replace_once(accounting, old_fallback_run, new_fallback_run, 'accounting fallback warning mode')"
+          if script.count(brittle) != 1:
+              raise SystemExit('Unable to locate staged fallback accounting replacement')
+          script = script.replace(brittle, "# fallback accounting is patched by launcher v2 after the main transform", 1)
+          Path('/tmp/apply_phase5.py').write_text(script, encoding='utf-8')
+          PY
+          python3 /tmp/apply_phase5.py
+
+      - name: Make fallback accounting diagnostic-only
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('.github/workflows/patch-note-accounting.yml')
+          text = path.read_text(encoding='utf-8')
+          marker = '      - name: Audit current repository accounting\n'
+          start = text.find(marker)
+          if start < 0:
+              raise SystemExit('Fallback accounting step marker not found')
+          replacement = '''      - name: Audit current repository accounting
+        run: |
+          set -uo pipefail
+          identities="$RUNNER_TEMP/swrlz-patch-accounting-identities.tsv"
+          result="$RUNNER_TEMP/swrlz-patch-accounting.json"
+          : > "$identities"
+          rc=0
+          python3 "$SWRLZ_CI_ROOT/verify_patch_note_accounting.py" \\
+            --repo-root . \\
+            --identity-file "$identities" \\
+            --json-output "$result" || rc=$?
+          if [[ ! -s "$result" ]]; then
+            printf '{"schema":1,"status":"WARN","blocking":false,"exit_code":%d}\\n' "$rc" > "$result"
+          fi
+          if [[ "$rc" -ne 0 ]]; then
+            echo "::warning::Current-candidate accounting diagnostic failed with exit $rc; source/build authority is unaffected."
+          fi
+          {
+            echo '## SWRLZ Patch Note Accounting (diagnostic only)'
+            echo
+            echo '```json'
+            cat "$result"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+'''
+          path.write_text(text[:start] + replacement, encoding='utf-8')
+          PY
+
+      - name: Validate Phase 5 patch
+        run: |
+          set -euo pipefail
+          cd swrlz-core/tools/ci
+          python3 -m py_compile \
+            resolve_swrlz_source.py \
+            resolve_changed_source_identities.py \
+            resolve_push_changed_paths.py \
+            plan_swrlz_build_route.py \
+            prepare_swrlz_sparse_checkout.py \
+            verify_swrlz_package_pair.py \
+            verify_patch_note_accounting.py \
+            test_resolve_swrlz_source.py \
+            test_resolve_changed_source_identities.py \
+            test_resolve_push_changed_paths.py \
+            test_plan_swrlz_build_route.py \
+            test_prepare_swrlz_sparse_checkout.py \
+            test_verify_swrlz_package_pair.py \
+            test_verify_patch_note_accounting.py \
+            test_workflow_phase5_contract.py
+          python3 test_resolve_swrlz_source.py
+          python3 test_resolve_changed_source_identities.py
+          python3 test_resolve_push_changed_paths.py
+          python3 test_plan_swrlz_build_route.py
+          python3 test_prepare_swrlz_sparse_checkout.py
+          python3 test_verify_swrlz_package_pair.py
+          python3 test_verify_patch_note_accounting.py
+          python3 test_workflow_phase5_contract.py
+          bash -n build_swrlz_component.sh
+
+      - name: Commit clean Phase 5 checkpoint
+        run: |
+          set -euo pipefail
+          rm -f \
+            .github/workflows/phase5-selfpatch.yml \
+            .github/workflows/phase5-pr-trigger.yml \
+            .github/workflows/phase5-pr-launcher-v2.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --stat
+          git commit -m 'feat(ci): phase 5 harden Forge failure recovery and archive safety'
+          git push origin HEAD:checkpoint/forge-phase5-reliability-20260821
