@@ -143,7 +143,7 @@ jobs:
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add "$CARRIER"
+          git add --sparse "$CARRIER"
           git diff --cached --check
           git commit -m 'chore(ci): export validated Phase 5D carrier files'
           git push origin HEAD:checkpoint/forge-phase5d-workflow-hardening-20260821
