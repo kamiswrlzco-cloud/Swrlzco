@@ -6,14 +6,14 @@
 # source_mode=lane_latest preserves the compatibility fallback for the target lane.
 # source_mode=exact requires source_identity to name one existing lane-root .zip or .transport.json.
 # source_zip records the last explicitly validated source identity for lineage only while disabled.
-# INT-FIX-CI-091A: SERVER R13 retry completed successfully after explicit ZIP -> chunked-v2 resolver repair.
+# Phase 5C benchmark: exact-candidate request routing on the one-pass hydration path.
 
 schema=2
-enabled=false
-request_id=INT-FIX-CI-091A-SERVER-R13-RETRY-COMPLETE
-target=SERVER
-source_mode=lane_latest
-source_identity=
-source_zip=swrlz-core/sources/server/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R13.zip
+enabled=true
+request_id=BENCH-PHASE5C-CLIENT-R114-20260821
+target=CLIENT
+source_mode=exact
+source_identity=swrlz-core/sources/client/CLIENT_CFv2.1.27_SWRLZ_CANDIDATE_R114.transport.json
+source_zip=swrlz-core/sources/client/CLIENT_CFv2.1.27_SWRLZ_CANDIDATE_R114.zip
 build_variant=debug
 commit_release_artifacts=false
