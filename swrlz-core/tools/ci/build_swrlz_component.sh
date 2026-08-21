@@ -6,6 +6,10 @@ usage() {
   exit 64
 }
 
+now_ms() {
+  date +%s%3N
+}
+
 [[ $# -eq 6 ]] || usage
 COMPONENT="${1^^}"
 SOURCE_ZIP="$2"
@@ -26,8 +30,10 @@ WORK_DIR="$(python3 -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "$WO
 ARTIFACT_DIR="$(python3 -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "$ARTIFACT_DIR")"
 [[ -f "$SOURCE_ZIP" ]] || { echo "Source ZIP not found: $SOURCE_ZIP" >&2; exit 66; }
 
+BUILD_STARTED_MS="$(now_ms)"
 rm -rf "$WORK_DIR" "$ARTIFACT_DIR"
 mkdir -p "$WORK_DIR/extracted" "$ARTIFACT_DIR"
+EXTRACT_STARTED_MS="$(now_ms)"
 unzip -q "$SOURCE_ZIP" -d "$WORK_DIR/extracted"
 
 # ZIP creators do not agree on Unix mode metadata. In particular, a valid source
@@ -37,6 +43,8 @@ unzip -q "$SOURCE_ZIP" -d "$WORK_DIR/extracted"
 # access/traversal after extraction: directories become traversable/readable and
 # regular files become readable while existing executable bits remain executable.
 chmod -R u+rwX,go+rX "$WORK_DIR/extracted"
+EXTRACT_FINISHED_MS="$(now_ms)"
+EXTRACT_DURATION_MS=$((EXTRACT_FINISHED_MS - EXTRACT_STARTED_MS))
 
 # Select a Gradle wrapper only when its directory is an Android project root.
 PROJECT_ROOT=''
@@ -68,10 +76,13 @@ GRADLE_ARGS=(
 )
 
 BUILD_LOG="$ARTIFACT_DIR/BUILD_LOG.txt"
+GRADLE_STARTED_MS="$(now_ms)"
 (
   cd "$PROJECT_ROOT"
   ./gradlew "${GRADLE_ARGS[@]}" "$GRADLE_TASK"
 ) 2>&1 | tee "$BUILD_LOG"
+GRADLE_FINISHED_MS="$(now_ms)"
+GRADLE_DURATION_MS=$((GRADLE_FINISHED_MS - GRADLE_STARTED_MS))
 
 mapfile -t APKS < <(
   find "$PROJECT_ROOT" -type f -path '*/build/outputs/apk/*' -name '*.apk' \
@@ -107,6 +118,33 @@ else
   SOURCE_SHA_ORIGIN='builder-fallback-hash'
 fi
 
+BUILD_FINISHED_MS="$(now_ms)"
+TOTAL_DURATION_MS=$((BUILD_FINISHED_MS - BUILD_STARTED_MS))
+TIMING_JSON="$ARTIFACT_DIR/CI_TIMING.json"
+export COMPONENT CANONICAL_STEM VARIANT EXTRACT_DURATION_MS GRADLE_DURATION_MS TOTAL_DURATION_MS
+python3 - <<'PY'
+import json, os
+from pathlib import Path
+payload = {
+    "schema": 1,
+    "component": os.environ["COMPONENT"],
+    "candidate": os.environ["CANONICAL_STEM"],
+    "variant": os.environ["VARIANT"],
+    "extract_ms": int(os.environ["EXTRACT_DURATION_MS"]),
+    "gradle_ms": int(os.environ["GRADLE_DURATION_MS"]),
+    "build_helper_total_ms": int(os.environ["TOTAL_DURATION_MS"]),
+}
+Path(os.environ.get("TIMING_JSON", "CI_TIMING.json")).write_text(
+    json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+)
+PY
+# The Python snippet uses the artifact-relative fallback above unless exported;
+# move it into the artifact directory deterministically when necessary.
+if [[ ! -f "$TIMING_JSON" && -f CI_TIMING.json ]]; then
+  mv CI_TIMING.json "$TIMING_JSON"
+fi
+sha256sum "$TIMING_JSON" > "$TIMING_JSON.sha256"
+
 PROVENANCE="$ARTIFACT_DIR/BUILD_PROVENANCE_REPORT.md"
 {
   echo '# SWRLZ APK Router Build Provenance'
@@ -122,6 +160,9 @@ PROVENANCE="$ARTIFACT_DIR/BUILD_PROVENANCE_REPORT.md"
   echo "- Gradle build cache: enabled"
   echo "- Gradle parallel execution: enabled"
   echo "- Gradle clean task: omitted (fresh isolated extraction workspace)"
+  echo "- Source extraction duration: ${EXTRACT_DURATION_MS} ms"
+  echo "- Gradle duration: ${GRADLE_DURATION_MS} ms"
+  echo "- Build helper total duration: ${TOTAL_DURATION_MS} ms"
   echo "- Project root: $PROJECT_ROOT"
   echo "- Final APK: $(basename "$FINAL_APK")"
   echo "- Final APK SHA-256: $(sha256sum "$FINAL_APK" | awk '{print $1}')"
@@ -139,5 +180,8 @@ if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
     echo "artifact_dir=$ARTIFACT_DIR"
     echo "final_apk=$FINAL_APK"
     echo "gradle_task=$GRADLE_TASK"
+    echo "extract_ms=$EXTRACT_DURATION_MS"
+    echo "gradle_ms=$GRADLE_DURATION_MS"
+    echo "build_helper_total_ms=$TOTAL_DURATION_MS"
   } >> "$GITHUB_OUTPUT"
 fi
