@@ -37,20 +37,35 @@ jobs:
             swrlz-core/tools/ci
             swrlz-core/history
 
-      - name: Align patcher with escaped Forge summary markup
+      - name: Align staged patchers with live Forge text
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          path = Path('swrlz-core/tools/ci/phase5_workflows_apply.py')
-          text = path.read_text(encoding='utf-8')
+
+          workflow_path = Path('swrlz-core/tools/ci/phase5_workflows_apply.py')
+          workflow = workflow_path.read_text(encoding='utf-8')
           expression = '$' + '{{ steps.build.outputs.extract_ms }}'
           old = f"summary_needle = '            echo \"- Source extraction: `{expression} ms`\"\\n'"
           new = f"summary_needle = '            echo \"- Source extraction: \\\\`{expression} ms\\\\`\"\\n'"
-          if text.count(old) != 1:
-              raise SystemExit(f'Forge timing summary patch marker count was {text.count(old)}')
-          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          if workflow.count(old) != 1:
+              raise SystemExit(f'Forge timing summary patch marker count was {workflow.count(old)}')
+          workflow_path.write_text(workflow.replace(old, new, 1), encoding='utf-8')
+
+          safety_path = Path('swrlz-core/tools/ci/phase5_safety_apply.py')
+          safety = safety_path.read_text(encoding='utf-8')
+          sq = "'''"
+          dq = '\"\"\"'
+          body = "#!/usr/bin/env bash\\nset -e\\nmkdir -p app/build/outputs/apk/debug\\nprintf apk > app/build/outputs/apk/debug/app-debug.apk\\n"
+          old_fixture = "source = make_source(Path(temp), " + sq + body + sq + ")"
+          new_fixture = "source = make_source(Path(temp), " + dq + body + dq + ")"
+          if safety.count(old_fixture) != 1:
+              raise SystemExit(f'Build helper fixture quote marker count was {safety.count(old_fixture)}')
+          safety_path.write_text(safety.replace(old_fixture, new_fixture, 1), encoding='utf-8')
           PY
+          python3 -m py_compile \
+            swrlz-core/tools/ci/phase5_workflows_apply.py \
+            swrlz-core/tools/ci/phase5_safety_apply.py
 
       - name: Apply workflow and hydration fixes
         run: python3 swrlz-core/tools/ci/phase5_workflows_apply.py
