@@ -14,6 +14,7 @@ LANES = {
     "SERVER": Path("swrlz-core/sources/server"),
 }
 MANUAL_COMPONENTS = {"CLIENT", "SERVER", "BOTH"}
+REQUEST_SOURCE_MODES = {"lane_latest", "exact"}
 SIDECAR_SUFFIXES = (".manifest.json", ".sha256", ".sha", ".txt")
 METADATA_SUFFIX = "_metadata.zip"
 
@@ -134,6 +135,30 @@ def _lane_component(changed: str) -> str | None:
     return None
 
 
+def _validate_request_identity(repo_root: Path, ref: str, component: str, identity: str) -> str:
+    identity_path = Path(identity)
+    lane = LANES[component]
+    try:
+        relative = identity_path.relative_to(lane)
+    except ValueError as exc:
+        raise RoutePlanningError(
+            f"Exact request identity is outside the {component} source lane: {identity!r}"
+        ) from exc
+    if len(relative.parts) != 1 or not (
+        relative.name.lower().endswith(".zip")
+        or relative.name.lower().endswith(".transport.json")
+    ):
+        raise RoutePlanningError(f"Unsupported exact request identity: {identity!r}")
+    if not _path_exists(repo_root, ref, identity_path):
+        raise RoutePlanningError(f"Exact request identity does not exist at {ref}: {identity!r}")
+    mapped = _map_changed_source(repo_root, ref, identity)
+    if mapped is None or mapped[0] != component or mapped[1] != identity:
+        raise RoutePlanningError(
+            f"Exact request identity does not resolve to {component}: {identity!r}"
+        )
+    return identity
+
+
 def plan_route(
     repo_root: Path,
     *,
@@ -190,6 +215,16 @@ def plan_route(
                     raise RoutePlanningError(f"Enabled build request has invalid target: {target!r}")
                 components.add(target)
                 variant = request.get("build_variant", "debug").lower()
+                source_mode = request.get("source_mode", "lane_latest").lower()
+                if source_mode not in REQUEST_SOURCE_MODES:
+                    raise RoutePlanningError(f"Unsupported request source_mode: {source_mode!r}")
+                if source_mode == "exact":
+                    source_identity = request.get("source_identity", "").strip()
+                    if not source_identity:
+                        raise RoutePlanningError("Exact build request requires source_identity")
+                    identities[target].add(
+                        _validate_request_identity(repo_root, after_sha, target, source_identity)
+                    )
                 if request.get("commit_release_artifacts", "false").lower() != "false":
                     raise RoutePlanningError(
                         "Automatic request builds may not commit release artifacts; use manual dispatch"
