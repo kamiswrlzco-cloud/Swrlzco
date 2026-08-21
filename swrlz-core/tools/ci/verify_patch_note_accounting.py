@@ -2,12 +2,15 @@
 """Audit SWRLZ package-internal and repository patch-note accounting.
 
 This audit is intentionally independent from source integrity and Android build
-routing. It never rewrites source packages or documentation.
+routing. It never rewrites source packages or documentation. Callers that have
+already resolved and verified a source package may pass the materialized source,
+manifest, and verified SHA directly to avoid reconstructing the candidate again.
 """
 from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import tempfile
 import zipfile
@@ -19,6 +22,7 @@ HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
+SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 
 GRANDFATHERED_DEBT: dict[str, set[str]] = {
     "5b47857ef039609966669b039042bc69eba64dca48774107db353faeb7419912": {
@@ -218,21 +222,35 @@ def _require_doc_tokens(
         result.fail(f"{path} missing {', '.join(missing)}")
 
 
-def audit_resolved_candidate(repo_root: Path, component: str, identity: str, work_dir: Path) -> AuditResult:
-    from resolve_swrlz_source import resolve_source
+def audit_materialized_candidate(
+    repo_root: Path,
+    component: str,
+    identity: str,
+    source: Path,
+    manifest_path: Path,
+    source_sha256: str,
+) -> AuditResult:
+    component = component.upper()
+    if component not in REPOSITORY_DOCS:
+        raise ValueError("component must be CLIENT or SERVER")
+    source = source.resolve()
+    manifest_path = manifest_path.resolve()
+    if not source.is_file():
+        raise OSError(f"resolved source is missing: {source}")
+    if not manifest_path.is_file():
+        raise OSError(f"resolved manifest is missing: {manifest_path}")
+    if not SHA256_RE.fullmatch(source_sha256.strip()):
+        raise ValueError("source SHA-256 must be a 64-digit hexadecimal digest")
 
-    resolved = resolve_source(repo_root, component, identity, work_dir)
-    manifest_path = Path(resolved["manifest_file"])
     manifest = json.loads(_read_text(manifest_path))
     candidate = _candidate_stem(manifest)
     result = AuditResult(
         component=component,
         identity=identity,
         candidate=candidate,
-        source_sha256=str(resolved["source_sha256"]),
+        source_sha256=source_sha256.strip().lower(),
     )
 
-    source = Path(resolved["selected_source"])
     try:
         with zipfile.ZipFile(source) as archive:
             _check_internal_text(result, archive, "CHANGELOG.md", manifest)
@@ -245,6 +263,20 @@ def audit_resolved_candidate(repo_root: Path, component: str, identity: str, wor
     _require_doc_tokens(result, repo_root / CURRENT_LINEAGE, manifest, require_checkpoint=False)
     _require_doc_tokens(result, repo_root / CURRENT_AUTHORITY, manifest, require_checkpoint=False)
     return result
+
+
+def audit_resolved_candidate(repo_root: Path, component: str, identity: str, work_dir: Path) -> AuditResult:
+    from resolve_swrlz_source import resolve_source
+
+    resolved = resolve_source(repo_root, component, identity, work_dir)
+    return audit_materialized_candidate(
+        repo_root,
+        component,
+        identity,
+        Path(resolved["selected_source"]),
+        Path(resolved["manifest_file"]),
+        str(resolved["source_sha256"]),
+    )
 
 
 def _parse_identity_file(path: Path) -> list[tuple[str, str]]:
@@ -294,17 +326,8 @@ def audit_repository(
     return results
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--repo-root", default=".")
-    parser.add_argument("--identity-file", default="")
-    parser.add_argument("--json-output", default="")
-    args = parser.parse_args(argv)
-
-    repo_root = Path(args.repo_root).resolve()
-    identities = _parse_identity_file(Path(args.identity_file)) if args.identity_file else []
-    results = audit_repository(repo_root, identities)
-    payload = {
+def _payload(results: list[AuditResult]) -> dict:
+    return {
         "schema": "swrlz-patch-accounting-audit-v1",
         "status": "FAIL" if any(item.status == "FAIL" for item in results) else (
             "DEBT_RECORDED" if any(item.status == "DEBT_RECORDED" for item in results) else "PASS"
@@ -312,6 +335,56 @@ def main(argv: list[str] | None = None) -> int:
         "results": [item.as_dict() for item in results],
     }
 
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--repo-root", default=".")
+    parser.add_argument("--identity-file", default="")
+    parser.add_argument("--json-output", default="")
+    parser.add_argument("--component", choices=sorted(REPOSITORY_DOCS))
+    parser.add_argument("--identity", default="")
+    parser.add_argument("--resolved-source", default="")
+    parser.add_argument("--resolved-manifest", default="")
+    parser.add_argument("--source-sha256", default="")
+    args = parser.parse_args(argv)
+
+    repo_root = Path(args.repo_root).resolve()
+    materialized_values = [args.resolved_source, args.resolved_manifest, args.source_sha256]
+    using_materialized = any(materialized_values) or args.component is not None
+    if using_materialized:
+        if args.identity_file:
+            parser.error("--identity-file cannot be combined with materialized candidate arguments")
+        if args.component is None or not all(materialized_values):
+            parser.error(
+                "materialized audit requires --component, --resolved-source, --resolved-manifest, and --source-sha256"
+            )
+        try:
+            results = [
+                audit_materialized_candidate(
+                    repo_root,
+                    args.component,
+                    args.identity,
+                    Path(args.resolved_source),
+                    Path(args.resolved_manifest),
+                    args.source_sha256,
+                )
+            ]
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            results = [
+                AuditResult(
+                    component=args.component,
+                    identity=args.identity,
+                    candidate="",
+                    source_sha256=args.source_sha256,
+                    status="FAIL",
+                    errors=[f"materialized candidate audit failed: {exc}"],
+                )
+            ]
+    else:
+        identities = _parse_identity_file(Path(args.identity_file)) if args.identity_file else []
+        results = audit_repository(repo_root, identities)
+
+    payload = _payload(results)
     print(json.dumps(payload, indent=2, sort_keys=True))
     if args.json_output:
         Path(args.json_output).write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
