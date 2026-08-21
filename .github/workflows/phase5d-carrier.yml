@@ -7,6 +7,13 @@ on:
     paths:
       - '.github/workflows/phase5d-carrier.yml'
       - 'swrlz-core/tools/ci/phase5d_prepare.py'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/phase5d-carrier.yml'
+      - 'swrlz-core/tools/ci/phase5d_prepare.py'
+      - '.github/workflows/source-package-integrity.yml'
 
 permissions:
   contents: write
