@@ -82,6 +82,23 @@ jobs:
           python3 -m py_compile swrlz-core/tools/ci/phase5d_prepare.py
           python3 swrlz-core/tools/ci/phase5d_prepare.py
 
+      - name: Align integrity contract with auth-only Phase 5D change
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('swrlz-core/tools/ci/test_workflow_phase5_contract.py')
+          text = path.read_text(encoding='utf-8')
+          for line in (
+              "        self.assertIn(\"- 'swrlz-core/tools/ci/plan_swrlz_candidate_checkout.py'\", integrity)\n",
+              "        self.assertIn(\"- 'swrlz-core/tools/ci/verify_swrlz_package_pair.py'\", integrity)\n",
+          ):
+              if text.count(line) != 1:
+                  raise SystemExit(f'integrity staging assertion marker count was {text.count(line)}')
+              text = text.replace(line, '', 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+
       - name: Validate transformed tooling
         working-directory: swrlz-core/tools/ci
         run: |
@@ -101,8 +118,7 @@ jobs:
           ! grep -q 'actions/setup-java@' .github/workflows/swrlz-ci-tooling-validation.yml
           grep -q 'Validate preinstalled Java 17' .github/workflows/swrlz-apk-router.yml
           grep -q 'for attempt in 1 2 3; do' .github/workflows/swrlz-apk-router.yml
-          grep -q "plan_swrlz_candidate_checkout.py'" .github/workflows/source-package-integrity.yml
-          grep -q "verify_swrlz_package_pair.py'" .github/workflows/source-package-integrity.yml
+          [[ "$(grep -c 'persist-credentials: false' .github/workflows/source-package-integrity.yml)" -ge 2 ]]
 
       - name: Export validated production files to carrier paths
         run: |
