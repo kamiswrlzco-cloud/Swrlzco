@@ -1,0 +1,284 @@
+name: SWRLZ Phase 5E Final Real Benchmark
+
+on:
+  pull_request:
+    branches:
+      - checkpoint/forge-phase5e-benchmark-final-20260821
+    paths:
+      - 'swrlz-core/tools/ci/.phase5e-final-benchmark-trigger.txt'
+      - '.github/workflows/phase5e-final-real-benchmark.yml'
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  PRODUCTION_SHA: fece60cab93ced5bdae5908905f5c9de3080c46d
+  SWRLZ_CI_ROOT: swrlz-core/tools/ci
+
+jobs:
+  tooling:
+    name: Exact production tooling suite
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact Phase 5E production SHA
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: fece60cab93ced5bdae5908905f5c9de3080c46d
+          fetch-depth: 2
+          filter: blob:none
+          persist-credentials: false
+          sparse-checkout: |
+            .github/workflows
+            swrlz-core/tools/ci
+            swrlz-core/requests
+            swrlz-core/history
+
+      - name: Run complete production CI tooling suite
+        working-directory: swrlz-core/tools/ci
+        run: |
+          set -euo pipefail
+          python3 -m py_compile \
+            resolve_swrlz_source.py resolve_changed_source_identities.py resolve_push_changed_paths.py \
+            resolve_swrlz_latest_identity.py plan_swrlz_build_route.py plan_swrlz_candidate_checkout.py \
+            plan_swrlz_integrity_route.py prepare_swrlz_sparse_checkout.py verify_swrlz_package_pair.py \
+            verify_patch_note_accounting.py test_resolve_swrlz_source.py test_resolve_changed_source_identities.py \
+            test_resolve_push_changed_paths.py test_resolve_swrlz_latest_identity.py test_plan_swrlz_build_route.py \
+            test_plan_swrlz_candidate_checkout.py test_plan_swrlz_integrity_route.py test_prepare_swrlz_sparse_checkout.py \
+            test_verify_swrlz_package_pair.py test_verify_patch_note_accounting.py test_build_swrlz_component.py \
+            test_workflow_phase5_contract.py
+          bash -n build_swrlz_component.sh
+          python3 test_resolve_swrlz_source.py
+          python3 test_resolve_changed_source_identities.py
+          python3 test_resolve_push_changed_paths.py
+          python3 test_resolve_swrlz_latest_identity.py
+          python3 test_plan_swrlz_build_route.py
+          python3 test_plan_swrlz_candidate_checkout.py
+          python3 test_plan_swrlz_integrity_route.py
+          python3 test_prepare_swrlz_sparse_checkout.py
+          python3 test_verify_swrlz_package_pair.py
+          python3 test_verify_patch_note_accounting.py
+          python3 test_build_swrlz_component.py
+          python3 test_workflow_phase5_contract.py
+
+      - name: Validate pinned Java and Android SDK policy
+        run: |
+          set -euo pipefail
+          JDK_DIR="${JAVA_HOME_17_X64:-}"
+          [[ -n "$JDK_DIR" && -x "$JDK_DIR/bin/java" && -x "$JDK_DIR/bin/javac" && -x "$JDK_DIR/bin/keytool" ]]
+          [[ "$("$JDK_DIR/bin/java" -XshowSettings:properties -version 2>&1 | awk -F'= ' '/java.specification.version/{print $2; exit}')" == '17' ]]
+          SDK_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          [[ -n "$SDK_DIR" && -d "$SDK_DIR" ]]
+          [[ -x "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" ]]
+          APKSIGNER="$(find "$SDK_DIR/build-tools" -mindepth 2 -maxdepth 2 -type f -name apksigner -print 2>/dev/null | sort -V | tail -n 1)"
+          ZIPALIGN="$(find "$SDK_DIR/build-tools" -mindepth 2 -maxdepth 2 -type f -name zipalign -print 2>/dev/null | sort -V | tail -n 1)"
+          [[ -x "$APKSIGNER" && -x "$ZIPALIGN" ]]
+
+  prepare:
+    name: Tree-only exact-latest resolution
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      resolution_ms: ${{ steps.timing.outputs.resolution_ms }}
+    steps:
+      - name: Checkout exact route tooling only
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: fece60cab93ced5bdae5908905f5c9de3080c46d
+          fetch-depth: 2
+          filter: blob:none
+          persist-credentials: false
+          sparse-checkout: |
+            swrlz-core/tools/ci
+            swrlz-core/requests
+
+      - name: Start exact-latest timer
+        run: echo "SWRLZ_LATEST_STARTED_MS=$(date +%s%3N)" >> "$GITHUB_ENV"
+
+      - name: Resolve blank CLIENT and SERVER lanes exactly
+        id: plan
+        run: |
+          set -euo pipefail
+          MATRIX='{"include":[{"component":"CLIENT","source_identity":""},{"component":"SERVER","source_identity":""}]}'
+          python3 "$SWRLZ_CI_ROOT/plan_swrlz_candidate_checkout.py" \
+            --matrix-json "$MATRIX" \
+            --ref "$PRODUCTION_SHA" \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Verify exact-latest plan and timing
+        id: timing
+        env:
+          MATRIX_JSON: ${{ steps.plan.outputs.matrix }}
+        run: |
+          set -euo pipefail
+          ELAPSED=$(($(date +%s%3N) - SWRLZ_LATEST_STARTED_MS))
+          echo "resolution_ms=$ELAPSED" >> "$GITHUB_OUTPUT"
+          python3 - <<'PY'
+          import json, os
+          matrix = json.loads(os.environ['MATRIX_JSON'])
+          rows = matrix['include']
+          assert len(rows) == 2, rows
+          assert {row['component'] for row in rows} == {'CLIENT', 'SERVER'}
+          for row in rows:
+              assert row['checkout_mode'] == 'exact-latest-candidate', row
+              assert row['source_identity'], row
+              assert row['source_size_bytes'] > 0, row
+              assert 'full-lane' not in row['checkout_mode'], row
+              print(row['component'], row['source_identity'], row['source_size_label'], row['source_chunk_count'])
+          PY
+          echo "Both exact latest candidates resolved in ${ELAPSED} ms" >> "$GITHUB_STEP_SUMMARY"
+
+  real-build:
+    name: ${{ matrix.component }} · real config-cache benchmark
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
+    steps:
+      - name: Start exact source hydration timer
+        run: echo "SWRLZ_HYDRATION_STARTED_MS=$(date +%s%3N)" >> "$GITHUB_ENV"
+
+      - name: Hydrate exact ${{ matrix.component }} · ${{ matrix.source_size_label }}
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: fece60cab93ced5bdae5908905f5c9de3080c46d
+          fetch-depth: 1
+          filter: blob:none
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: ${{ matrix.checkout_patterns }}
+
+      - name: Record exact hydration
+        id: hydration
+        run: |
+          set -euo pipefail
+          ELAPSED=$(($(date +%s%3N) - SWRLZ_HYDRATION_STARTED_MS))
+          echo "ms=$ELAPSED" >> "$GITHUB_OUTPUT"
+          [[ '${{ matrix.checkout_mode }}' == 'exact-latest-candidate' ]]
+          [[ -n '${{ matrix.source_identity }}' ]]
+
+      - name: Resolve exact current source
+        id: source
+        env:
+          COMPONENT: ${{ matrix.component }}
+          SOURCE_IDENTITY: ${{ matrix.source_identity }}
+        run: |
+          set -euo pipefail
+          python3 "$SWRLZ_CI_ROOT/resolve_swrlz_source.py" \
+            --component "$COMPONENT" \
+            --source-zip "$SOURCE_IDENTITY" \
+            --work-dir "$RUNNER_TEMP/phase5e-final/source/$COMPONENT" \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Verify exact current source package
+        run: |
+          set -euo pipefail
+          VERIFY_ARGS=("${{ steps.source.outputs.selected_source }}")
+          if [[ -n "${{ steps.source.outputs.checksum_file }}" ]]; then
+            VERIFY_ARGS+=(--checksum "${{ steps.source.outputs.checksum_file }}")
+          fi
+          if [[ -n "${{ steps.source.outputs.manifest_file }}" ]]; then
+            VERIFY_ARGS+=(--manifest "${{ steps.source.outputs.manifest_file }}")
+          fi
+          python3 "$SWRLZ_CI_ROOT/verify_swrlz_package_pair.py" "${VERIFY_ARGS[@]}"
+
+      - name: Validate preinstalled Java 17
+        id: java
+        run: |
+          set -euo pipefail
+          START=$(date +%s%3N)
+          JDK_DIR="${JAVA_HOME_17_X64:-}"
+          [[ -n "$JDK_DIR" && -x "$JDK_DIR/bin/java" && -x "$JDK_DIR/bin/javac" && -x "$JDK_DIR/bin/keytool" ]]
+          [[ "$("$JDK_DIR/bin/java" -XshowSettings:properties -version 2>&1 | awk -F'= ' '/java.specification.version/{print $2; exit}')" == '17' ]]
+          echo "JAVA_HOME=$JDK_DIR" >> "$GITHUB_ENV"
+          echo "$JDK_DIR/bin" >> "$GITHUB_PATH"
+          echo "ms=$(($(date +%s%3N) - START))" >> "$GITHUB_OUTPUT"
+
+      - name: Set up open-source Gradle basic cache
+        id: gradle-setup
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        with:
+          cache-provider: basic
+          cache-read-only: true
+          cache-cleanup: on-success
+
+      - name: Validate preinstalled Android SDK fast path
+        id: android
+        run: |
+          set -euo pipefail
+          START=$(date +%s%3N)
+          SDK_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          [[ -n "$SDK_DIR" && -d "$SDK_DIR" ]]
+          [[ -x "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" ]]
+          APKSIGNER="$(find "$SDK_DIR/build-tools" -mindepth 2 -maxdepth 2 -type f -name apksigner -print 2>/dev/null | sort -V | tail -n 1)"
+          ZIPALIGN="$(find "$SDK_DIR/build-tools" -mindepth 2 -maxdepth 2 -type f -name zipalign -print 2>/dev/null | sort -V | tail -n 1)"
+          [[ -x "$APKSIGNER" && -x "$ZIPALIGN" ]]
+          echo "ms=$(($(date +%s%3N) - START))" >> "$GITHUB_OUTPUT"
+
+      - name: First real build with configuration cache enabled
+        id: build1
+        env:
+          SWRLZ_VERIFIED_SOURCE_SHA256: ${{ steps.source.outputs.source_sha256 }}
+          SWRLZ_SOURCE_HYDRATION_MS: ${{ steps.hydration.outputs.ms }}
+          SWRLZ_JAVA_SETUP_MS: ${{ steps.java.outputs.ms }}
+          SWRLZ_GRADLE_SETUP_MS: '0'
+          SWRLZ_ANDROID_SDK_SETUP_MS: ${{ steps.android.outputs.ms }}
+          SWRLZ_GRADLE_CONFIGURATION_CACHE: 'true'
+        run: |
+          set -euo pipefail
+          bash "$SWRLZ_CI_ROOT/build_swrlz_component.sh" \
+            '${{ matrix.component }}' \
+            '${{ steps.source.outputs.selected_source }}' \
+            '${{ steps.source.outputs.canonical_stem }}' \
+            debug \
+            "$RUNNER_TEMP/phase5e-final/build/${{ matrix.component }}" \
+            "$RUNNER_TEMP/phase5e-final/artifacts/${{ matrix.component }}"
+
+      - name: Second build must reuse configuration cache
+        id: build2
+        env:
+          PROJECT_ROOT: ${{ steps.build1.outputs.project_root }}
+        run: |
+          set -euo pipefail
+          LOG="$RUNNER_TEMP/phase5e-final/${{ matrix.component }}-config-cache-reuse.log"
+          START=$(date +%s%3N)
+          (
+            cd "$PROJECT_ROOT"
+            ./gradlew \
+              --no-daemon \
+              --stacktrace \
+              --build-cache \
+              --parallel \
+              --no-watch-fs \
+              --configuration-cache \
+              :app:assembleDebug
+          ) 2>&1 | tee "$LOG"
+          ELAPSED=$(($(date +%s%3N) - START))
+          echo "ms=$ELAPSED" >> "$GITHUB_OUTPUT"
+          grep -Eq 'Reusing configuration cache|Configuration cache entry reused' "$LOG"
+
+      - name: Summarize real Phase 5E benchmark
+        if: always()
+        run: |
+          {
+            echo '## Phase 5E final real benchmark'
+            echo
+            echo '- Production SHA: `${{ env.PRODUCTION_SHA }}`'
+            echo '- Component: `${{ matrix.component }}`'
+            echo '- Exact identity: `${{ matrix.source_identity }}`'
+            echo '- Resolve both lanes: `${{ needs.prepare.outputs.resolution_ms }} ms`'
+            echo '- Source payload: `${{ matrix.source_size_label }}` / `${{ matrix.source_chunk_count }}` chunks'
+            echo '- Exact hydration: `${{ steps.hydration.outputs.ms || 'NA' }} ms`'
+            echo '- Java fast path: `${{ steps.java.outputs.ms || 'NA' }} ms`'
+            echo '- Android SDK fast path: `${{ steps.android.outputs.ms || 'NA' }} ms`'
+            echo '- First Gradle/config-cache build: `${{ steps.build1.outputs.gradle_ms || 'NA' }} ms`'
+            echo '- Configuration-cache reuse build: `${{ steps.build2.outputs.ms || 'NA' }} ms`'
+            echo '- Configuration-cache reuse result: `${{ steps.build2.outcome }}`'
+          } >> "$GITHUB_STEP_SUMMARY"
