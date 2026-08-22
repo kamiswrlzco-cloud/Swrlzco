@@ -1,0 +1,494 @@
+name: SERVER R154 Source Update
+
+on:
+  push:
+    branches:
+      - update/server-r154-forge-ui-status-20260821
+
+permissions:
+  contents: write
+
+concurrency:
+  group: server-r154-forge-ui-status-source-update
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact R153 source + packager verification
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          fetch-depth: 2
+          filter: blob:none
+          persist-credentials: true
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /.github/workflows/server-r154-source-update.yml
+            /swrlz-core/tools/ci/verify_swrlz_package_pair.py
+            /swrlz-core/sources/server/.transport/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R153/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R153.zip.part0001
+            /swrlz-core/sources/server/.transport/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R153/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R153.zip.part0002
+            /swrlz-core/sources/server/.transport/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R153/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R153.zip.part0003
+            /swrlz-core/sources/server/.transport/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R153/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R153.zip.part0004
+            /swrlz-core/sources/server/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R153.transport.json
+
+      - name: Reconstruct and verify immutable parent R153
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT='swrlz-core/sources/server/.transport/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R153'
+          cat "$ROOT"/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R153.zip.part000{1,2,3,4} > "$RUNNER_TEMP/server-r153.zip"
+          echo '6f3b31b9878b0e1ac2731d39de5cca3fc0402284ca5578bfd76704f6723318a5  '"$RUNNER_TEMP/server-r153.zip" | sha256sum -c -
+
+      - name: Generate synchronized SERVER R154 successor
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from __future__ import annotations
+          import hashlib, json, os, shutil, stat, textwrap, zipfile
+          from pathlib import Path, PurePosixPath
+
+          repo = Path.cwd()
+          parent_zip = Path(os.environ['RUNNER_TEMP']) / 'server-r153.zip'
+          work = Path(os.environ['RUNNER_TEMP']) / 'r154-work'
+          out_zip = Path(os.environ['RUNNER_TEMP']) / 'SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R154.zip'
+          old_root_name = 'SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R153'
+          new_root_name = 'SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R154'
+          parent_sha = '6f3b31b9878b0e1ac2731d39de5cca3fc0402284ca5578bfd76704f6723318a5'
+          patch_id = 'INT-FORGE-WORKFLOW-STATUS-SEMANTICS-216A'
+          version_name = '2.1.27-forge-workflow-status-semantics-r154'
+          sibling = 'CLIENT_CFv2.1.27_SWRLZ_CANDIDATE_R115'
+          fixed_time = (1980, 1, 1, 0, 0, 0)
+
+          def sha256_bytes(data: bytes) -> str:
+              return hashlib.sha256(data).hexdigest()
+
+          def sha256_file(path: Path) -> str:
+              h = hashlib.sha256()
+              with path.open('rb') as f:
+                  for block in iter(lambda: f.read(1024 * 1024), b''):
+                      h.update(block)
+              return h.hexdigest()
+
+          def replace_once(path: Path, old: str, new: str) -> None:
+              text = path.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'Expected exactly one replacement in {path}: found {count}')
+              path.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          def write_text(path: Path, text: str) -> None:
+              path.parent.mkdir(parents=True, exist_ok=True)
+              path.write_text(textwrap.dedent(text).lstrip(), encoding='utf-8')
+
+          if work.exists():
+              shutil.rmtree(work)
+          work.mkdir(parents=True)
+
+          with zipfile.ZipFile(parent_zip) as z:
+              files = [i for i in z.infolist() if not i.is_dir()]
+              roots = {PurePosixPath(i.filename).parts[0] for i in files}
+              if roots != {old_root_name}:
+                  raise SystemExit(f'Unexpected R153 archive roots: {sorted(roots)}')
+              for info in z.infolist():
+                  target = work / info.filename
+                  if info.is_dir():
+                      target.mkdir(parents=True, exist_ok=True)
+                      continue
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  target.write_bytes(z.read(info))
+                  mode = stat.S_IMODE((info.external_attr >> 16) & 0xFFFF)
+                  if mode:
+                      target.chmod(mode)
+
+          old_root = work / old_root_name
+          root = work / new_root_name
+          old_root.rename(root)
+
+          screen = root / 'app/src/main/java/sh/swrlz/nodehost/forge/ServerForgeScreen.kt'
+          if not screen.is_file():
+              raise SystemExit('ServerForgeScreen.kt missing from R153')
+
+          replace_once(
+              screen,
+              '''                    job.steps.forEach { step ->\n                        val marker = when {\n                            step.status == "in_progress" -> "▶"\n                            step.conclusion == "success" -> "✓"\n                            step.conclusion != null -> "✕"\n                            else -> "○"\n                        }\n                        Text("$marker ${step.name}", color = tokens.text.secondary, fontSize = 10.sp)\n                    }''',
+              '''                    job.steps.forEach { step ->\n                        val marker = forgeWorkflowUiMarker(forgeWorkflowUiState(step.status, step.conclusion))\n                        val semantic = forgeWorkflowUiLabel(step.status, step.conclusion)\n                        Text("$marker ${step.name} — $semantic", color = tokens.text.secondary, fontSize = 10.sp)\n                    }''',
+          )
+
+          replace_once(
+              screen,
+              '''private fun forgeRunMarker(run: GitHubForgeClient.WorkflowRun): String = when {\n    run.status != "completed" -> "▶"\n    run.conclusion == "success" -> "✓"\n    run.conclusion == "cancelled" -> "⊘"\n    else -> "✕"\n}''',
+              '''private fun forgeRunMarker(run: GitHubForgeClient.WorkflowRun): String =\n    forgeWorkflowUiMarker(forgeWorkflowUiState(run.status, run.conclusion))''',
+          )
+
+          replace_once(
+              screen,
+              '''    fun outcome(job: GitHubForgeClient.WorkflowJob): String = when {\n        job.status != "completed" -> "ACTIVE"\n        job.conclusion == "success" -> "SUCCESS"\n        job.conclusion == "cancelled" -> "CANCELLED"\n        job.conclusion == "timed_out" -> "TIMED OUT"\n        job.conclusion == "action_required" -> "ACTION REQUIRED"\n        else -> "FAILED"\n    }''',
+              '''    fun outcome(job: GitHubForgeClient.WorkflowJob): String =\n        forgeWorkflowUiLabel(job.status, job.conclusion)''',
+          )
+
+          replace_once(
+              screen,
+              '''    fun marker(job: GitHubForgeClient.WorkflowJob): String = when {\n        job.status != "completed" -> "▶"\n        job.conclusion == "success" -> "✓"\n        job.conclusion == "cancelled" -> "⊘"\n        else -> "✕"\n    }''',
+              '''    fun marker(job: GitHubForgeClient.WorkflowJob): String =\n        forgeWorkflowUiMarker(forgeWorkflowUiState(job.status, job.conclusion))''',
+          )
+
+          replace_once(
+              screen,
+              '''                    val runState = when (run.conclusion) {\n                        "success" -> ThemeProgressState.SUCCESS\n                        "cancelled" -> ThemeProgressState.CANCELLED\n                        "failure", "timed_out", "action_required" -> ThemeProgressState.FAILED\n                        else -> ThemeProgressState.INTERRUPTED\n                    }''',
+              '''                    val runState = when (forgeWorkflowUiState(run.status, run.conclusion)) {\n                        ForgeWorkflowUiState.SUCCESS -> ThemeProgressState.SUCCESS\n                        ForgeWorkflowUiState.CANCELLED -> ThemeProgressState.CANCELLED\n                        ForgeWorkflowUiState.FAILURE -> ThemeProgressState.FAILED\n                        else -> ThemeProgressState.INTERRUPTED\n                    }''',
+          )
+
+          replace_once(
+              screen,
+              '''                val workflowFailed = run.status == "completed" && run.conclusion in setOf("failure", "timed_out", "action_required")\n                val failedComponents = buildList {\n                    jobs.filter { it.status == "completed" && it.conclusion in setOf("failure", "timed_out", "action_required") }.forEach { job ->''',
+              '''                val workflowFailed = forgeWorkflowUiState(run.status, run.conclusion) == ForgeWorkflowUiState.FAILURE\n                val failedComponents = buildList {\n                    jobs.filter { forgeWorkflowUiState(it.status, it.conclusion) == ForgeWorkflowUiState.FAILURE }.forEach { job ->''',
+          )
+
+          helper = root / 'app/src/main/java/sh/swrlz/nodehost/forge/ForgeWorkflowUiStatus.kt'
+          write_text(helper, r'''
+              package sh.swrlz.nodehost.forge
+
+              internal enum class ForgeWorkflowUiState {
+                  SUCCESS,
+                  SKIPPED,
+                  CANCELLED,
+                  FAILURE,
+                  ACTIVE,
+                  QUEUED,
+                  NEUTRAL,
+              }
+
+              internal fun forgeWorkflowUiState(status: String?, conclusion: String?): ForgeWorkflowUiState {
+                  val normalizedStatus = status?.trim()?.lowercase().orEmpty()
+                  val normalizedConclusion = conclusion?.trim()?.lowercase().orEmpty()
+                  return when {
+                      normalizedConclusion == "success" -> ForgeWorkflowUiState.SUCCESS
+                      normalizedConclusion == "skipped" -> ForgeWorkflowUiState.SKIPPED
+                      normalizedConclusion == "cancelled" -> ForgeWorkflowUiState.CANCELLED
+                      normalizedConclusion in setOf("failure", "timed_out", "startup_failure", "action_required") -> ForgeWorkflowUiState.FAILURE
+                      normalizedConclusion in setOf("neutral", "stale") -> ForgeWorkflowUiState.NEUTRAL
+                      normalizedStatus == "in_progress" -> ForgeWorkflowUiState.ACTIVE
+                      normalizedStatus in setOf("queued", "pending", "waiting", "requested") -> ForgeWorkflowUiState.QUEUED
+                      else -> ForgeWorkflowUiState.NEUTRAL
+                  }
+              }
+
+              internal fun forgeWorkflowUiMarker(state: ForgeWorkflowUiState): String = when (state) {
+                  ForgeWorkflowUiState.SUCCESS -> "✓"
+                  ForgeWorkflowUiState.SKIPPED -> "—"
+                  ForgeWorkflowUiState.CANCELLED -> "⊘"
+                  ForgeWorkflowUiState.FAILURE -> "✕"
+                  ForgeWorkflowUiState.ACTIVE -> "▶"
+                  ForgeWorkflowUiState.QUEUED -> "○"
+                  ForgeWorkflowUiState.NEUTRAL -> "·"
+              }
+
+              internal fun forgeWorkflowUiLabel(status: String?, conclusion: String?): String {
+                  val normalizedConclusion = conclusion?.trim()?.lowercase().orEmpty()
+                  return when (forgeWorkflowUiState(status, conclusion)) {
+                      ForgeWorkflowUiState.SUCCESS -> "SUCCESS"
+                      ForgeWorkflowUiState.SKIPPED -> "SKIPPED / NOT NEEDED"
+                      ForgeWorkflowUiState.CANCELLED -> "CANCELLED"
+                      ForgeWorkflowUiState.FAILURE -> when (normalizedConclusion) {
+                          "timed_out" -> "TIMED OUT"
+                          "startup_failure" -> "STARTUP FAILURE"
+                          "action_required" -> "ACTION REQUIRED"
+                          else -> "FAILED"
+                      }
+                      ForgeWorkflowUiState.ACTIVE -> "ACTIVE"
+                      ForgeWorkflowUiState.QUEUED -> "QUEUED / PENDING"
+                      ForgeWorkflowUiState.NEUTRAL -> normalizedConclusion
+                          .takeIf { it.isNotBlank() }
+                          ?.replace('_', ' ')
+                          ?.uppercase()
+                          ?: if (status.equals("completed", ignoreCase = true)) "COMPLETED / UNKNOWN" else "STATUS UNKNOWN"
+                  }
+              }
+          ''')
+
+          test = root / 'app/src/test/java/sh/swrlz/nodehost/forge/ForgeWorkflowUiStatusTest.kt'
+          write_text(test, r'''
+              package sh.swrlz.nodehost.forge
+
+              import org.junit.Assert.assertEquals
+              import org.junit.Test
+
+              class ForgeWorkflowUiStatusTest {
+                  @Test fun skippedIsNeutralNotFailure() {
+                      assertEquals(ForgeWorkflowUiState.SKIPPED, forgeWorkflowUiState("completed", "skipped"))
+                      assertEquals("—", forgeWorkflowUiMarker(forgeWorkflowUiState("completed", "skipped")))
+                      assertEquals("SKIPPED / NOT NEEDED", forgeWorkflowUiLabel("completed", "skipped"))
+                  }
+
+                  @Test fun explicitFailureConclusionsStayFailures() {
+                      listOf("failure", "timed_out", "startup_failure", "action_required").forEach {
+                          assertEquals(ForgeWorkflowUiState.FAILURE, forgeWorkflowUiState("completed", it))
+                      }
+                  }
+
+                  @Test fun cancellationDoesNotBecomeFailure() {
+                      assertEquals(ForgeWorkflowUiState.CANCELLED, forgeWorkflowUiState("completed", "cancelled"))
+                      assertEquals("⊘", forgeWorkflowUiMarker(forgeWorkflowUiState("completed", "cancelled")))
+                  }
+
+                  @Test fun activeAndQueuedRemainNonterminal() {
+                      assertEquals(ForgeWorkflowUiState.ACTIVE, forgeWorkflowUiState("in_progress", null))
+                      assertEquals(ForgeWorkflowUiState.QUEUED, forgeWorkflowUiState("queued", null))
+                  }
+
+                  @Test fun unknownTerminalConclusionFailsOpenToNeutralPresentation() {
+                      assertEquals(ForgeWorkflowUiState.NEUTRAL, forgeWorkflowUiState("completed", "future_terminal_state"))
+                      assertEquals("FUTURE TERMINAL STATE", forgeWorkflowUiLabel("completed", "future_terminal_state"))
+                  }
+              }
+          ''')
+
+          gradle = root / 'app/build.gradle.kts'
+          replacements = {
+              'versionCode = 276': 'versionCode = 277',
+              'versionName = "2.1.27-command-vfs-truth-r153"': f'versionName = "{version_name}"',
+              'quotedBuildConfig("R153")': 'quotedBuildConfig("R154")',
+              'quotedBuildConfig("INT-COMMAND-VFS-TRUTH-215A")': f'quotedBuildConfig("{patch_id}")',
+              'quotedBuildConfig("SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R153.zip")': 'quotedBuildConfig("SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R154.zip")',
+              'quotedBuildConfig("R152")': 'quotedBuildConfig("R153")',
+              'quotedBuildConfig("3669ce3f0d5b4366756391d79039c723408adfc24c01d6df81d46a5489213278")': f'quotedBuildConfig("{parent_sha}")',
+          }
+          for old, new in replacements.items():
+              replace_once(gradle, old, new)
+
+          patch_note_name = 'INT-FORGE-WORKFLOW-STATUS-SEMANTICS-216A_SERVER_PATCH_NOTES.md'
+          patch_note = f'''# {patch_id} — SERVER R154 / VC277\n\n## Scope\n- Normalize GitHub workflow/run/job/step presentation without changing raw GitHub status or conclusion evidence.\n- Render `skipped` as `SKIPPED / NOT NEEDED` with a neutral dash instead of a failure X.\n- Keep `cancelled`, active, queued/pending, neutral/stale, and unknown terminal states distinct from true failure.\n- Restrict failure semantics to `failure`, `timed_out`, `startup_failure`, and `action_required`.\n- Centralize the presentation mapping in `ForgeWorkflowUiStatus.kt` and cover it with focused unit tests.\n\n## Identity\n- Candidate: `SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R154.zip`\n- VersionCode: `277`\n- VersionName: `{version_name}`\n- Parent: `SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R153.zip`\n- Parent SHA-256: `{parent_sha}`\n- Sibling: `{sibling}.zip` / VC241\n\n## Evidence boundary\nSource successor packaging performs exact-parent SHA verification, deterministic source-manifest regeneration, metadata verification, and chunk round-trip verification before publication. Android compilation/APK evidence is delegated to the repository Forge workflows after publication.\n'''
+          write_text(root / patch_note_name, patch_note)
+
+          release_doc = f'''# SERVER CFv2.1.27 R154 — Forge Workflow Status Semantics\n\nCheckpoint `{patch_id}`; VC277; paired CLIENT R115 / VC241.\n\nForge now treats GitHub status semantics as a typed presentation state instead of assuming every non-success terminal result is a failure. Skipped conditional/fallback steps render as `SKIPPED / NOT NEEDED`, cancellations remain cancellation, pending/active states remain nonterminal, and only explicit failure-class conclusions receive the failure X / Auto Fix failure treatment. Raw GitHub `status` and `conclusion` values remain unchanged for diagnostics.\n'''
+          write_text(root / 'docs/releases/SERVER_CFv2.1.27_R154_FORGE_WORKFLOW_STATUS_SEMANTICS.md', release_doc)
+
+          source_record = f'''# SERVER CFv2.1.27 R154 / VC277\n\n- Candidate: `SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R154.zip`\n- Version name: `{version_name}`\n- Checkpoint: `{patch_id}`\n- Parent: `SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R153.zip`\n- Parent SHA-256: `{parent_sha}`\n- Required sibling: `{sibling}.zip`\n- Change class: Forge workflow status semantic normalization.\n- Source package evidence: exact-parent hash, source manifest, package topology, metadata bundle, and chunk round-trip must verify before publication.\n- Build/runtime evidence: pending GitHub Forge build after source publication.\n- Promotion: not promoted by this source checkpoint.\n'''
+          write_text(root / 'SOURCES/SERVER/SERVER_CFv2.1.27_R154_SWRLZ.md', source_record)
+
+          lineage = f'''# SERVER CFv2.1.27 R154 / VC277 Lineage\n\n- Checkpoint: `{patch_id}`\n- Parent: SERVER R153 / VC276 / `{parent_sha}`\n- Sibling: CLIENT R115 / VC241\n- Current identity: `SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R154.zip`\n- Change class: Forge workflow status semantic normalization; skipped/neutral/cancelled states no longer collapse into failure presentation.\n- Source verification: exact-parent reconstruction + deterministic manifest/package/transport verification.\n- Build/runtime evidence: pending repository Forge build.\n- Promotion: pending.\n'''
+          write_text(root / 'SOURCES_SERVER_CFV277_LINEAGE.md', lineage)
+
+          active = f'''# ACTIVE CHECKPOINT — SERVER R154\n\n- Candidate: `SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R154` · VC277\n- Checkpoint: `{patch_id}`\n- Parent: `SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R153.zip` · SHA-256 `{parent_sha}`\n- Sibling: `{sibling}` / VC241\n- Implemented: canonical Forge workflow UI state normalization across run/job/step presentation; skipped conditional/fallback work is neutral `SKIPPED / NOT NEEDED`; only explicit failure-class conclusions are failure.\n- Evidence: source package and transport verification required before publication; focused mapper unit tests included.\n- Promotion boundary: GitHub Forge compile/APK/signing evidence pending after publication.\n'''
+          write_text(root / 'ACTIVE_CHECKPOINT_INDEX.md', active)
+
+          changelog = root / 'CHANGELOG.md'
+          changelog_text = changelog.read_text(encoding='utf-8')
+          changelog.write_text(
+              f'''## R154 / VC277 — {patch_id}\n\n- Centralizes GitHub workflow UI status interpretation for runs, jobs, and steps.\n- Renders `skipped` as neutral `SKIPPED / NOT NEEDED` instead of a failure X.\n- Keeps cancellation, active, queued/pending, neutral/stale, and unknown outcomes distinct from true failure.\n- Treats only `failure`, `timed_out`, `startup_failure`, and `action_required` as failure-class outcomes.\n- Adds focused status-mapper unit coverage; raw GitHub status/conclusion evidence is preserved.\n\n''' + changelog_text,
+              encoding='utf-8',
+          )
+
+          release_notes = root / 'ReleaseNotes.md'
+          release_text = release_notes.read_text(encoding='utf-8')
+          release_notes.write_text(
+              f'''# SERVER R154 / VC277 — Forge Workflow Status Semantics\n\nSkipped conditional/fallback GitHub steps now display as `SKIPPED / NOT NEEDED`, not as failures. Forge uses one canonical mapper for success, skipped, cancelled, explicit failure, active, queued/pending, and neutral/unknown states while preserving raw GitHub evidence. Checkpoint `{patch_id}`; parent SERVER R153; sibling CLIENT R115.\n\n''' + release_text,
+              encoding='utf-8',
+          )
+
+          accounting_path = root / 'PATCH_ACCOUNTING_WORKFLOW_STATUS.json'
+          accounting = json.loads(accounting_path.read_text(encoding='utf-8'))
+          accounting.update({
+              'candidate': 'SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R154',
+              'component': 'SERVER',
+              'revision': 'R154',
+              'version': '2.1.27',
+              'versionCode': 277,
+              'versionName': version_name,
+              'checkpoint': patch_id,
+              'parentCandidate': 'SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R153',
+              'parentSha256': parent_sha,
+              'sibling': sibling,
+              'changeClass': 'FORGE_WORKFLOW_STATUS_SEMANTICS_216A',
+              'packageInternalAccountingSynchronized': True,
+              'immutableBackupVerifiedBeforeMutation': True,
+              'androidCompile': 'PENDING_GITHUB_FORGE',
+              'apkBuild': 'PENDING_GITHUB_FORGE',
+              'deviceValidation': 'NOT_ATTEMPTED',
+              'metadataState': 'DERIVE_FROM_FINAL_ARCHIVE_AFTER_SEAL',
+              'publicationState': 'READY_FOR_GITHUB_SOURCE_PUBLICATION',
+              'focusedStaticVerifier': 'STATUS_MAPPER_TESTS_INCLUDED',
+          })
+          accounting_path.write_text(json.dumps(accounting, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+
+          lineage_index_path = root / 'SWRLZ_PATCH_LINEAGE_INDEX_V1.json'
+          lineage_index = json.loads(lineage_index_path.read_text(encoding='utf-8'))
+          lineage_index.update({
+              'candidate': 'SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R154',
+              'component': 'SERVER',
+              'revision': 'R154',
+              'version': '2.1.27',
+              'versionCode': 277,
+              'versionName': version_name,
+              'checkpoint': patch_id,
+              'parent': {'candidate': 'SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R153', 'sha256': parent_sha},
+              'sibling': sibling,
+          })
+          features = lineage_index.setdefault('features', {})
+          features.update({
+              'forgeWorkflowStatusSemanticNormalization': True,
+              'forgeWorkflowSkippedNotFailure': True,
+              'forgeWorkflowUnknownConclusionNeutralPresentation': True,
+              'forgeWorkflowExplicitFailureClassOnly': True,
+          })
+          lineage_index['verification'] = {
+              'sourcePackaging': 'FINALIZING',
+              'sourceManifest': 'REGENERATING',
+              'zipCrc': 'PENDING_PACKAGE_VERIFY',
+              'focusedStaticVerifier': 'STATUS_MAPPER_TESTS_INCLUDED',
+              'androidCompile': 'PENDING_GITHUB_FORGE',
+              'apkBuild': 'PENDING_GITHUB_FORGE',
+              'deviceValidation': 'NOT_ATTEMPTED',
+          }
+          lineage_index_path.write_text(json.dumps(lineage_index, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+
+          manifest_path = root / 'SOURCE_MANIFEST.sha256'
+          entries = []
+          for path in sorted(p for p in root.rglob('*') if p.is_file() and p != manifest_path):
+              rel = path.relative_to(root).as_posix()
+              entries.append(f'{sha256_file(path)}  {rel}')
+          manifest_path.write_text('\n'.join(entries) + '\n', encoding='utf-8')
+
+          # Final static invariants before sealing.
+          screen_text = screen.read_text(encoding='utf-8')
+          if 'step.conclusion != null -> "✕"' in screen_text:
+              raise SystemExit('Legacy skipped-to-failure step fallthrough remains')
+          if 'else -> "✕"' in screen_text[screen_text.find('private fun forgeRunMarker'):screen_text.find('private fun forgeWorkflowLane')]:
+              raise SystemExit('Legacy run-marker terminal fallthrough remains')
+          gradle_text = gradle.read_text(encoding='utf-8')
+          for expected in ('versionCode = 277', f'versionName = "{version_name}"', 'quotedBuildConfig("R154")', f'quotedBuildConfig("{patch_id}")'):
+              if expected not in gradle_text:
+                  raise SystemExit(f'Missing R154 identity invariant: {expected}')
+
+          # Deterministic canonical-wrapper ZIP.
+          with zipfile.ZipFile(out_zip, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9, allowZip64=True) as out:
+              for path in sorted(p for p in root.rglob('*') if p.is_file()):
+                  rel = path.relative_to(root).as_posix()
+                  info = zipfile.ZipInfo(f'{new_root_name}/{rel}', fixed_time)
+                  info.compress_type = zipfile.ZIP_DEFLATED
+                  info.create_system = 3
+                  mode = stat.S_IMODE(path.stat().st_mode) or 0o644
+                  info.external_attr = ((stat.S_IFREG | mode) << 16)
+                  info.flag_bits |= 0x800
+                  out.writestr(info, path.read_bytes(), compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)
+
+          source_sha = sha256_file(out_zip)
+          source_size = out_zip.stat().st_size
+          print(json.dumps({'source': out_zip.name, 'sha256': source_sha, 'sizeBytes': source_size}, indent=2))
+
+          lane = repo / 'swrlz-core/sources/server'
+          stem = new_root_name
+          checksum_name = f'{stem}.sha256'
+          manifest_name = f'{stem}.manifest.json'
+          metadata_name = f'{stem}_METADATA.zip'
+          checksum_bytes = f'{source_sha}  {stem}.zip\n'.encode()
+          metadata_manifest = {
+              'schema': 'swrlz-source-manifest-v1',
+              'component': 'SERVER',
+              'revision': 'R154',
+              'version': '2.1.27',
+              'versionCode': 277,
+              'versionName': version_name,
+              'checkpoint': patch_id,
+              'parent': {'filename': 'SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R153.zip', 'sha256': parent_sha},
+              'sibling': f'{sibling}.zip',
+              'sourceZip': {'filename': f'{stem}.zip', 'sha256': source_sha, 'sizeBytes': source_size},
+              'verified': True,
+          }
+          manifest_bytes = (json.dumps(metadata_manifest, indent=2, sort_keys=True) + '\n').encode()
+          metadata_path = lane / metadata_name
+          with zipfile.ZipFile(metadata_path, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as meta:
+              for name, data in ((checksum_name, checksum_bytes), (manifest_name, manifest_bytes)):
+                  info = zipfile.ZipInfo(name, fixed_time)
+                  info.compress_type = zipfile.ZIP_DEFLATED
+                  info.create_system = 3
+                  info.external_attr = ((stat.S_IFREG | 0o644) << 16)
+                  info.flag_bits |= 0x800
+                  meta.writestr(info, data, compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)
+          metadata_sha = sha256_file(metadata_path)
+
+          transport_dir = lane / '.transport' / stem
+          transport_dir.mkdir(parents=True, exist_ok=True)
+          chunk_size = 16 * 1024 * 1024
+          chunks = []
+          with out_zip.open('rb') as src:
+              index = 1
+              while True:
+                  data = src.read(chunk_size)
+                  if not data:
+                      break
+                  chunk_name = f'{stem}.zip.part{index:04d}'
+                  chunk_path = transport_dir / chunk_name
+                  chunk_path.write_bytes(data)
+                  chunks.append({
+                      'index': index,
+                      'path': chunk_path.relative_to(repo).as_posix(),
+                      'size_bytes': len(data),
+                      'sha256': sha256_bytes(data),
+                  })
+                  index += 1
+
+          transport = {
+              'schema': 2,
+              'transport': 'chunked-git-blobs-v2',
+              'component': 'SERVER',
+              'source_zip': f'{stem}.zip',
+              'source_sha256': source_sha,
+              'source_size_bytes': source_size,
+              'chunk_size_bytes': chunk_size,
+              'chunks': chunks,
+              'metadata_bundle': metadata_name,
+              'metadata_bundle_path': metadata_path.relative_to(repo).as_posix(),
+              'metadata_bundle_sha256': metadata_sha,
+              'checksum_entry': checksum_name,
+              'manifest_entry': manifest_name,
+              'verified': True,
+          }
+          transport_path = lane / f'{stem}.transport.json'
+          transport_path.write_text(json.dumps(transport, separators=(',', ':')) + '\n', encoding='utf-8')
+
+          # Chunk round-trip must reproduce the sealed source exactly.
+          roundtrip = Path(os.environ['RUNNER_TEMP']) / 'server-r154-roundtrip.zip'
+          with roundtrip.open('wb') as dst:
+              for chunk in chunks:
+                  p = repo / chunk['path']
+                  if p.stat().st_size != chunk['size_bytes'] or sha256_file(p) != chunk['sha256']:
+                      raise SystemExit(f'Chunk verification failed: {p}')
+                  dst.write(p.read_bytes())
+          if roundtrip.stat().st_size != source_size or sha256_file(roundtrip) != source_sha:
+              raise SystemExit('R154 chunk round-trip identity mismatch')
+
+          (Path(os.environ['RUNNER_TEMP']) / 'R154_IDENTITY.json').write_text(
+              json.dumps({
+                  'candidate': f'{stem}.zip', 'revision': 'R154', 'versionCode': 277,
+                  'sourceSha256': source_sha, 'sourceSizeBytes': source_size,
+                  'metadataSha256': metadata_sha, 'chunks': chunks,
+              }, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          PY
+
+      - name: Verify sealed R154 package and metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 swrlz-core/tools/ci/verify_swrlz_package_pair.py \
+            "$RUNNER_TEMP/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R154.zip" \
+            --metadata swrlz-core/sources/server/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R154_METADATA.zip
+          cat "$RUNNER_TEMP/R154_IDENTITY.json"
+
+      - name: Commit only SERVER R154 source candidate and remove updater
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            swrlz-core/sources/server/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R154.transport.json \
+            swrlz-core/sources/server/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R154_METADATA.zip \
+            swrlz-core/sources/server/.transport/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R154
+          git rm .github/workflows/server-r154-source-update.yml
+          git diff --cached --stat
+          git diff --cached --name-status
+          git commit -m 'forge: add SERVER R154 workflow status semantics VC277'
+          git push origin HEAD:update/server-r154-forge-ui-status-20260821
