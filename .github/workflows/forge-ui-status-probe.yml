@@ -1,0 +1,69 @@
+name: Forge UI Status Probe
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact SERVER R153 payload
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          fetch-depth: 1
+          filter: blob:none
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /.github/workflows/forge-ui-status-probe.yml
+            /swrlz-core/sources/server/.transport/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R153/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R153.zip.part0001
+            /swrlz-core/sources/server/.transport/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R153/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R153.zip.part0002
+            /swrlz-core/sources/server/.transport/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R153/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R153.zip.part0003
+            /swrlz-core/sources/server/.transport/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R153/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R153.zip.part0004
+            /swrlz-core/sources/server/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R153.transport.json
+      - name: Reconstruct and verify SERVER R153
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT='swrlz-core/sources/server/.transport/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R153'
+          cat "$ROOT"/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R153.zip.part000{1,2,3,4} > "$RUNNER_TEMP/server-r153.zip"
+          echo '6f3b31b9878b0e1ac2731d39de5cca3fc0402284ca5578bfd76704f6723318a5  '"$RUNNER_TEMP/server-r153.zip" | sha256sum -c -
+      - name: Extract Forge-related Kotlin source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import zipfile
+          z = zipfile.ZipFile(Path('${{ runner.temp }}') / 'server-r153.zip')
+          out = Path('${{ runner.temp }}') / 'forge-probe'
+          out.mkdir(parents=True, exist_ok=True)
+          selected = []
+          for name in z.namelist():
+              low = name.lower()
+              if name.endswith('.kt') and ('forge' in low or 'workflow' in low or 'github' in low):
+                  selected.append(name)
+                  target = out / name
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  target.write_bytes(z.read(name))
+          print(f'extracted {len(selected)} files')
+          for name in selected:
+              print(name)
+          PY
+      - name: Show likely status-mapping lines
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -RniE -C 4 'skipped|cancelled|failure|failed|conclusion|status|workflow|job|step' "$RUNNER_TEMP/forge-probe" --include='*.kt' | head -n 1400 || true
+      - name: Upload Forge source probe
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: forge-ui-status-source-r153
+          path: ${{ runner.temp }}/forge-probe
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 6
