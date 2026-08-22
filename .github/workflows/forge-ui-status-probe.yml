@@ -32,7 +32,7 @@ jobs:
           ROOT='swrlz-core/sources/server/.transport/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R153'
           cat "$ROOT"/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R153.zip.part000{1,2,3,4} > "$RUNNER_TEMP/server-r153.zip"
           echo '6f3b31b9878b0e1ac2731d39de5cca3fc0402284ca5578bfd76704f6723318a5  '"$RUNNER_TEMP/server-r153.zip" | sha256sum -c -
-      - name: Extract Forge-related Kotlin source
+      - name: Extract Forge source and candidate control files
         shell: bash
         run: |
           set -euo pipefail
@@ -42,27 +42,37 @@ jobs:
           z = zipfile.ZipFile(Path('${{ runner.temp }}') / 'server-r153.zip')
           out = Path('${{ runner.temp }}') / 'forge-probe'
           out.mkdir(parents=True, exist_ok=True)
+          tokens = ('revision','version','patch','release','lineage','account','checkpoint','manifest','readme','changelog','build.gradle','gradle.properties')
           selected = []
-          for name in z.namelist():
+          for info in z.infolist():
+              name = info.filename
+              if info.is_dir():
+                  continue
               low = name.lower()
-              if name.endswith('.kt') and ('forge' in low or 'workflow' in low or 'github' in low):
-                  selected.append(name)
-                  target = out / name
-                  target.parent.mkdir(parents=True, exist_ok=True)
-                  target.write_bytes(z.read(name))
+              forge_code = name.endswith('.kt') and ('forge' in low or 'workflow' in low or 'github' in low)
+              control = info.file_size <= 512 * 1024 and any(t in low for t in tokens) and low.endswith(('.kt','.kts','.json','.md','.txt','.properties','.xml','.sha256'))
+              if not (forge_code or control):
+                  continue
+              selected.append(name)
+              target = out / name
+              target.parent.mkdir(parents=True, exist_ok=True)
+              target.write_bytes(z.read(name))
           print(f'extracted {len(selected)} files')
           for name in selected:
               print(name)
           PY
-      - name: Show likely status-mapping lines
+      - name: Show candidate control identity
         shell: bash
         run: |
           set -euo pipefail
-          grep -RniE -C 4 'skipped|cancelled|failure|failed|conclusion|status|workflow|job|step' "$RUNNER_TEMP/forge-probe" --include='*.kt' | head -n 1400 || true
+          echo '--- identity/control hits ---'
+          grep -RniE -C 2 'R153|VC[0-9]+|versionCode|versionName|revision|patch notes|lineage|checkpoint|accounting' "$RUNNER_TEMP/forge-probe" --include='*.kt' --include='*.kts' --include='*.json' --include='*.md' --include='*.txt' --include='*.properties' | head -n 1800 || true
+          echo '--- status mapping hits ---'
+          grep -RniE -C 4 'skipped|cancelled|failure|failed|conclusion|status|workflow|job|step' "$RUNNER_TEMP/forge-probe/app/src/main/java/sh/swrlz/nodehost/forge" --include='*.kt' | head -n 700 || true
       - name: Upload Forge source probe
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: forge-ui-status-source-r153
+          name: forge-ui-status-source-r153-v2
           path: ${{ runner.temp }}/forge-probe
           if-no-files-found: error
           retention-days: 1
