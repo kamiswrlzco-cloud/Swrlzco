@@ -32,48 +32,64 @@ jobs:
           ROOT='swrlz-core/sources/server/.transport/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R153'
           cat "$ROOT"/SERVER_CFv2.1.27_SWRLZ_CANDIDATE_R153.zip.part000{1,2,3,4} > "$RUNNER_TEMP/server-r153.zip"
           echo '6f3b31b9878b0e1ac2731d39de5cca3fc0402284ca5578bfd76704f6723318a5  '"$RUNNER_TEMP/server-r153.zip" | sha256sum -c -
-      - name: Extract Forge source and candidate control files
+      - name: Extract exact successor controls
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          from pathlib import Path
+          from pathlib import Path, PurePosixPath
           import zipfile
-          z = zipfile.ZipFile(Path('${{ runner.temp }}') / 'server-r153.zip')
-          out = Path('${{ runner.temp }}') / 'forge-probe'
+
+          src = Path('${{ runner.temp }}') / 'server-r153.zip'
+          out = Path('${{ runner.temp }}') / 'successor-controls'
           out.mkdir(parents=True, exist_ok=True)
-          tokens = ('revision','version','patch','release','lineage','account','checkpoint','manifest','readme','changelog','build.gradle','gradle.properties')
+          wanted_names = {
+              'REVISION.txt', 'VERSION_CHECKPOINT.md', 'PATCH_ACCOUNTING.json',
+              'LINEAGE.json', 'SOURCE_MANIFEST.sha256', 'app/build.gradle.kts',
+              'AppBuildMetadata.kt', 'BuildInfo.kt', 'BuildWatermark.kt',
+              'VersionCheckpointTest.kt', 'BuildWatermarkTest.kt',
+          }
           selected = []
-          for info in z.infolist():
-              name = info.filename
-              if info.is_dir():
-                  continue
-              low = name.lower()
-              forge_code = name.endswith('.kt') and ('forge' in low or 'workflow' in low or 'github' in low)
-              control = info.file_size <= 512 * 1024 and any(t in low for t in tokens) and low.endswith(('.kt','.kts','.json','.md','.txt','.properties','.xml','.sha256'))
-              if not (forge_code or control):
-                  continue
-              selected.append(name)
-              target = out / name
-              target.parent.mkdir(parents=True, exist_ok=True)
-              target.write_bytes(z.read(name))
-          print(f'extracted {len(selected)} files')
-          for name in selected:
+          r153_hits = []
+          with zipfile.ZipFile(src) as z:
+              names = [i.filename for i in z.infolist() if not i.is_dir()]
+              (out / 'ZIP_LISTING.txt').write_text('\n'.join(names) + '\n', encoding='utf-8')
+              for info in z.infolist():
+                  if info.is_dir():
+                      continue
+                  p = PurePosixPath(info.filename)
+                  rel = '/'.join(p.parts[1:]) if len(p.parts) > 1 else p.name
+                  base = p.name
+                  low = info.filename.lower()
+                  exact = base in wanted_names or rel == 'app/build.gradle.kts'
+                  update_doc = (
+                      ('r153' in low or 'cfv276' in low or 'patch_account' in low or 'lineage' in low)
+                      and info.file_size <= 1024 * 1024
+                      and low.endswith(('.kt','.kts','.json','.md','.txt','.properties','.sha256'))
+                  )
+                  if exact or update_doc:
+                      selected.append(info.filename)
+                      target = out / info.filename
+                      target.parent.mkdir(parents=True, exist_ok=True)
+                      target.write_bytes(z.read(info))
+                  if ('r153' in low or '276' in low) and info.file_size <= 1024 * 1024:
+                      r153_hits.append(info.filename)
+          (out / 'R153_FILENAME_HITS.txt').write_text('\n'.join(sorted(r153_hits)) + '\n', encoding='utf-8')
+          print(f'archive files={len(names)} selected={len(selected)}')
+          for name in sorted(selected):
               print(name)
           PY
-      - name: Show candidate control identity
+      - name: Show exact control summary
         shell: bash
         run: |
           set -euo pipefail
-          echo '--- identity/control hits ---'
-          grep -RniE -C 2 'R153|VC[0-9]+|versionCode|versionName|revision|patch notes|lineage|checkpoint|accounting' "$RUNNER_TEMP/forge-probe" --include='*.kt' --include='*.kts' --include='*.json' --include='*.md' --include='*.txt' --include='*.properties' | head -n 1800 || true
-          echo '--- status mapping hits ---'
-          grep -RniE -C 4 'skipped|cancelled|failure|failed|conclusion|status|workflow|job|step' "$RUNNER_TEMP/forge-probe/app/src/main/java/sh/swrlz/nodehost/forge" --include='*.kt' | head -n 700 || true
-      - name: Upload Forge source probe
+          grep -RniE -C 3 'R153|276|versionCode|versionName|SWRLZ_REVISION|SWRLZ_PATCH_ID|parent|revision|lineage|accounting' "$RUNNER_TEMP/successor-controls" \
+            --include='*.kt' --include='*.kts' --include='*.json' --include='*.md' --include='*.txt' --include='*.properties' | head -n 2400 || true
+      - name: Upload exact successor controls
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: forge-ui-status-source-r153-v2
-          path: ${{ runner.temp }}/forge-probe
+          name: forge-ui-r153-successor-controls
+          path: ${{ runner.temp }}/successor-controls
           if-no-files-found: error
           retention-days: 1
           compression-level: 6
