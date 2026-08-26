@@ -1,0 +1,5 @@
+a0d27d8d95f243858401358367babfa1e7d58ff7370ab73c4b1befbf5027d7b5  swrlz-core/.phase5d-carrier/build_swrlz_component.sh.txt
+47b522df3c3ce88a345631c074afee233375575f70bbcbf25a60277abea9be47  swrlz-core/.phase5d-carrier/swrlz-apk-router.yml.txt
+b6645ec710f0ffb3542d26e000d98cb24d261a4b7c9ce01c659160076c96380f  swrlz-core/.phase5d-carrier/swrlz-ci-tooling-validation.yml.txt
+b1f551dd5aa5aae8f051a03483650e235c55a2f985be588b284e98ead3c70500  swrlz-core/.phase5d-carrier/test_build_swrlz_component.py.txt
+e2161fb2a7a4f70979ee085403e04d2e1de1361293eb8b4687d7172fc95336ea  swrlz-core/.phase5d-carrier/test_workflow_phase5_contract.py.txt

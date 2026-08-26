@@ -1,0 +1,806 @@
+name: SWRLZ APK Router — CLIENT / SERVER
+
+on:
+  workflow_dispatch:
+    inputs:
+      component:
+        description: Android source lane to build
+        required: true
+        type: choice
+        options:
+          - CLIENT
+          - SERVER
+          - BOTH
+      source_zip:
+        description: Optional explicit lane-root source identity (.zip or .transport.json); single-component dispatch only
+        required: false
+        default: ""
+        type: string
+      build_variant:
+        description: Android build variant
+        required: true
+        default: debug
+        type: choice
+        options:
+          - debug
+          - release
+      commit_release_artifacts:
+        description: Commit built files and latest-component manifest to swrlz-core/releases (single component only)
+        required: true
+        default: false
+        type: boolean
+
+  push:
+    branches:
+      - main
+    paths:
+      - 'swrlz-core/sources/client/*.zip'
+      - 'swrlz-core/sources/client/*.transport.json'
+      - 'swrlz-core/sources/client/*.sha256'
+      - 'swrlz-core/sources/client/*.sha'
+      - 'swrlz-core/sources/client/*.txt'
+      - 'swrlz-core/sources/client/*.manifest.json'
+      - 'swrlz-core/sources/client/.transport/**'
+      - 'swrlz-core/sources/server/*.zip'
+      - 'swrlz-core/sources/server/*.transport.json'
+      - 'swrlz-core/sources/server/*.sha256'
+      - 'swrlz-core/sources/server/*.sha'
+      - 'swrlz-core/sources/server/*.txt'
+      - 'swrlz-core/sources/server/*.manifest.json'
+      - 'swrlz-core/sources/server/.transport/**'
+      - 'swrlz-core/requests/000_CURRENT.request'
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  SWRLZ_CI_ROOT: swrlz-core/tools/ci
+  SWRLZ_REQUEST_FILE: swrlz-core/requests/000_CURRENT.request
+  SWRLZ_STABLE_SIGNING_REQUIRED: 'true'
+  SWRLZ_EXPECTED_KEYSTORE_SHA256: 'c81cacdb07b0885c9f503b2ca36eccd64a46415940d50e5a97d0a89741069590'
+  SWRLZ_EXPECTED_SIGNING_SHA1: '9D:AE:D1:BC:66:4E:15:81:A8:79:14:22:FE:95:CE:9B:6F:83:71:36'
+  SWRLZ_EXPECTED_SIGNING_SHA256: 'E4:7B:54:3B:EB:66:48:F1:35:37:95:62:48:68:59:E4:CE:EB:93:4A:63:43:E5:B9:3F:04:D0:6B:8C:6C:50:DA'
+
+jobs:
+  prepare:
+    name: Determine component and source route
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      matrix: ${{ steps.checkout-plan.outputs.matrix }}
+      has_work: ${{ steps.route.outputs.has_work }}
+      build_variant: ${{ steps.route.outputs.build_variant }}
+    steps:
+      - name: Sparse partial checkout for route resolution
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 2
+          filter: blob:none
+          persist-credentials: false
+          sparse-checkout: |
+            swrlz-core/tools/ci
+            swrlz-core/requests
+
+      - name: Resolve manual, source-path, or request route
+        id: route
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+          MANUAL_COMPONENT: ${{ inputs.component || '' }}
+          MANUAL_SOURCE_IDENTITY: ${{ inputs.source_zip || '' }}
+          MANUAL_VARIANT: ${{ inputs.build_variant || 'debug' }}
+          MANUAL_COMMIT_RELEASE: ${{ inputs.commit_release_artifacts || false }}
+          REQUEST_FILE: swrlz-core/requests/000_CURRENT.request
+        run: |
+          set -euo pipefail
+          python3 "$SWRLZ_CI_ROOT/plan_swrlz_build_route.py"
+
+      - name: Plan one-pass candidate hydration
+        id: checkout-plan
+        env:
+          ROUTE_MATRIX: ${{ steps.route.outputs.matrix }}
+        run: |
+          set -euo pipefail
+          python3 "$SWRLZ_CI_ROOT/plan_swrlz_candidate_checkout.py" \
+            --matrix-json "$ROUTE_MATRIX" \
+            --ref "$GITHUB_SHA" \
+            --github-output "$GITHUB_OUTPUT"
+
+  build:
+    name: Build ${{ matrix.component }} APK
+    needs: prepare
+    if: needs.prepare.outputs.has_work == 'true'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      attestations: write
+      id-token: write
+    outputs:
+      component: ${{ steps.artifact-meta.outputs.component }}
+      artifact_name: ${{ steps.artifact-meta.outputs.artifact_name }}
+      canonical_stem: ${{ steps.artifact-meta.outputs.canonical_stem }}
+      source_identity: ${{ steps.artifact-meta.outputs.source_identity }}
+      source_sha256: ${{ steps.resolve.outputs.source_sha256 }}
+      signing_mode: ${{ steps.signing.outputs.signing_mode }}
+      signing_cert_sha1: ${{ steps.signing.outputs.cert_sha1 }}
+      signing_cert_sha256: ${{ steps.signing.outputs.cert_sha256 }}
+      signing_keystore_sha256: ${{ steps.signing.outputs.keystore_sha256 }}
+      canonical_apks: ${{ steps.signing.outputs.canonical_apks }}
+      variant: ${{ needs.prepare.outputs.build_variant }}
+    concurrency:
+      group: swrlz-apk-router-${{ github.ref }}-${{ matrix.component }}
+      cancel-in-progress: false
+      queue: max
+
+    steps:
+      - name: Start source hydration timer
+        run: |
+          echo "SWRLZ_HYDRATION_STARTED_MS=$(date +%s%3N)" >> "$GITHUB_ENV"
+
+      - name: Hydrate ${{ matrix.component }} source · ${{ matrix.source_size_label }}
+        id: hydrate-source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 1
+          filter: blob:none
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: ${{ matrix.checkout_patterns }}
+
+      - name: Record source hydration timing
+        id: hydration
+        run: |
+          set -euo pipefail
+          END_MS="$(date +%s%3N)"
+          ELAPSED_MS=$((END_MS - SWRLZ_HYDRATION_STARTED_MS))
+          echo "source_hydration_ms=$ELAPSED_MS" >> "$GITHUB_OUTPUT"
+          {
+            echo "## ${{ matrix.component }} source hydration"
+            echo
+            echo "- Mode: `${{ matrix.checkout_mode }}`"
+            echo "- Payload: `${{ matrix.source_size_label }}`"
+            echo "- Transport chunks: `${{ matrix.source_chunk_count }}`"
+            echo "- Hydration duration: `${ELAPSED_MS} ms`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Resolve canonical source and checksum
+        id: resolve
+        env:
+          COMPONENT: ${{ matrix.component }}
+          SOURCE_IDENTITY: ${{ matrix.source_identity }}
+        run: |
+          set -euo pipefail
+          SOURCE_ARGUMENTS=()
+          if [[ -n "$SOURCE_IDENTITY" ]]; then
+            SOURCE_ARGUMENTS+=(--source-zip "$SOURCE_IDENTITY")
+          fi
+          python3 "$SWRLZ_CI_ROOT/resolve_swrlz_source.py" \
+            --component "$COMPONENT" \
+            --work-dir "$RUNNER_TEMP/swrlz-source-resolver/$COMPONENT" \
+            --github-output "$GITHUB_OUTPUT" \
+            "${SOURCE_ARGUMENTS[@]}"
+
+      - name: Verify selected source package
+        id: package-verify
+        run: |
+          set -euo pipefail
+          VERIFY_ARGS=("${{ steps.resolve.outputs.selected_source }}")
+          if [[ -n "${{ steps.resolve.outputs.checksum_file }}" ]]; then
+            VERIFY_ARGS+=(--checksum "${{ steps.resolve.outputs.checksum_file }}")
+          fi
+          if [[ -n "${{ steps.resolve.outputs.manifest_file }}" ]]; then
+            VERIFY_ARGS+=(--manifest "${{ steps.resolve.outputs.manifest_file }}")
+          fi
+          python3 "$SWRLZ_CI_ROOT/verify_swrlz_package_pair.py" "${VERIFY_ARGS[@]}"
+
+      - name: Define immutable artifact identity
+        id: artifact-meta
+        env:
+          COMPONENT: ${{ matrix.component }}
+          SOURCE_IDENTITY: ${{ matrix.source_identity }}
+          UPLOADED_FILENAME: ${{ steps.resolve.outputs.uploaded_filename }}
+          CANONICAL_STEM: ${{ steps.resolve.outputs.canonical_stem }}
+          VARIANT: ${{ needs.prepare.outputs.build_variant }}
+        run: |
+          set -euo pipefail
+          SOURCE_REFERENCE="$SOURCE_IDENTITY"
+          [[ -n "$SOURCE_REFERENCE" ]] || SOURCE_REFERENCE="$UPLOADED_FILENAME"
+          {
+            echo "component=$COMPONENT"
+            echo "source_identity=$SOURCE_REFERENCE"
+            echo "canonical_stem=$CANONICAL_STEM"
+            echo "artifact_name=${CANONICAL_STEM}_${VARIANT}_APK"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Start Java 17 tooling timer
+        run: echo "SWRLZ_JAVA_SETUP_STARTED_MS=$(date +%s%3N)" >> "$GITHUB_ENV"
+
+      - name: Validate preinstalled Java 17
+        id: java
+        run: |
+          set -euo pipefail
+          JDK_DIR="${JAVA_HOME_17_X64:-}"
+          [[ -n "$JDK_DIR" && -x "$JDK_DIR/bin/java" && -x "$JDK_DIR/bin/javac" && -x "$JDK_DIR/bin/keytool" ]] || {
+            echo 'Pinned Ubuntu 24.04 runner does not expose a complete JAVA_HOME_17_X64 toolchain.' >&2
+            exit 1
+          }
+          SPEC="$("$JDK_DIR/bin/java" -XshowSettings:properties -version 2>&1 | awk -F'= ' '/java.specification.version/{print $2; exit}')"
+          [[ "$SPEC" == '17' ]] || {
+            echo "Expected Java 17, found specification version: ${SPEC:-unknown}" >&2
+            exit 1
+          }
+          echo "JAVA_HOME=$JDK_DIR" >> "$GITHUB_ENV"
+          echo "$JDK_DIR/bin" >> "$GITHUB_PATH"
+          END_MS="$(date +%s%3N)"
+          ELAPSED_MS=$((END_MS - SWRLZ_JAVA_SETUP_STARTED_MS))
+          echo "java_setup_ms=$ELAPSED_MS" >> "$GITHUB_OUTPUT"
+          echo "Java 17 tooling: ${ELAPSED_MS} ms · preinstalled pinned-runner fast path" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Validate V2 stable signing configuration
+        env:
+          SWRLZ_DEV_KEYSTORE_BASE64: ${{ secrets.SWRLZ_DEV_KEYSTORE_BASE64 }}
+          SWRLZ_DEV_KEYSTORE_PASSWORD: ${{ secrets.SWRLZ_DEV_KEYSTORE_PASSWORD }}
+          SWRLZ_DEV_KEY_ALIAS: ${{ secrets.SWRLZ_DEV_KEY_ALIAS }}
+          SWRLZ_DEV_KEY_PASSWORD: ${{ secrets.SWRLZ_DEV_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          PRESENT=0
+          for value in \
+            "$SWRLZ_DEV_KEYSTORE_BASE64" \
+            "$SWRLZ_DEV_KEYSTORE_PASSWORD" \
+            "$SWRLZ_DEV_KEY_ALIAS" \
+            "$SWRLZ_DEV_KEY_PASSWORD"; do
+            [[ -n "$value" ]] && PRESENT=$((PRESENT + 1))
+          done
+
+          if [[ "${SWRLZ_STABLE_SIGNING_REQUIRED,,}" == 'true' && "$PRESENT" -ne 4 ]]; then
+            echo "Stable signing is mandatory for SWRLZ APK Router; found $PRESENT/4 required secrets." >&2
+            exit 1
+          fi
+          if [[ "$PRESENT" -ne 0 && "$PRESENT" -ne 4 ]]; then
+            echo "Stable signing secrets are partially configured ($PRESENT/4); refusing transient fallback." >&2
+            exit 1
+          fi
+
+          KEYSTORE="$RUNNER_TEMP/swrlz-dev-signing.jks"
+          printf '%s' "$SWRLZ_DEV_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
+          chmod 600 "$KEYSTORE"
+          [[ -s "$KEYSTORE" ]] || {
+            echo 'Decoded stable signing keystore is empty.' >&2
+            exit 1
+          }
+
+          ACTUAL_KEYSTORE_SHA256="$(sha256sum "$KEYSTORE" | awk '{print $1}')"
+          if [[ "$ACTUAL_KEYSTORE_SHA256" != "$SWRLZ_EXPECTED_KEYSTORE_SHA256" ]]; then
+            echo 'Decoded keystore does not match the pinned SWRLZ V2 keystore.' >&2
+            echo "Expected keystore SHA-256: $SWRLZ_EXPECTED_KEYSTORE_SHA256" >&2
+            echo "Actual keystore SHA-256:   $ACTUAL_KEYSTORE_SHA256" >&2
+            exit 1
+          fi
+
+          keytool -list \
+            -keystore "$KEYSTORE" \
+            -storepass "$SWRLZ_DEV_KEYSTORE_PASSWORD" \
+            -alias "$SWRLZ_DEV_KEY_ALIAS" >/dev/null
+
+          PROBE_STORE="$RUNNER_TEMP/swrlz-signing-private-key-probe.p12"
+          PROBE_PASSWORD="swrlz-ci-probe-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          rm -f "$PROBE_STORE"
+          keytool -importkeystore \
+            -srckeystore "$KEYSTORE" \
+            -srcstoretype JKS \
+            -srcstorepass "$SWRLZ_DEV_KEYSTORE_PASSWORD" \
+            -srcalias "$SWRLZ_DEV_KEY_ALIAS" \
+            -srckeypass "$SWRLZ_DEV_KEYSTORE_PASSWORD" \
+            -destkeystore "$PROBE_STORE" \
+            -deststoretype PKCS12 \
+            -deststorepass "$PROBE_PASSWORD" \
+            -destkeypass "$PROBE_PASSWORD" \
+            -noprompt >/dev/null
+          rm -f "$PROBE_STORE"
+
+          if [[ "$SWRLZ_DEV_KEY_PASSWORD" != "$SWRLZ_DEV_KEYSTORE_PASSWORD" ]]; then
+            echo '::warning::SWRLZ_DEV_KEY_PASSWORD differs from the V2 store password. V2 signing ignores the legacy key-password value and uses the validated store password for the private key.'
+          fi
+
+          echo "V2 stable signing preflight passed. Keystore SHA-256: $ACTUAL_KEYSTORE_SHA256"
+
+      - name: Start Gradle wrapper/cache timer
+        run: echo "SWRLZ_GRADLE_SETUP_STARTED_MS=$(date +%s%3N)" >> "$GITHUB_ENV"
+
+      - name: Set up Gradle wrapper cache
+        id: setup-gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        with:
+          cache-cleanup: on-success
+
+      - name: Record Gradle wrapper/cache timing
+        id: gradle-setup-timing
+        run: |
+          set -euo pipefail
+          END_MS="$(date +%s%3N)"
+          ELAPSED_MS=$((END_MS - SWRLZ_GRADLE_SETUP_STARTED_MS))
+          echo "gradle_setup_ms=$ELAPSED_MS" >> "$GITHUB_OUTPUT"
+          echo "Gradle wrapper/cache setup: ${ELAPSED_MS} ms" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Start Android SDK tooling timer
+        run: echo "SWRLZ_ANDROID_SDK_STARTED_MS=$(date +%s%3N)" >> "$GITHUB_ENV"
+
+      - name: Inspect preinstalled Android SDK
+        id: android-sdk-preflight
+        run: |
+          set -euo pipefail
+          SDK_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          FALLBACK_REQUIRED=false
+          if [[ -z "$SDK_DIR" || ! -d "$SDK_DIR" ]]; then
+            FALLBACK_REQUIRED=true
+          else
+            APKSIGNER="$(find "$SDK_DIR/build-tools" -mindepth 2 -maxdepth 2 -type f -name apksigner -print 2>/dev/null | sort -V | tail -n 1 || true)"
+            ZIPALIGN="$(find "$SDK_DIR/build-tools" -mindepth 2 -maxdepth 2 -type f -name zipalign -print 2>/dev/null | sort -V | tail -n 1 || true)"
+            [[ -n "$APKSIGNER" && -x "$APKSIGNER" && -n "$ZIPALIGN" && -x "$ZIPALIGN" ]] || FALLBACK_REQUIRED=true
+          fi
+          echo "fallback_required=$FALLBACK_REQUIRED" >> "$GITHUB_OUTPUT"
+          if [[ "$FALLBACK_REQUIRED" == 'false' ]]; then
+            echo 'Android SDK fast path: using tools already present on the pinned Ubuntu 24.04 runner.'
+          else
+            echo '::notice::Pinned runner Android SDK is incomplete; invoking the setup-android fallback.'
+          fi
+
+      - name: Set up Android SDK tooling fallback
+        id: setup-android
+        if: steps.android-sdk-preflight.outputs.fallback_required == 'true'
+        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4
+        with:
+          packages: 'platform-tools build-tools;35.0.0'
+
+      - name: Validate Android SDK tooling
+        id: android-sdk
+        run: |
+          set -euo pipefail
+          SDK_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          [[ -n "$SDK_DIR" && -d "$SDK_DIR" ]] || {
+            echo 'Android SDK root is unavailable after preflight/fallback.' >&2
+            exit 1
+          }
+          APKSIGNER="$(find "$SDK_DIR/build-tools" -mindepth 2 -maxdepth 2 -type f -name apksigner -print 2>/dev/null | sort -V | tail -n 1 || true)"
+          ZIPALIGN="$(find "$SDK_DIR/build-tools" -mindepth 2 -maxdepth 2 -type f -name zipalign -print 2>/dev/null | sort -V | tail -n 1 || true)"
+          [[ -n "$APKSIGNER" && -x "$APKSIGNER" ]] || { echo 'apksigner not found in Android build-tools.' >&2; exit 1; }
+          [[ -n "$ZIPALIGN" && -x "$ZIPALIGN" ]] || { echo 'zipalign not found in Android build-tools.' >&2; exit 1; }
+          END_MS="$(date +%s%3N)"
+          ELAPSED_MS=$((END_MS - SWRLZ_ANDROID_SDK_STARTED_MS))
+          {
+            echo "sdk_dir=$SDK_DIR"
+            echo "apksigner=$APKSIGNER"
+            echo "zipalign=$ZIPALIGN"
+            echo "android_sdk_setup_ms=$ELAPSED_MS"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "Android SDK tooling: ${ELAPSED_MS} ms"
+            echo "Android SDK root: \`$SDK_DIR\`"
+            echo "Android SDK fallback used: \`${{ steps.android-sdk-preflight.outputs.fallback_required }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Build selected Android component
+        id: build
+        env:
+          COMPONENT: ${{ matrix.component }}
+          SOURCE_ZIP: ${{ steps.resolve.outputs.selected_source }}
+          CANONICAL_STEM: ${{ steps.resolve.outputs.canonical_stem }}
+          VARIANT: ${{ needs.prepare.outputs.build_variant }}
+          SWRLZ_VERIFIED_SOURCE_SHA256: ${{ steps.resolve.outputs.source_sha256 }}
+          SWRLZ_SOURCE_HYDRATION_MS: ${{ steps.hydration.outputs.source_hydration_ms }}
+          SWRLZ_JAVA_SETUP_MS: ${{ steps.java.outputs.java_setup_ms }}
+          SWRLZ_GRADLE_SETUP_MS: ${{ steps.gradle-setup-timing.outputs.gradle_setup_ms }}
+          SWRLZ_ANDROID_SDK_SETUP_MS: ${{ steps.android-sdk.outputs.android_sdk_setup_ms }}
+          SWRLZ_BUILD_WORK_DIR: ${{ runner.temp }}/swrlz-build/router
+          SWRLZ_ARTIFACT_ROOT: ${{ runner.temp }}/swrlz-artifacts/router
+        run: |
+          set -euo pipefail
+          bash "$SWRLZ_CI_ROOT/build_swrlz_component.sh" \
+            "$COMPONENT" "$SOURCE_ZIP" "$CANONICAL_STEM" "$VARIANT" \
+            "$SWRLZ_BUILD_WORK_DIR/$COMPONENT" \
+            "$SWRLZ_ARTIFACT_ROOT/$COMPONENT"
+
+      - name: Apply mandatory stable development signing
+        id: signing
+        env:
+          ARTIFACT_DIR: ${{ steps.build.outputs.artifact_dir }}
+          SWRLZ_DEV_KEYSTORE_PASSWORD: ${{ secrets.SWRLZ_DEV_KEYSTORE_PASSWORD }}
+          SWRLZ_DEV_KEY_ALIAS: ${{ secrets.SWRLZ_DEV_KEY_ALIAS }}
+          APKSIGNER: ${{ steps.android-sdk.outputs.apksigner }}
+          ZIPALIGN: ${{ steps.android-sdk.outputs.zipalign }}
+        run: |
+          set -euo pipefail
+
+          KEYSTORE="$RUNNER_TEMP/swrlz-dev-signing.jks"
+          [[ -s "$KEYSTORE" ]] || {
+            echo 'Validated V2 keystore is missing from runner temp.' >&2
+            exit 1
+          }
+
+          ACTUAL_KEYSTORE_SHA256="$(sha256sum "$KEYSTORE" | awk '{print $1}')"
+          [[ "$ACTUAL_KEYSTORE_SHA256" == "$SWRLZ_EXPECTED_KEYSTORE_SHA256" ]] || {
+            echo 'Validated V2 keystore changed after preflight.' >&2
+            exit 1
+          }
+
+          [[ -n "$APKSIGNER" && -x "$APKSIGNER" && -n "$ZIPALIGN" && -x "$ZIPALIGN" ]] || {
+            echo 'Validated apksigner/zipalign paths are unavailable.' >&2
+            exit 1
+          }
+
+          mapfile -t APKS < <(
+            find "$ARTIFACT_DIR" -maxdepth 1 -type f -name '*.apk' \
+              ! -name '*_stable-signed.apk' -print | sort
+          )
+          ((${#APKS[@]} > 0)) || {
+            echo 'No APK was produced for stable signing.' >&2
+            exit 1
+          }
+
+          CERT_SHA1=''
+          CERT_SHA256=''
+          CANONICAL_APKS=()
+
+          normalize_digest() {
+            printf '%s' "$1" \
+              | tr -d '[:space:]:' \
+              | tr '[:lower:]' '[:upper:]' \
+              | sed 's/../&:/g; s/:$//'
+          }
+
+          for APK in "${APKS[@]}"; do
+            BASE="${APK%.apk}"
+            ALIGNED="${BASE}_aligned.apk"
+            SIGNED="${BASE}_stable-signed.apk"
+            VERIFY_LOG="${SIGNED}.apksigner.txt"
+
+            "$ZIPALIGN" -f -p 4 "$APK" "$ALIGNED"
+            "$APKSIGNER" sign \
+              --ks "$KEYSTORE" \
+              --ks-pass "pass:$SWRLZ_DEV_KEYSTORE_PASSWORD" \
+              --ks-key-alias "$SWRLZ_DEV_KEY_ALIAS" \
+              --key-pass "pass:$SWRLZ_DEV_KEYSTORE_PASSWORD" \
+              --out "$SIGNED" "$ALIGNED"
+
+            "$APKSIGNER" verify --verbose --print-certs "$SIGNED" | tee "$VERIFY_LOG"
+
+            THIS_SHA1_RAW="$(awk -F'certificate SHA-1 digest: ' 'NF > 1 {print $2; exit}' "$VERIFY_LOG")"
+            THIS_SHA256_RAW="$(awk -F'certificate SHA-256 digest: ' 'NF > 1 {print $2; exit}' "$VERIFY_LOG")"
+            [[ -n "$THIS_SHA1_RAW" && -n "$THIS_SHA256_RAW" ]] || {
+              echo "Unable to extract signing certificate digests from apksigner for $SIGNED" >&2
+              exit 1
+            }
+            THIS_SHA1="$(normalize_digest "$THIS_SHA1_RAW")"
+            THIS_SHA256="$(normalize_digest "$THIS_SHA256_RAW")"
+
+            if [[ -z "$CERT_SHA1" ]]; then
+              CERT_SHA1="$THIS_SHA1"
+              CERT_SHA256="$THIS_SHA256"
+            elif [[ "$CERT_SHA1" != "$THIS_SHA1" || "$CERT_SHA256" != "$THIS_SHA256" ]]; then
+              echo 'Stable-signed APK certificate fingerprints do not match within the same build.' >&2
+              exit 1
+            fi
+
+            sha256sum "$SIGNED" > "$SIGNED.sha256"
+            CANONICAL_APKS+=("$(basename "$SIGNED")")
+
+            rm -f \
+              "$APK" "$APK.sha256" "$APK.sha" "$APK.idsig" \
+              "$ALIGNED" "$ALIGNED.sha256" "$ALIGNED.sha" "$ALIGNED.idsig"
+          done
+
+          if [[ "$CERT_SHA1" != "$SWRLZ_EXPECTED_SIGNING_SHA1" || "$CERT_SHA256" != "$SWRLZ_EXPECTED_SIGNING_SHA256" ]]; then
+            echo 'Stable signing certificate does not match the pinned SWRLZ certificate.' >&2
+            echo "Expected SHA-1: $SWRLZ_EXPECTED_SIGNING_SHA1" >&2
+            echo "Actual SHA-1:   $CERT_SHA1" >&2
+            echo "Expected SHA-256: $SWRLZ_EXPECTED_SIGNING_SHA256" >&2
+            echo "Actual SHA-256:   $CERT_SHA256" >&2
+            exit 1
+          fi
+
+          mapfile -t TRANSIENT_APKS < <(
+            find "$ARTIFACT_DIR" -maxdepth 1 -type f -name '*.apk' \
+              ! -name '*_stable-signed.apk' -print | sort
+          )
+          if ((${#TRANSIENT_APKS[@]} > 0)); then
+            printf 'Transient APK unexpectedly remained: %s\n' "${TRANSIENT_APKS[@]}" >&2
+            exit 1
+          fi
+
+          SIGNING_MODE='stable-dev-signing-v2-active'
+          CANONICAL_APKS_CSV="$(IFS=,; echo "${CANONICAL_APKS[*]}")"
+          printf '%s\n' "$SIGNING_MODE" > "$ARTIFACT_DIR/SWRLZ_SIGNING_MODE.txt"
+          printf '%s\n' "$CERT_SHA1" > "$ARTIFACT_DIR/SWRLZ_SIGNING_CERT_SHA1.txt"
+          printf '%s\n' "$CERT_SHA256" > "$ARTIFACT_DIR/SWRLZ_SIGNING_CERT_SHA256.txt"
+          printf '%s\n' "$ACTUAL_KEYSTORE_SHA256" > "$ARTIFACT_DIR/SWRLZ_SIGNING_KEYSTORE_SHA256.txt"
+
+          export SIGNING_MODE CERT_SHA1 CERT_SHA256 CANONICAL_APKS_CSV ARTIFACT_DIR ACTUAL_KEYSTORE_SHA256
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+
+          artifact_dir = Path(os.environ["ARTIFACT_DIR"])
+          payload = {
+              "schema": 2,
+              "signing_mode": os.environ["SIGNING_MODE"],
+              "keystore_sha256": os.environ["ACTUAL_KEYSTORE_SHA256"],
+              "certificate_sha1": os.environ["CERT_SHA1"],
+              "certificate_sha256": os.environ["CERT_SHA256"],
+              "canonical_apks": [
+                  name for name in os.environ["CANONICAL_APKS_CSV"].split(",") if name
+              ],
+              "verification": "apksigner verify --verbose --print-certs",
+          }
+          (artifact_dir / "SWRLZ_SIGNING_PROVENANCE.json").write_text(
+              json.dumps(payload, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+          sha256sum "$ARTIFACT_DIR/SWRLZ_SIGNING_PROVENANCE.json" \
+            > "$ARTIFACT_DIR/SWRLZ_SIGNING_PROVENANCE.json.sha256"
+
+          {
+            echo "signing_mode=$SIGNING_MODE"
+            echo "cert_sha1=$CERT_SHA1"
+            echo "cert_sha256=$CERT_SHA256"
+            echo "keystore_sha256=$ACTUAL_KEYSTORE_SHA256"
+            echo "canonical_apks=$CANONICAL_APKS_CSV"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Record source, timing, and signing provenance
+        env:
+          ARTIFACT_DIR: ${{ steps.build.outputs.artifact_dir }}
+          RESOLUTION_JSON: ${{ steps.resolve.outputs.resolution_json }}
+        run: |
+          set -euo pipefail
+          printf '%s\n' "$RESOLUTION_JSON" > "$ARTIFACT_DIR/SOURCE_RESOLUTION.json"
+          sha256sum "$ARTIFACT_DIR/SOURCE_RESOLUTION.json" > "$ARTIFACT_DIR/SOURCE_RESOLUTION.json.sha256"
+          {
+            echo "## ${{ matrix.component }} source resolution"
+            echo
+            echo "- Uploaded filename: \`${{ steps.resolve.outputs.uploaded_filename }}\`"
+            echo "- Canonical filename: \`${{ steps.resolve.outputs.canonical_filename }}\`"
+            echo "- Source SHA-256: \`${{ steps.resolve.outputs.source_sha256 }}\`"
+            echo "- Source kind: \`${{ steps.resolve.outputs.source_kind }}\`"
+            echo "- Checkout identity: \`${{ matrix.source_identity || 'full-lane fallback' }}\`"
+            echo "- Checksum file: \`${{ steps.resolve.outputs.checksum_file || 'none supplied' }}\`"
+            echo "- Manifest file: \`${{ steps.resolve.outputs.manifest_file || 'none supplied' }}\`"
+            echo "- Transport manifest: \`${{ steps.resolve.outputs.transport_manifest || 'direct ZIP' }}\`"
+            echo "- Patch/lineage accounting: \`diagnostic only — non-blocking\`"
+            echo "- Planned source payload: `${{ matrix.source_size_label }}`"
+            echo "- Source transport chunks: `${{ matrix.source_chunk_count }}`"
+            echo "- Source hydration: `${{ steps.hydration.outputs.source_hydration_ms }} ms`"
+            echo "- Java 17 tooling: \`${{ steps.java.outputs.java_setup_ms }} ms\`"
+            echo "- Gradle wrapper/cache setup: \`${{ steps.gradle-setup-timing.outputs.gradle_setup_ms }} ms\`"
+            echo "- Android SDK tooling: \`${{ steps.android-sdk.outputs.android_sdk_setup_ms }} ms\`"
+            echo "- Source extraction: \`${{ steps.build.outputs.extract_ms }} ms\`"
+            echo "- Gradle execution: \`${{ steps.build.outputs.gradle_ms }} ms\`"
+            echo "- Build helper total: \`${{ steps.build.outputs.build_helper_total_ms }} ms\`"
+            echo "- Signing mode: \`${{ steps.signing.outputs.signing_mode }}\`"
+            echo "- V2 keystore SHA-256: \`${{ steps.signing.outputs.keystore_sha256 }}\`"
+            echo "- Canonical APK(s): \`${{ steps.signing.outputs.canonical_apks }}\`"
+            echo "- Signing certificate SHA-1: \`${{ steps.signing.outputs.cert_sha1 }}\`"
+            echo "- Signing certificate SHA-256: \`${{ steps.signing.outputs.cert_sha256 }}\`"
+            echo "- APK verification: \`apksigner verify --verbose --print-certs\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload canonical stable APK and provenance artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ${{ steps.artifact-meta.outputs.artifact_name }}
+          path: ${{ steps.build.outputs.artifact_dir }}/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
+      - name: Attest canonical stable APK provenance
+        id: attest
+        continue-on-error: true
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: '${{ steps.build.outputs.artifact_dir }}/*_stable-signed.apk'
+
+      - name: Collect failed-build diagnostics
+        if: failure()
+        id: failure-diagnostics
+        env:
+          COMPONENT: ${{ matrix.component }}
+          SOURCE_IDENTITY: ${{ matrix.source_identity }}
+          SOURCE_SHA256: ${{ steps.resolve.outputs.source_sha256 }}
+          CANONICAL_STEM: ${{ steps.resolve.outputs.canonical_stem }}
+          SOURCE_SIZE_BYTES: ${{ matrix.source_size_bytes }}
+          SOURCE_CHUNK_COUNT: ${{ matrix.source_chunk_count }}
+          HYDRATE_OUTCOME: ${{ steps.hydrate-source.outcome }}
+          HYDRATION_MS: ${{ steps.hydration.outputs.source_hydration_ms }}
+          RESOLVE_OUTCOME: ${{ steps.resolve.outcome }}
+          PACKAGE_VERIFY_OUTCOME: ${{ steps.package-verify.outcome }}
+          JAVA_OUTCOME: ${{ steps.java.outcome }}
+          GRADLE_SETUP_OUTCOME: ${{ steps.setup-gradle.outcome }}
+          ANDROID_SETUP_OUTCOME: ${{ steps.setup-android.outcome }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+          SIGNING_OUTCOME: ${{ steps.signing.outcome }}
+        run: |
+          set -uo pipefail
+          DIAG="$RUNNER_TEMP/swrlz-failure/$COMPONENT"
+          mkdir -p "$DIAG"
+          BUILD_DIR="$RUNNER_TEMP/swrlz-artifacts/router/$COMPONENT"
+          if [[ -d "$BUILD_DIR" ]]; then cp -a "$BUILD_DIR"/. "$DIAG"/ 2>/dev/null || true; fi
+          RESOLVER_DIR="$RUNNER_TEMP/swrlz-source-resolver/$COMPONENT"
+          if [[ -d "$RESOLVER_DIR" ]]; then
+            while IFS= read -r file; do
+              cp "$file" "$DIAG/resolver_$(basename "$file")" 2>/dev/null || true
+            done < <(find "$RESOLVER_DIR" -maxdepth 3 -type f \
+              \( -name '*.json' -o -name '*.txt' -o -name '*.log' \) -print 2>/dev/null | sort)
+          fi
+          export DIAG COMPONENT SOURCE_IDENTITY SOURCE_SHA256 CANONICAL_STEM SOURCE_SIZE_BYTES SOURCE_CHUNK_COUNT \
+            HYDRATE_OUTCOME HYDRATION_MS RESOLVE_OUTCOME PACKAGE_VERIFY_OUTCOME JAVA_OUTCOME \
+            GRADLE_SETUP_OUTCOME ANDROID_SETUP_OUTCOME BUILD_OUTCOME SIGNING_OUTCOME
+          python3 - <<'PYFAIL'
+          import json, os
+          from pathlib import Path
+          outcomes = {
+              'source_hydration': os.environ.get('HYDRATE_OUTCOME', ''),
+              'source_resolution': os.environ.get('RESOLVE_OUTCOME', ''),
+              'package_verification': os.environ.get('PACKAGE_VERIFY_OUTCOME', ''),
+              'java_setup': os.environ.get('JAVA_OUTCOME', ''),
+              'gradle_setup': os.environ.get('GRADLE_SETUP_OUTCOME', ''),
+              'android_setup': os.environ.get('ANDROID_SETUP_OUTCOME', ''),
+              'gradle_build': os.environ.get('BUILD_OUTCOME', ''),
+              'stable_signing': os.environ.get('SIGNING_OUTCOME', ''),
+          }
+          failed_stage = next((stage for stage, outcome in outcomes.items() if outcome == 'failure'), 'unknown')
+          def number(name):
+              value = os.environ.get(name, '')
+              return int(value) if value.isdigit() else None
+          payload = {
+              'schema': 2,
+              'component': os.environ.get('COMPONENT', ''),
+              'source_identity': os.environ.get('SOURCE_IDENTITY', ''),
+              'source_sha256': os.environ.get('SOURCE_SHA256', ''),
+              'canonical_stem': os.environ.get('CANONICAL_STEM', ''),
+              'source_size_bytes': number('SOURCE_SIZE_BYTES'),
+              'source_chunk_count': number('SOURCE_CHUNK_COUNT'),
+              'source_hydration_ms': number('HYDRATION_MS'),
+              'failed_stage': failed_stage,
+              'step_outcomes': outcomes,
+              'repository': os.environ.get('GITHUB_REPOSITORY', ''),
+              'commit': os.environ.get('GITHUB_SHA', ''),
+              'run_id': os.environ.get('GITHUB_RUN_ID', ''),
+              'run_attempt': os.environ.get('GITHUB_RUN_ATTEMPT', ''),
+              'workflow': os.environ.get('GITHUB_WORKFLOW', ''),
+          }
+          target = Path(os.environ['DIAG']) / 'FORGE_FAILURE_CONTEXT.json'
+          target.write_text(json.dumps(payload, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          PYFAIL
+          sha256sum "$DIAG/FORGE_FAILURE_CONTEXT.json" > "$DIAG/FORGE_FAILURE_CONTEXT.json.sha256"
+          echo "diagnostic_dir=$DIAG" >> "$GITHUB_OUTPUT"
+
+      - name: Upload failed-build diagnostic bundle
+        if: failure() && steps.failure-diagnostics.outputs.diagnostic_dir != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ${{ matrix.component }}_FORGE_FAILURE_${{ github.run_id }}_${{ github.run_attempt }}
+          path: ${{ steps.failure-diagnostics.outputs.diagnostic_dir }}/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 6
+
+  publish-release:
+    name: Publish requested release artifact
+    needs: [prepare, build]
+    if: github.event_name == 'workflow_dispatch' && inputs.commit_release_artifacts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    concurrency:
+      group: swrlz-release-publish-${{ github.ref }}-${{ needs.build.outputs.component }}
+      cancel-in-progress: false
+      queue: max
+
+    steps:
+      - name: Checkout current release lane
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 2
+          filter: blob:none
+          sparse-checkout: |
+            swrlz-core/releases
+
+      - name: Download verified build artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: ${{ needs.build.outputs.artifact_name }}
+          path: ${{ runner.temp }}/swrlz-release-artifact
+
+      - name: Commit release artifacts
+        env:
+          COMPONENT: ${{ needs.build.outputs.component }}
+          ARTIFACT_DIR: ${{ runner.temp }}/swrlz-release-artifact
+          CANONICAL_STEM: ${{ needs.build.outputs.canonical_stem }}
+          SOURCE_IDENTITY: ${{ needs.build.outputs.source_identity }}
+          SOURCE_SHA256: ${{ needs.build.outputs.source_sha256 }}
+          VARIANT: ${{ needs.build.outputs.variant }}
+          SIGNING_MODE: ${{ needs.build.outputs.signing_mode }}
+          SIGNING_CERT_SHA1: ${{ needs.build.outputs.signing_cert_sha1 }}
+          SIGNING_CERT_SHA256: ${{ needs.build.outputs.signing_cert_sha256 }}
+          SIGNING_KEYSTORE_SHA256: ${{ needs.build.outputs.signing_keystore_sha256 }}
+          CANONICAL_APKS: ${{ needs.build.outputs.canonical_apks }}
+        run: |
+          set -euo pipefail
+          RELEASE_DIR="swrlz-core/releases/${CANONICAL_STEM}_APK"
+          rm -rf "$RELEASE_DIR"
+          mkdir -p "$RELEASE_DIR"
+          cp -a "$ARTIFACT_DIR"/. "$RELEASE_DIR"/
+
+          python3 - <<'PY'
+          import json, os
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          component = os.environ["COMPONENT"]
+          manifest = {
+              "schema": 5,
+              "component": component,
+              "canonical_source": os.environ["CANONICAL_STEM"] + ".zip",
+              "selected_source": os.environ["SOURCE_IDENTITY"],
+              "source_sha256": os.environ["SOURCE_SHA256"],
+              "variant": os.environ["VARIANT"],
+              "signing_mode": os.environ["SIGNING_MODE"],
+              "signing_keystore_sha256": os.environ["SIGNING_KEYSTORE_SHA256"],
+              "signing_certificate_sha1": os.environ["SIGNING_CERT_SHA1"],
+              "signing_certificate_sha256": os.environ["SIGNING_CERT_SHA256"],
+              "canonical_apks": [name for name in os.environ["CANONICAL_APKS"].split(",") if name],
+              "artifact_folder": "swrlz-core/releases/" + os.environ["CANONICAL_STEM"] + "_APK",
+              "repository_commit": os.environ["GITHUB_SHA"],
+              "workflow_run": os.environ["GITHUB_RUN_ID"],
+              "build_attestation": "github-artifact-attestation",
+              "built_at_utc": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+          }
+          Path(f"swrlz-core/releases/latest_{component.lower()}.json").write_text(
+              json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "$RELEASE_DIR" "swrlz-core/releases/latest_${COMPONENT,,}.json"
+          if git diff --cached --quiet; then
+            echo 'No release artifact changes to commit.'
+            exit 0
+          fi
+          git commit -m "build(${COMPONENT,,}): add ${CANONICAL_STEM} APK artifacts"
+
+          # A source or sibling-component release commit may land while this job is
+          # packaging. Rebase the release-only commit onto the newest branch tip and
+          # retry a bounded number of times instead of failing a valid APK publication
+          # on a harmless non-fast-forward race.
+          for attempt in 1 2 3; do
+            git fetch --no-tags origin "$GITHUB_REF_NAME"
+            if ! git rebase "origin/$GITHUB_REF_NAME"; then
+              git rebase --abort >/dev/null 2>&1 || true
+              echo 'Release-only commit conflicted while rebasing; refusing to overwrite newer repository state.' >&2
+              exit 1
+            fi
+            if git push origin "HEAD:${GITHUB_REF_NAME}"; then
+              exit 0
+            fi
+            if [[ "$attempt" -eq 3 ]]; then
+              echo 'Release publication remained non-fast-forward after 3 attempts.' >&2
+              exit 1
+            fi
+            sleep $((attempt * 2))
+          done
