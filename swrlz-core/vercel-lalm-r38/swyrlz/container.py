@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
-import gzip, hashlib, json, os, struct
+import gzip, hashlib, json, mmap, os, struct
 from typing import Any
 
 INTEGRITY_MAGIC = b"SXI1"
@@ -18,27 +18,48 @@ class R38Container:
     """
     Read-only inspector for the supplied §wyrlzx R38 artifact.
 
-    R38 is a descendant native container whose integrity section is still directly
-    discoverable from the bytes. Many metadata sections are JSON payloads aligned
-    inside the artifact and can be recovered exactly by matching their SHA-256
-    against the integrity table.
-
+    Uses a read-only mmap so serverless Gate 5 inspection does not duplicate the
+    ~223 MiB raw model in Python heap memory. The mapping is demand-paged by the OS.
     This class NEVER rewrites the model.
     """
     def __init__(self, path: str | Path):
         self.path = Path(path)
-        self._bytes: bytes | None = None
+        self._file = self.path.open("rb")
+        self._map = mmap.mmap(self._file.fileno(), 0, access=mmap.ACCESS_READ)
         self.root_digest: str | None = None
         self.integrity_offset: int | None = None
         self.section_hashes: dict[int, str] = {}
         self.section_hits: dict[int, SectionHit] = {}
-        self._load_index()
+        try:
+            self._load_index()
+        except Exception:
+            self.close()
+            raise
 
     @property
-    def bytes(self) -> bytes:
-        if self._bytes is None:
-            self._bytes = self.path.read_bytes()
-        return self._bytes
+    def bytes(self):
+        # Compatibility boundary for existing parser code. This is an mmap, not a
+        # copied bytes object; find/index/slicing behave like bytes for our usage.
+        return self._map
+
+    def close(self) -> None:
+        try:
+            self._map.close()
+        except Exception:
+            pass
+        try:
+            self._file.close()
+        except Exception:
+            pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.close()
+
+    def __del__(self):
+        self.close()
 
     @staticmethod
     def expand_gzip(src: str | Path, dst: str | Path) -> Path:
