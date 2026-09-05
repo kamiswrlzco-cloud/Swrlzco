@@ -14,7 +14,7 @@ from pathlib import Path
 from fastapi import FastAPI, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
-app = FastAPI(title="§wyrlz Runtime Admin", version="0.2.0")
+app = FastAPI(title="§wyrlz Runtime Admin", version="0.2.1")
 
 ADMIN_ROOT = Path("/tmp/swrlz-admin")
 MAX_LIST_ENTRIES = 1500
@@ -109,7 +109,7 @@ def _runtime_info() -> dict:
     return {
         "ok": True,
         "service": "§wyrlz Runtime Admin",
-        "version": "0.2.0",
+        "version": "0.2.1",
         "python": sys.version.split()[0],
         "platform": _safe("platform", platform.platform),
         "machine": _safe("machine", platform.machine),
@@ -156,27 +156,35 @@ def _get(action: str | None, path: str | None):
         if action == "runtime":
             return _runtime_info()
         if action == "list":
-            if not p.exists(): return _err("path does not exist", 404, path=str(p))
-            if not p.is_dir(): return _err("path is not a directory", 400, path=str(p))
+            if not p.exists():
+                return _err("path does not exist", 404, path=str(p))
+            if not p.is_dir():
+                return _err("path is not a directory", 400, path=str(p))
             entries = []
             for child in p.iterdir():
                 entries.append(_entry(child))
-                if len(entries) >= MAX_LIST_ENTRIES: break
+                if len(entries) >= MAX_LIST_ENTRIES:
+                    break
             entries.sort(key=lambda e: (e.get("kind") != "dir", str(e.get("name", "")).lower()))
             return {"ok": True, "path": str(p), "entries": entries, "breadcrumbs": _breadcrumbs(p), "truncated": len(entries) >= MAX_LIST_ENTRIES}
         if action == "read":
-            if not p.is_file(): return _err("not a file", 400, path=str(p))
+            if not p.is_file():
+                return _err("not a file", 400, path=str(p))
             size = p.stat().st_size
-            if size > MAX_TEXT_BYTES: return _err("text preview too large", 413, path=str(p), size=size)
+            if size > MAX_TEXT_BYTES:
+                return _err("text preview too large", 413, path=str(p), size=size)
             raw = p.read_bytes()
-            if b"\0" in raw[:8192]: return _err("binary file; use download", 415, path=str(p), size=size)
+            if b"\0" in raw[:8192]:
+                return _err("binary file; use download", 415, path=str(p), size=size)
             return {"ok": True, "path": str(p), "size": size, "text": raw.decode("utf-8", "replace"), "info": _entry(p)}
         if action == "download":
-            if not p.is_file(): return _err("not a file", 404, path=str(p))
+            if not p.is_file():
+                return _err("not a file", 404, path=str(p))
             mime, _ = mimetypes.guess_type(str(p))
             return FileResponse(str(p), media_type=mime or "application/octet-stream", filename=p.name)
         if action == "hash":
-            if not p.is_file(): return _err("not a file", 400, path=str(p))
+            if not p.is_file():
+                return _err("not a file", 400, path=str(p))
             return {"ok": True, "path": str(p), "size": p.stat().st_size, "sha256": _sha256(p)}
         return _err("unknown action", 400, action=action)
     except Exception as exc:
@@ -189,23 +197,44 @@ async def _post(request: Request, action: str, path: str | None, name: str | Non
         p = _path(path)
         body = await request.body()
         if action == "save":
-            if not p.is_file(): return _err("target is not an existing file", 400, path=str(p))
-            p.write_bytes(body); return {"ok": True, "path": str(p), "size": len(body)}
+            if not p.is_file():
+                return _err("target is not an existing file", 400, path=str(p))
+            p.write_bytes(body)
+            return {"ok": True, "path": str(p), "size": len(body)}
         if action == "upload":
-            if not name or not p.is_dir(): return _err("valid directory path and name required", 400)
-            t = p / Path(name).name; t.write_bytes(body); return {"ok": True, "path": str(t), "size": len(body)}
+            if not name or not p.is_dir():
+                return _err("valid directory path and name required", 400)
+            t = p / Path(name).name
+            t.write_bytes(body)
+            return {"ok": True, "path": str(t), "size": len(body)}
         if action == "mkdir":
-            if not name: return _err("name required"); t = p / Path(name).name; t.mkdir(exist_ok=False); return {"ok": True, "path": str(t)}
+            if not name:
+                return _err("name required")
+            t = p / Path(name).name
+            t.mkdir(exist_ok=False)
+            return {"ok": True, "path": str(t)}
         if action == "new-file":
-            if not name: return _err("name required"); t = p / Path(name).name; t.touch(exist_ok=False); return {"ok": True, "path": str(t)}
+            if not name:
+                return _err("name required")
+            t = p / Path(name).name
+            t.touch(exist_ok=False)
+            return {"ok": True, "path": str(t)}
         if action == "rename":
-            if not name: return _err("name required"); t = p.with_name(Path(name).name); p.rename(t); return {"ok": True, "from": str(p), "path": str(t)}
+            if not name:
+                return _err("name required")
+            t = p.with_name(Path(name).name)
+            p.rename(t)
+            return {"ok": True, "from": str(p), "path": str(t)}
         if action == "delete":
-            if p.is_dir() and not p.is_symlink(): shutil.rmtree(p)
-            else: p.unlink()
+            if p.is_dir() and not p.is_symlink():
+                shutil.rmtree(p)
+            else:
+                p.unlink()
             return {"ok": True, "deleted": str(p)}
         if action == "export-log":
-            t = ADMIN_ROOT / "logs" / f"admin-{time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())}-{uuid.uuid4().hex[:6]}.log"; t.write_bytes(body); return {"ok": True, "path": str(t), "size": len(body)}
+            t = ADMIN_ROOT / "logs" / f"admin-{time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())}-{uuid.uuid4().hex[:6]}.log"
+            t.write_bytes(body)
+            return {"ok": True, "path": str(t), "size": len(body)}
         return _err("unknown action", 400, action=action)
     except Exception as exc:
         return _err(f"{type(exc).__name__}: {exc}", 500, action=action, path=path)
