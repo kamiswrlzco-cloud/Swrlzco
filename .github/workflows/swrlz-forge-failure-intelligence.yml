@@ -1,0 +1,189 @@
+name: SWRLZ Forge Failure Intelligence
+
+on:
+  workflow_run:
+    workflows:
+      - SWRLZ APK Router — CLIENT / SERVER
+    types:
+      - completed
+
+permissions:
+  actions: read
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  classify-failure:
+    name: Classify failed Android build
+    if: github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Create diagnostic workspace
+        run: mkdir -p "$RUNNER_TEMP/swrlz-forge-intelligence/logs"
+
+      - name: Fetch failed job logs and metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          DIAG_ROOT: ${{ runner.temp }}/swrlz-forge-intelligence
+        run: |
+          set -euo pipefail
+          gh api "/repos/$REPOSITORY/actions/runs/$RUN_ID/jobs?filter=latest&per_page=100" > "$DIAG_ROOT/jobs.json"
+
+          python3 - <<'PY'
+          import json, os, subprocess
+          from pathlib import Path
+
+          root = Path(os.environ['DIAG_ROOT'])
+          payload = json.loads((root / 'jobs.json').read_text(encoding='utf-8'))
+          failed = [j for j in payload.get('jobs', []) if j.get('conclusion') == 'failure']
+          summary = []
+          for job in failed:
+              job_id = job['id']
+              name = job.get('name', '')
+              target = root / 'logs' / f'{job_id}.log'
+              proc = subprocess.run(
+                  ['gh', 'api', f"/repos/{os.environ['REPOSITORY']}/actions/jobs/{job_id}/logs"],
+                  stdout=subprocess.PIPE,
+                  stderr=subprocess.PIPE,
+              )
+              target.write_bytes(proc.stdout + (b'\n' + proc.stderr if proc.stderr else b''))
+              failed_steps = [
+                  {'name': s.get('name', ''), 'number': s.get('number'), 'conclusion': s.get('conclusion')}
+                  for s in job.get('steps', []) if s.get('conclusion') == 'failure'
+              ]
+              summary.append({'job_id': job_id, 'job_name': name, 'failed_steps': failed_steps})
+          (root / 'failed_jobs.json').write_text(json.dumps(summary, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          PY
+
+      - name: Classify failure and extract repair context
+        env:
+          DIAG_ROOT: ${{ runner.temp }}/swrlz-forge-intelligence
+          SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+          SOURCE_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          SOURCE_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          SOURCE_EVENT: ${{ github.event.workflow_run.event }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, re
+          from pathlib import Path
+
+          root = Path(os.environ['DIAG_ROOT'])
+          log_files = sorted((root / 'logs').glob('*.log'))
+          text = '\n'.join(p.read_text(encoding='utf-8', errors='replace') for p in log_files)
+          lines = text.splitlines()
+
+          rules = [
+              ('kotlin_compile', r'(?:e: |error: ).*\.kt(?::|\(|\[)|Compilation error|compile.*Kotlin.*FAILED'),
+              ('java_compile', r'(?:error: ).*\.java|compile.*Java.*FAILED'),
+              ('android_resource', r'Android resource linking failed|AAPT2?.*(?:error|failed)|resource .* not found'),
+              ('manifest', r'uses-sdk.*minSdkVersion|Manifest merger failed|AndroidManifest\.xml.*error'),
+              ('dependency_resolution', r'Could not resolve (?:all files|.*dependency)|Could not find .*:.*:|Could not GET .*maven|Could not HEAD .*maven'),
+              ('gradle_configuration', r'Could not compile (?:settings|build) file|A problem occurred evaluating|Plugin .* was not found'),
+              ('source_integrity', r'checksum.*(?:mismatch|failed)|SHA-256.*(?:mismatch|does not match)|source package.*(?:invalid|failed)'),
+              ('signing', r'apksigner|keystore|certificate.*(?:mismatch|failed)|stable signing'),
+              ('android_sdk', r'sdkmanager|Android SDK|build-tools|platform-tools|apksigner not found|zipalign not found'),
+              ('java_toolchain', r'JAVA_HOME|Expected Java 17|java\.specification\.version|toolchain'),
+              ('runner_infrastructure', r'No space left on device|The runner has received a shutdown signal|lost communication|Connection reset'),
+              ('artifact_upload', r'upload-artifact|Failed to upload artifact|Artifact upload failed'),
+          ]
+
+          failure_class = 'unknown'
+          for name, pattern in rules:
+              if re.search(pattern, text, re.IGNORECASE):
+                  failure_class = name
+                  break
+
+          task_matches = re.findall(r"(?:Task |Execution failed for task )['\"]?([^'\"\s]+)['\"]?", text)
+          gradle_task = task_matches[-1] if task_matches else ''
+
+          source_file = ''
+          source_line = None
+          source_column = None
+          location_patterns = [
+              r'([^\s:]+\.kt):(\d+):(\d+)',
+              r'([^\s:]+\.java):(\d+):(?:(\d+):)?',
+              r'([^\s:]+\.xml):(\d+):(?:(\d+):)?',
+              r'([^\s(]+\.kt)\((\d+),(\d+)\)',
+          ]
+          for pattern in location_patterns:
+              m = re.search(pattern, text)
+              if m:
+                  source_file = m.group(1)
+                  source_line = int(m.group(2))
+                  source_column = int(m.group(3)) if m.lastindex and m.lastindex >= 3 and m.group(3) else None
+                  break
+
+          signal = re.compile(r'(^|\s)(?:e:|error:|FAILURE:|Execution failed|Caused by:|What went wrong:)', re.IGNORECASE)
+          excerpt_indices = [i for i, line in enumerate(lines) if signal.search(line)]
+          selected = []
+          seen = set()
+          for i in excerpt_indices[-12:]:
+              for j in range(max(0, i-1), min(len(lines), i+3)):
+                  if j not in seen:
+                      seen.add(j)
+                      selected.append((j, lines[j]))
+          selected.sort()
+          excerpt = '\n'.join(line for _, line in selected)[-24000:]
+          (root / 'GRADLE_FAILURE_EXCERPT.txt').write_text(excerpt + ('\n' if excerpt else ''), encoding='utf-8')
+
+          repair_scope = {
+              'kotlin_compile': 'source', 'java_compile': 'source', 'android_resource': 'source',
+              'manifest': 'source', 'dependency_resolution': 'gradle', 'gradle_configuration': 'gradle',
+              'source_integrity': 'source-package', 'signing': 'signing', 'android_sdk': 'infrastructure',
+              'java_toolchain': 'infrastructure', 'runner_infrastructure': 'infrastructure',
+              'artifact_upload': 'infrastructure', 'unknown': 'diagnostic-review'
+          }[failure_class]
+          retry_without_changes = failure_class in {'runner_infrastructure', 'artifact_upload'}
+
+          primary_error = ''
+          for line in reversed(lines):
+              if signal.search(line):
+                  primary_error = line.strip()[:2000]
+                  break
+
+          payload = {
+              'schema': 3,
+              'contract': 'SWRLZ_FORGE_FAILURE_INTELLIGENCE',
+              'failure_class': failure_class,
+              'repair_scope': repair_scope,
+              'retry_without_changes': retry_without_changes,
+              'gradle_task': gradle_task,
+              'primary_error': primary_error,
+              'source_file': source_file,
+              'line': source_line,
+              'column': source_column,
+              'source_workflow_run_id': os.environ['SOURCE_RUN_ID'],
+              'source_workflow_run_attempt': os.environ['SOURCE_RUN_ATTEMPT'],
+              'source_head_sha': os.environ['SOURCE_HEAD_SHA'],
+              'source_event': os.environ['SOURCE_EVENT'],
+              'failed_jobs_file': 'failed_jobs.json',
+              'full_logs_directory': 'logs/',
+              'failure_excerpt_file': 'GRADLE_FAILURE_EXCERPT.txt',
+          }
+          (root / 'FORGE_FAILURE_SUMMARY.json').write_text(json.dumps(payload, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          PY
+
+          sha256sum "$DIAG_ROOT/FORGE_FAILURE_SUMMARY.json" > "$DIAG_ROOT/FORGE_FAILURE_SUMMARY.json.sha256"
+          sha256sum "$DIAG_ROOT/failed_jobs.json" > "$DIAG_ROOT/failed_jobs.json.sha256"
+          if [[ -s "$DIAG_ROOT/GRADLE_FAILURE_EXCERPT.txt" ]]; then
+            sha256sum "$DIAG_ROOT/GRADLE_FAILURE_EXCERPT.txt" > "$DIAG_ROOT/GRADLE_FAILURE_EXCERPT.txt.sha256"
+          fi
+
+          cat "$DIAG_ROOT/FORGE_FAILURE_SUMMARY.json" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload machine-readable repair artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: SWRLZ_FORGE_INTELLIGENCE_${{ github.event.workflow_run.id }}_${{ github.event.workflow_run.run_attempt }}
+          path: ${{ runner.temp }}/swrlz-forge-intelligence/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 6

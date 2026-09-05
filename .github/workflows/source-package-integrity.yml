@@ -1,0 +1,158 @@
+name: SWRLZ Source Package Integrity
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'swrlz-core/sources/**'
+      - 'swrlz-core/tools/ci/resolve_swrlz_source.py'
+      - 'swrlz-core/tools/ci/resolve_changed_source_identities.py'
+      - 'swrlz-core/tools/ci/resolve_push_changed_paths.py'
+      - 'swrlz-core/tools/ci/plan_swrlz_build_route.py'
+      - 'swrlz-core/tools/ci/plan_swrlz_candidate_checkout.py'
+      - 'swrlz-core/tools/ci/plan_swrlz_integrity_route.py'
+      - 'swrlz-core/tools/ci/resolve_swrlz_latest_identity.py'
+      - 'swrlz-core/tools/ci/prepare_swrlz_sparse_checkout.py'
+      - 'swrlz-core/tools/ci/verify_swrlz_package_pair.py'
+      - '.github/workflows/source-package-integrity.yml'
+
+  workflow_dispatch:
+    inputs:
+      source_zip:
+        description: Repository-relative lane-root source identity (.zip or .transport.json)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  SWRLZ_CI_ROOT: swrlz-core/tools/ci
+  SWRLZ_VERIFY_TOOL: swrlz-core/tools/ci/verify_swrlz_package_pair.py
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  prepare:
+    name: Determine source identities
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      matrix: ${{ steps.checkout-plan.outputs.matrix }}
+      has_work: ${{ steps.integrity-route.outputs.has_work }}
+    steps:
+      - name: Sparse checkout route tooling
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 2
+          filter: blob:none
+          persist-credentials: false
+          sparse-checkout: |
+            swrlz-core/tools/ci
+            swrlz-core/requests
+
+      - name: Plan exact integrity route
+        id: route
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+          MANUAL_SOURCE_IDENTITY: ${{ inputs.source_zip || '' }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == 'workflow_dispatch' ]]; then
+            case "$MANUAL_SOURCE_IDENTITY" in
+              CLIENT_*|swrlz-core/sources/client/*) MANUAL_COMPONENT=CLIENT ;;
+              SERVER_*|swrlz-core/sources/server/*) MANUAL_COMPONENT=SERVER ;;
+              *)
+                echo "Manual source identity must identify the CLIENT or SERVER lane: $MANUAL_SOURCE_IDENTITY" >&2
+                exit 64
+                ;;
+            esac
+            export MANUAL_COMPONENT MANUAL_VARIANT=debug MANUAL_COMMIT_RELEASE=false
+          fi
+          python3 "$SWRLZ_CI_ROOT/plan_swrlz_build_route.py"
+
+      - name: Expand integrity self-check route
+        id: integrity-route
+        env:
+          BASE_MATRIX: ${{ steps.route.outputs.matrix }}
+          BASE_HAS_WORK: ${{ steps.route.outputs.has_work }}
+        run: |
+          set -euo pipefail
+          python3 "$SWRLZ_CI_ROOT/plan_swrlz_integrity_route.py" \
+            --matrix-json "$BASE_MATRIX" \
+            --has-work "$BASE_HAS_WORK" \
+            --event-name "${{ github.event_name }}" \
+            --before "${{ github.event.before }}" \
+            --after "$GITHUB_SHA" \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Plan one-pass candidate hydration
+        id: checkout-plan
+        env:
+          ROUTE_MATRIX: ${{ steps.integrity-route.outputs.matrix }}
+        run: |
+          set -euo pipefail
+          python3 "$SWRLZ_CI_ROOT/plan_swrlz_candidate_checkout.py" \
+            --matrix-json "$ROUTE_MATRIX" \
+            --ref "$GITHUB_SHA" \
+            --github-output "$GITHUB_OUTPUT"
+
+  verify:
+    name: Verify ${{ matrix.component }} source package
+    needs: prepare
+    if: needs.prepare.outputs.has_work == 'true'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Hydrate exact ${{ matrix.component }} source · ${{ matrix.source_size_label }}
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 1
+          filter: blob:none
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: ${{ matrix.checkout_patterns }}
+
+      - name: Resolve selected source
+        id: resolve
+        env:
+          COMPONENT: ${{ matrix.component }}
+          SOURCE_IDENTITY: ${{ matrix.source_identity }}
+        run: |
+          set -euo pipefail
+          python3 "$SWRLZ_CI_ROOT/resolve_swrlz_source.py" \
+            --component "$COMPONENT" \
+            --source-zip "$SOURCE_IDENTITY" \
+            --work-dir "$RUNNER_TEMP/swrlz-integrity/$COMPONENT" \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Verify resolved package evidence
+        run: |
+          set -euo pipefail
+          VERIFY_ARGS=("${{ steps.resolve.outputs.selected_source }}")
+          if [[ -n "${{ steps.resolve.outputs.checksum_file }}" ]]; then
+            VERIFY_ARGS+=(--checksum "${{ steps.resolve.outputs.checksum_file }}")
+          fi
+          if [[ -n "${{ steps.resolve.outputs.manifest_file }}" ]]; then
+            VERIFY_ARGS+=(--manifest "${{ steps.resolve.outputs.manifest_file }}")
+          fi
+          python3 "$SWRLZ_VERIFY_TOOL" "${VERIFY_ARGS[@]}"
+
+      - name: Summarize integrity result
+        run: |
+          {
+            echo "## ${{ matrix.component }} source integrity"
+            echo
+            echo "- Source identity: \`${{ matrix.source_identity }}\`"
+            echo "- Canonical source: \`${{ steps.resolve.outputs.canonical_filename }}\`"
+            echo "- SHA-256: \`${{ steps.resolve.outputs.source_sha256 }}\`"
+            echo "- Result: verified"
+          } >> "$GITHUB_STEP_SUMMARY"
