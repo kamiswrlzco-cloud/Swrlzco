@@ -1,170 +1,238 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import mimetypes
 import os
 import platform
 import shutil
 import stat
+import subprocess
 import sys
 import time
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, Query, Request
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse
 
-app = FastAPI(title="§wyrlz Runtime Admin", version="0.3.0")
+app = FastAPI(title="§wyrlz Live Runtime Workbench", version="1.0.0")
 
-ADMIN_ROOT = Path("/tmp/swrlz-admin")
-for d in (ADMIN_ROOT, ADMIN_ROOT / "logs", ADMIN_ROOT / "uploads", ADMIN_ROOT / "pages"):
+ROOT = Path("/tmp/swrlz-admin")
+LIVE = ROOT / "live"
+LOGS = ROOT / "logs"
+UPLOADS = ROOT / "uploads"
+PAGES = ROOT / "pages"
+for d in (ROOT, LIVE, LOGS, UPLOADS, PAGES):
     d.mkdir(parents=True, exist_ok=True)
 
-MAX_LIST_ENTRIES = 1000
-MAX_TEXT_BYTES = 2 * 1024 * 1024
-MAX_HASH_BYTES = 512 * 1024 * 1024
+INSTANCE_ID = f"{os.getpid()}-{uuid.uuid4().hex[:8]}"
+FULL_LOG = LOGS / "full-runtime.log"
+HOT_GATE5 = LIVE / "gate5_live.py"
+MAX_TEXT = 2 * 1024 * 1024
+MAX_LIST = 1000
+
+DEFAULT_HOT_GATE5 = r'''from __future__ import annotations
+import gzip, hashlib, json, os, struct, time, urllib.request
+from pathlib import Path
+
+MODEL_URL = "https://raw.githubusercontent.com/kamiswrlzco-cloud/Swrlzco/main/SWYRLZ_LALM_R38_LOCAL_TIME_CONTEXT_CALIBRATED.%25C2%25A7wyrlzx.gz"
+PACKED = Path("/tmp/swrlz-admin/live/R38.§wyrlzx.gz")
+RAW = Path("/tmp/swrlz-admin/live/R38.§wyrlzx")
+EXPECTED_PACKED_SIZE = 17565695
+EXPECTED_RAW_SIZE = 233640424
+EXPECTED_PACKED_SHA = "b7c673483be5887a901b15ef7c916c71934ea67937d9456240a4b185753543c5"
+EXPECTED_RAW_SHA = "e6732c7875f7689019b7e051675f5b4b5a901af4fe4d52f8a1fcadafec3229e7"
+
+def emit(stage, **data):
+    print(json.dumps({"stage": stage, "ts": time.time(), **data}), flush=True)
+
+def sha(path):
+    h=hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda:f.read(1024*1024), b""): h.update(chunk)
+    return h.hexdigest()
+
+def main():
+    emit("start", pid=os.getpid(), cwd=os.getcwd())
+    if not PACKED.exists() or PACKED.stat().st_size != EXPECTED_PACKED_SIZE:
+        emit("download-start", url=MODEL_URL)
+        tmp=PACKED.with_suffix(PACKED.suffix+".part")
+        tmp.unlink(missing_ok=True)
+        with urllib.request.urlopen(MODEL_URL, timeout=60) as r, tmp.open("wb") as o:
+            total=0
+            while True:
+                b=r.read(1024*1024)
+                if not b: break
+                o.write(b); total+=len(b)
+                if total % (4*1024*1024) < len(b): emit("download-progress", bytes=total)
+        os.replace(tmp, PACKED)
+    emit("packed", size=PACKED.stat().st_size)
+    packed_sha=sha(PACKED)
+    emit("packed-hash", sha256=packed_sha, valid=packed_sha==EXPECTED_PACKED_SHA)
+    if packed_sha != EXPECTED_PACKED_SHA: raise RuntimeError("packed sha mismatch")
+
+    if not RAW.exists() or RAW.stat().st_size != EXPECTED_RAW_SIZE:
+        emit("decompress-start")
+        tmp=RAW.with_suffix(RAW.suffix+".part")
+        tmp.unlink(missing_ok=True)
+        with gzip.open(PACKED,"rb") as src, tmp.open("wb") as out:
+            total=0
+            while True:
+                b=src.read(1024*1024)
+                if not b: break
+                out.write(b); total+=len(b)
+                if total % (32*1024*1024) < len(b): emit("decompress-progress", bytes=total)
+        os.replace(tmp, RAW)
+    emit("raw", size=RAW.stat().st_size)
+
+    with RAW.open("rb") as f:
+        head=f.read(128)
+        f.seek(max(0, RAW.stat().st_size-65536))
+        tail=f.read()
+    emit("head", magicHex=head[:8].hex(), canonical=head[:8]==b"SWRLZX\r\n")
+    idx=tail.rfind(b"SXI1")
+    if idx < 0: raise RuntimeError("SXI1 not found in final 64KiB")
+    absolute=RAW.stat().st_size-65536+idx
+    count=struct.unpack_from("<I", tail, idx+36)[0]
+    p=idx+40
+    ids=[]
+    for _ in range(count):
+        if p+36>len(tail): break
+        ids.append(struct.unpack_from("<I",tail,p)[0]); p+=36
+    emit("integrity", offset=absolute, declaredCount=count, parsedCount=len(ids), required={str(i): i in ids for i in (3,4,5)})
+    emit("done", ok=True, next="Edit this live script in /tmp/swrlz-admin/live/gate5_live.py and rerun without redeploying.")
+
+if __name__ == "__main__": main()
+'''
+
+if not HOT_GATE5.exists():
+    HOT_GATE5.write_text(DEFAULT_HOT_GATE5, encoding="utf-8")
 
 
-def _path(raw: str | None) -> Path:
+def now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def log(event: str, **data) -> None:
+    rec = {"ts": now(), "instanceId": INSTANCE_ID, "pid": os.getpid(), "event": event, **data}
+    line = json.dumps(rec, ensure_ascii=False, separators=(",", ":"))
+    try:
+        with FULL_LOG.open("a", encoding="utf-8") as f:
+            f.write(line + "\n")
+    except Exception:
+        pass
+
+
+def path_of(raw: str | None) -> Path:
     if not raw:
-        return Path("/")
-    p = Path(raw)
-    return p if p.is_absolute() else Path("/") / p
+        return ROOT
+    p=Path(raw)
+    return p if p.is_absolute() else ROOT/p
 
 
-def _err(message: str, status: int = 400, **extra):
-    return JSONResponse(status_code=status, content={"ok": False, "error": message, **extra})
+def entry(p: Path) -> dict:
+    st=p.lstat()
+    kind="dir" if p.is_dir() else "file" if p.is_file() else "link" if p.is_symlink() else "other"
+    return {"name":p.name or "/","path":str(p),"kind":kind,"size":st.st_size,"mtime":st.st_mtime,"mode":stat.filemode(st.st_mode),"readable":os.access(p,os.R_OK),"writable":os.access(p,os.W_OK)}
 
 
-def _entry(p: Path) -> dict:
-    st = p.lstat()
-    kind = "dir" if p.is_dir() else "file" if p.is_file() else "link" if p.is_symlink() else "other"
-    return {
-        "name": p.name or "/", "path": str(p), "kind": kind, "size": int(st.st_size),
-        "mtime": float(st.st_mtime), "mode": stat.filemode(st.st_mode),
-        "readable": os.access(p, os.R_OK), "writable": os.access(p, os.W_OK),
-    }
+def runtime() -> dict:
+    def disk(p):
+        try:
+            d=shutil.disk_usage(p); return {"total":d.total,"used":d.used,"free":d.free}
+        except Exception as e:return {"error":f"{type(e).__name__}: {e}"}
+    rss=None
+    try:
+        import resource
+        r=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        rss=int(r*1024 if sys.platform!="darwin" else r)
+    except Exception: pass
+    return {"ok":True,"instanceId":INSTANCE_ID,"python":sys.version.split()[0],"platform":platform.platform(),"machine":platform.machine(),"cpuCount":os.cpu_count(),"pid":os.getpid(),"cwd":os.getcwd(),"peakRssBytes":rss,"diskRoot":disk("/"),"diskTmp":disk("/tmp"),"root":str(ROOT),"hotScript":str(HOT_GATE5),"fullLog":str(FULL_LOG),"note":"/tmp is writable and hot-editable but ephemeral and instance-local on Vercel."}
 
 
-def _crumbs(p: Path):
-    out = [{"name": "/", "path": "/"}]
-    cur = Path("/")
+def crumbs(p: Path):
+    out=[{"name":"/","path":"/"}]; cur=Path("/")
     for part in p.parts[1:]:
-        cur /= part
-        out.append({"name": part, "path": str(cur)})
+        cur/=part; out.append({"name":part,"path":str(cur)})
     return out
 
 
-def _sha256(p: Path) -> str:
-    h = hashlib.sha256(); total = 0
-    with p.open("rb") as f:
-        for chunk in iter(lambda: f.read(1024 * 1024), b""):
-            total += len(chunk)
-            if total > MAX_HASH_BYTES:
-                raise ValueError("hash limit exceeded")
-            h.update(chunk)
-    return h.hexdigest()
-
-
-def _runtime():
-    def disk(path):
-        try:
-            d = shutil.disk_usage(path); return {"total": d.total, "used": d.used, "free": d.free}
-        except Exception as e:
-            return {"error": f"{type(e).__name__}: {e}"}
-    rss = None
+def run_hot(timeout_s: int=45) -> dict:
+    started=time.monotonic()
+    log("hot-run-start", script=str(HOT_GATE5), timeout=timeout_s)
     try:
-        import resource
-        raw = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-        rss = int(raw * 1024 if sys.platform != "darwin" else raw)
-    except Exception:
-        pass
-    return {
-        "ok": True, "python": sys.version.split()[0], "platform": platform.platform(),
-        "machine": platform.machine(), "cpuCount": os.cpu_count(), "pid": os.getpid(),
-        "cwd": os.getcwd(), "processPeakRssBytes": rss, "diskRoot": disk("/"), "diskTmp": disk("/tmp"),
-        "adminRoot": str(ADMIN_ROOT),
-        "quickPaths": ["/", "/tmp", str(ADMIN_ROOT), str(ADMIN_ROOT/"logs"), str(ADMIN_ROOT/"uploads"), str(ADMIN_ROOT/"pages"), "/var/task", os.getcwd()],
-        "warning": "PRE-TEST ADMIN: unauthenticated; runtime changes are ephemeral and may be instance-local.",
-    }
+        cp=subprocess.run([sys.executable,"-u",str(HOT_GATE5)],capture_output=True,text=True,timeout=timeout_s,cwd=str(LIVE),env={**os.environ,"PYTHONUNBUFFERED":"1"})
+        result={"ok":cp.returncode==0,"returnCode":cp.returncode,"stdout":cp.stdout[-200000:],"stderr":cp.stderr[-200000:],"elapsedMs":int((time.monotonic()-started)*1000),"instanceId":INSTANCE_ID}
+        log("hot-run-end", returnCode=cp.returncode, elapsedMs=result["elapsedMs"], stdout=result["stdout"], stderr=result["stderr"])
+        return result
+    except subprocess.TimeoutExpired as e:
+        out=e.stdout.decode() if isinstance(e.stdout,bytes) else (e.stdout or "")
+        err=e.stderr.decode() if isinstance(e.stderr,bytes) else (e.stderr or "")
+        result={"ok":False,"timeout":True,"stdout":out[-200000:],"stderr":err[-200000:],"elapsedMs":int((time.monotonic()-started)*1000),"instanceId":INSTANCE_ID}
+        log("hot-run-timeout", elapsedMs=result["elapsedMs"], stdout=result["stdout"], stderr=result["stderr"])
+        return result
 
-
-PAGE = r'''<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>§wyrlz Runtime Admin</title><style>
-:root{color-scheme:dark}*{box-sizing:border-box}body{font-family:system-ui;background:#090c12;color:#edf5ff;margin:0 auto;padding:16px;max-width:1180px}h1{font-size:clamp(32px,7vw,52px)}.panel{background:#121826;border:1px solid #26344d;border-radius:16px;padding:14px;margin:12px 0}.warn{background:#3a2505;color:#ffd985}.row,.tools{display:flex;gap:9px;flex-wrap:wrap;align-items:center}.grow{flex:1;min-width:180px}input,textarea{width:100%;background:#0c1220;color:#fff;border:1px solid #53627d;border-radius:10px;padding:10px;font:inherit}button{background:#e8edf7;color:#08101c;border:0;border-radius:10px;padding:10px 13px;font-weight:800}button.alt{background:#1d2a3f;color:#dff8ff;border:1px solid #36506f}button.danger{background:#641722;color:#fff}.grid{display:grid;grid-template-columns:.9fr 1.1fr;gap:12px}@media(max-width:820px){.grid{grid-template-columns:1fr}}.filelist{max-height:520px;overflow:auto;border:1px solid #26344d;border-radius:12px}.entry{display:grid;grid-template-columns:34px 1fr auto;gap:8px;padding:10px;border-bottom:1px solid #202a3c;cursor:pointer}.entry:hover{background:#182235}.meta{font-size:12px;color:#9eb0c9}.name{font-weight:800;word-break:break-all}.path{font-family:ui-monospace,monospace;color:#7ee7ff;word-break:break-all}textarea{min-height:330px;font-family:ui-monospace,monospace;font-size:13px}pre{background:#0c1220;padding:12px;border-radius:12px;white-space:pre-wrap;overflow:auto}.bad{color:#ff9292}.ok{color:#80ffad}
-</style></head><body>
-<h1>§wyrlz Runtime Admin</h1><div class="panel warn">⚠ PRE-TEST ADMIN · PUBLIC / UNAUTHENTICATED · runtime files may be instance-local/ephemeral</div>
-<div class="panel"><div class="row"><button id="up" class="alt">⬆ UP ONE DIR</button><input id="path" class="grow" value="/tmp/swrlz-admin"><button id="go">GO</button><button id="refresh" class="alt">REFRESH</button><button id="runtime" class="alt">RUNTIME</button></div><div id="crumbs" class="tools"></div><div id="quick" class="tools"></div></div>
-<div class="grid"><div class="panel"><div class="row"><h2 class="grow">Files</h2><button id="newFolder" class="alt">NEW FOLDER</button><button id="newFile" class="alt">NEW FILE</button></div><div class="row"><input id="uploadFile" type="file" class="grow"><button id="upload">UPLOAD</button></div><p id="listStatus">Loading…</p><div id="files" class="filelist"></div></div>
-<div class="panel"><div class="row"><h2 class="grow">Viewer / Editor</h2><button id="download" class="alt">DOWNLOAD</button><button id="hash" class="alt">SHA-256</button></div><div id="selected" class="path">No file selected.</div><div class="tools"><button id="save">SAVE TEXT</button><button id="rename" class="alt">RENAME</button><button id="del" class="danger">DELETE</button></div><textarea id="editor" spellcheck="false"></textarea><pre id="detail">Ready.</pre></div></div>
-<div class="panel"><h2>Operation Log</h2><div class="tools"><button id="clearLog" class="alt">CLEAR</button><button id="exportLog">EXPORT LOG TO SERVER</button><button id="downloadLog" class="alt">DOWNLOAD LOG TO PHONE</button></div><textarea id="log" readonly></textarea><p id="logStatus"></p></div>
+PAGE = r'''<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>§wyrlz Live Workbench</title><style>
+:root{color-scheme:dark}*{box-sizing:border-box}body{font-family:system-ui;background:#080b10;color:#eef5ff;margin:0 auto;padding:16px;max-width:1100px}.p{background:#121826;border:1px solid #293750;border-radius:16px;padding:14px;margin:12px 0}.r{display:flex;gap:9px;flex-wrap:wrap;align-items:center}button{padding:11px 14px;border-radius:10px;border:0;font-weight:800}button.alt{background:#1d2a3f;color:#dff8ff;border:1px solid #36506f}input,textarea{width:100%;background:#0b1120;color:#fff;border:1px solid #53627d;border-radius:10px;padding:10px;font:inherit}.grow{flex:1;min-width:180px}.files{max-height:430px;overflow:auto}.e{padding:9px;border-bottom:1px solid #26344d;cursor:pointer}.e:hover{background:#182235}textarea{min-height:300px;font-family:ui-monospace,monospace}pre{white-space:pre-wrap;overflow:auto;background:#0b1120;padding:12px;border-radius:10px}.warn{color:#ffd166}.ok{color:#80ffad}.bad{color:#ff9292}</style></head><body>
+<h1>§wyrlz Live Workbench</h1><div class="p warn">One deployed shell, then edit/run diagnostics from writable /tmp without a redeploy. Vercel can recycle the instance, so /tmp is not permanent.</div>
+<div class="p"><div class="r"><button id="up" class="alt">⬆ UP ONE DIR</button><input id="path" class="grow" value="/tmp/swrlz-admin"><button id="go">GO</button><button id="refresh" class="alt">REFRESH</button><button id="rt" class="alt">RUNTIME</button></div><div id="status"></div></div>
+<div class="p"><div class="r"><button id="hot">🔥 RUN HOT GATE 5</button><button id="openhot" class="alt">OPEN HOT SCRIPT</button><button id="logbtn" class="alt">OPEN FULL LOG</button><a href="/api/admin?action=log" target="_blank"><button class="alt">RAW FULL LOG</button></a></div><pre id="runout">Ready.</pre></div>
+<div class="p"><h2>Files</h2><div id="files" class="files"></div></div>
+<div class="p"><h2>Editor</h2><div id="sel"></div><div class="r"><button id="save">SAVE LIVE FILE</button><button id="download" class="alt">DOWNLOAD</button></div><textarea id="ed"></textarea></div>
 <script>
-const $=id=>document.getElementById(id);let cwd='/tmp/swrlz-admin',selected=null;const log=(m,d)=>{$('log').value+=`[${new Date().toISOString()}] ${m}${d!==undefined?'\n'+(typeof d==='string'?d:JSON.stringify(d,null,2)):''}\n`;};
-async function req(action,o={}){const q=new URLSearchParams({action,...(o.q||{})});const r=await fetch('/api/admin?'+q,{method:o.method||'GET',body:o.body,headers:o.headers||{}});if(o.raw)return r;const t=await r.text();let j;try{j=JSON.parse(t)}catch{throw Error(`HTTP ${r.status}: ${t.slice(0,1500)}`)}if(!r.ok||j.ok===false)throw Error(j.error||j.detail||JSON.stringify(j));return j}
-const fmt=n=>{const u=['B','KB','MB','GB'];let x=Number(n||0),i=0;while(x>=1024&&i<3){x/=1024;i++}return `${x.toFixed(i?1:0)} ${u[i]}`};
-async function load(path=cwd){cwd=path||'/';$('path').value=cwd;selected=null;$('selected').textContent='No file selected.';$('editor').value='';try{const j=await req('list',{q:{path:cwd}});cwd=j.path;$('path').value=cwd;$('files').innerHTML='';for(const e of j.entries){const d=document.createElement('div');d.className='entry';d.innerHTML=`<div>${e.kind==='dir'?'📁':'📄'}</div><div><div class="name"></div><div class="meta"></div></div><div>${e.writable?'W':'R'}</div>`;d.querySelector('.name').textContent=e.name;d.querySelector('.meta').textContent=`${e.kind} · ${fmt(e.size)} · ${e.mode||''}`;d.onclick=()=>e.kind==='dir'?load(e.path):selectFile(e);$('files').appendChild(d)}$('listStatus').textContent=`${j.entries.length} entries · ${cwd}`;$('crumbs').innerHTML='';for(const c of j.breadcrumbs){const b=document.createElement('button');b.className='alt';b.textContent=c.name;b.onclick=()=>load(c.path);$('crumbs').appendChild(b)}log('LIST '+cwd,{count:j.entries.length})}catch(e){$('listStatus').className='bad';$('listStatus').textContent=String(e);log('LIST FAILED',String(e))}}
-async function selectFile(e){selected=e;$('selected').textContent=e.path;try{const j=await req('read',{q:{path:e.path}});$('editor').value=j.text;$('detail').textContent=JSON.stringify(j,null,2)}catch(err){$('editor').value='';$('detail').textContent=String(err)}}
-$('up').onclick=()=>{let p=cwd.replace(/\/+$/,'');if(!p||p==='/')return load('/');const i=p.lastIndexOf('/');load(i<=0?'/':p.slice(0,i))};$('go').onclick=()=>load($('path').value);$('refresh').onclick=()=>load(cwd);
-$('runtime').onclick=async()=>{try{const j=await req('runtime');$('detail').textContent=JSON.stringify(j,null,2);$('quick').innerHTML='';for(const p of j.quickPaths){const b=document.createElement('button');b.className='alt';b.textContent=p;b.onclick=()=>load(p);$('quick').appendChild(b)}log('RUNTIME',j)}catch(e){log('RUNTIME FAILED',String(e))}};
-$('save').onclick=async()=>{if(!selected)return alert('Select a file');try{log('SAVE',await req('save',{method:'POST',q:{path:selected.path},body:$('editor').value,headers:{'content-type':'text/plain;charset=utf-8'}}));await load(cwd)}catch(e){alert(e)}};
-$('upload').onclick=async()=>{const f=$('uploadFile').files[0];if(!f)return alert('Choose a file');try{log('UPLOAD',await req('upload',{method:'POST',q:{path:cwd,name:f.name},body:f,headers:{'content-type':'application/octet-stream'}}));await load(cwd)}catch(e){alert(e)}};
-$('download').onclick=()=>{if(selected)location.href='/api/admin?'+new URLSearchParams({action:'download',path:selected.path})};$('hash').onclick=async()=>{if(selected)$('detail').textContent=JSON.stringify(await req('hash',{q:{path:selected.path}}),null,2)};
-$('newFolder').onclick=async()=>{const n=prompt('Folder name');if(n){await req('mkdir',{method:'POST',q:{path:cwd,name:n}});await load(cwd)}};$('newFile').onclick=async()=>{const n=prompt('File name');if(n){await req('new-file',{method:'POST',q:{path:cwd,name:n}});await load(cwd)}};
-$('rename').onclick=async()=>{if(!selected)return;const n=prompt('New name',selected.name);if(n){await req('rename',{method:'POST',q:{path:selected.path,name:n}});await load(cwd)}};$('del').onclick=async()=>{if(selected&&confirm('Delete '+selected.path+'?')){await req('delete',{method:'POST',q:{path:selected.path}});await load(cwd)}};
-$('clearLog').onclick=()=>{$('log').value=''};$('exportLog').onclick=async()=>{try{const j=await req('export-log',{method:'POST',body:$('log').value,headers:{'content-type':'text/plain;charset=utf-8'}});$('logStatus').textContent='Saved: '+j.path}catch(e){$('logStatus').textContent=String(e)}};$('downloadLog').onclick=()=>{const b=new Blob([$('log').value],{type:'text/plain'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download='swrlz-admin-'+new Date().toISOString().replace(/[:.]/g,'-')+'.log';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)};
-(async()=>{await $('runtime').onclick();await load(cwd)})();
+const $=x=>document.getElementById(x);let cwd='/tmp/swrlz-admin',sel=null;async function req(action,o={}){const q=new URLSearchParams({action,...(o.q||{})});const r=await fetch('/api/admin?'+q,{method:o.method||'GET',body:o.body,headers:o.headers||{}});const t=await r.text();if(o.text)return t;let j;try{j=JSON.parse(t)}catch{throw Error('HTTP '+r.status+': '+t.slice(0,2000))}if(!r.ok||j.ok===false&&action!=='hot-run')throw Error(j.error||j.detail||JSON.stringify(j));return j}
+async function load(p=cwd){cwd=p||'/';$('path').value=cwd;const j=await req('list',{q:{path:cwd}});$('files').innerHTML='';for(const e of j.entries){const d=document.createElement('div');d.className='e';d.textContent=(e.kind==='dir'?'📁 ':'📄 ')+e.name+' · '+e.kind+' · '+e.size+' B';d.onclick=()=>e.kind==='dir'?load(e.path):openFile(e.path);$('files').appendChild(d)}$('status').textContent=j.entries.length+' entries · '+j.path}
+async function openFile(p){sel=p;$('sel').textContent=p;const j=await req('read',{q:{path:p}});$('ed').value=j.text}
+$('up').onclick=()=>{let p=cwd.replace(/\/+$/,'');if(!p||p==='/')return load('/');let i=p.lastIndexOf('/');load(i<=0?'/':p.slice(0,i))};$('go').onclick=()=>load($('path').value);$('refresh').onclick=()=>load(cwd);$('rt').onclick=async()=>{$('runout').textContent=JSON.stringify(await req('runtime'),null,2)};$('hot').onclick=async()=>{$('runout').textContent='Running…';try{$('runout').textContent=JSON.stringify(await req('hot-run',{method:'POST'}),null,2)}catch(e){$('runout').textContent=String(e)}};$('openhot').onclick=()=>openFile('/tmp/swrlz-admin/live/gate5_live.py');$('logbtn').onclick=()=>openFile('/tmp/swrlz-admin/logs/full-runtime.log');$('save').onclick=async()=>{if(!sel)return;await req('save',{method:'POST',q:{path:sel},body:$('ed').value,headers:{'content-type':'text/plain;charset=utf-8'}});alert('Saved live — no redeploy required.')};$('download').onclick=()=>{if(sel)location.href='/api/admin?'+new URLSearchParams({action:'download',path:sel})};load();
 </script></body></html>'''
-
 
 @app.get("/")
 @app.get("/api/admin")
-def admin_get(action: str | None = Query(default=None), path: str | None = Query(default=None)):
-    if not action:
-        return HTMLResponse(PAGE)
-    p = _path(path)
+def admin_get(action: str|None=Query(default=None), path: str|None=Query(default=None)):
+    if not action:return HTMLResponse(PAGE)
+    p=path_of(path)
     try:
-        if action == "runtime": return _runtime()
-        if action == "list":
-            if not p.exists(): return _err("path does not exist",404,path=str(p))
-            if not p.is_dir(): return _err("not a directory",400,path=str(p))
-            entries=[]
+        if action=="runtime": return runtime()
+        if action=="list":
+            if not p.exists(): return JSONResponse(status_code=404,content={"ok":False,"error":"path does not exist","path":str(p)})
+            if not p.is_dir(): return JSONResponse(status_code=400,content={"ok":False,"error":"not a directory","path":str(p)})
+            es=[]
             for i,c in enumerate(sorted(p.iterdir(),key=lambda x:(not x.is_dir(),x.name.lower()))):
-                if i>=MAX_LIST_ENTRIES: break
-                try: entries.append(_entry(c))
-                except Exception as e: entries.append({"name":c.name,"path":str(c),"kind":"error","error":str(e)})
-            return {"ok":True,"path":str(p),"parent":str(p.parent),"entries":entries,"breadcrumbs":_crumbs(p),"truncated":len(entries)>=MAX_LIST_ENTRIES}
-        if action == "read":
-            if not p.is_file(): return _err("not a file",400,path=str(p))
-            size=p.stat().st_size
-            if size>MAX_TEXT_BYTES:return _err("text preview too large",413,size=size)
+                if i>=MAX_LIST:break
+                try:es.append(entry(c))
+                except Exception as e:es.append({"name":c.name,"path":str(c),"kind":"error","error":str(e)})
+            return {"ok":True,"path":str(p),"parent":str(p.parent),"breadcrumbs":crumbs(p),"entries":es}
+        if action=="read":
+            if not p.is_file(): return JSONResponse(status_code=404,content={"ok":False,"error":"not a file","path":str(p)})
+            if p.stat().st_size>MAX_TEXT:return JSONResponse(status_code=413,content={"ok":False,"error":"preview too large","size":p.stat().st_size})
             raw=p.read_bytes()
-            if b"\0" in raw[:8192]: return _err("binary file; download instead",415,size=size)
-            return {"ok":True,"path":str(p),"size":size,"text":raw.decode('utf-8','replace'),"info":_entry(p)}
-        if action == "download":
-            if not p.is_file(): return _err("not a file",404)
-            mime,_=mimetypes.guess_type(str(p));return FileResponse(str(p),media_type=mime or 'application/octet-stream',filename=p.name)
-        if action == "hash": return {"ok":True,"path":str(p),"size":p.stat().st_size,"sha256":_sha256(p)}
-        return _err("unknown action",400,action=action)
-    except Exception as e:return _err(f"{type(e).__name__}: {e}",500,path=str(p))
-
+            if b"\0" in raw[:8192]:return JSONResponse(status_code=415,content={"ok":False,"error":"binary file"})
+            return {"ok":True,"path":str(p),"size":len(raw),"text":raw.decode("utf-8","replace")}
+        if action=="download":
+            if not p.is_file():return JSONResponse(status_code=404,content={"ok":False,"error":"not a file"})
+            mt,_=mimetypes.guess_type(str(p));return FileResponse(str(p),media_type=mt or "application/octet-stream",filename=p.name)
+        if action=="log":
+            txt=FULL_LOG.read_text("utf-8","replace") if FULL_LOG.exists() else ""
+            return PlainTextResponse(txt)
+        return JSONResponse(status_code=400,content={"ok":False,"error":"unknown action","action":action})
+    except Exception as e:
+        log("get-error",action=action,path=str(p),error=f"{type(e).__name__}: {e}")
+        return JSONResponse(status_code=500,content={"ok":False,"error":f"{type(e).__name__}: {e}","instanceId":INSTANCE_ID})
 
 @app.post("/")
 @app.post("/api/admin")
-async def admin_post(request: Request, action: str = Query(...), path: str | None = Query(default=None), name: str | None = Query(default=None)):
-    p=_path(path)
+async def admin_post(request:Request,action:str=Query(...),path:str|None=Query(default=None)):
+    p=path_of(path)
     try:
-        if action=='save':
-            body=await request.body();p.write_bytes(body);return {"ok":True,"path":str(p),"size":len(body)}
-        if action=='upload':
-            if not name:return _err('name required')
-            t=p/Path(name).name;t.write_bytes(await request.body());return {"ok":True,"path":str(t),"size":t.stat().st_size}
-        if action=='mkdir':
-            t=p/Path(name or '').name;t.mkdir();return {"ok":True,"path":str(t)}
-        if action=='new-file':
-            t=p/Path(name or '').name;t.touch(exist_ok=False);return {"ok":True,"path":str(t)}
-        if action=='rename':
-            t=p.with_name(Path(name or '').name);p.rename(t);return {"ok":True,"path":str(t)}
-        if action=='delete':
-            shutil.rmtree(p) if p.is_dir() and not p.is_symlink() else p.unlink();return {"ok":True,"deleted":str(p)}
-        if action=='export-log':
-            body=await request.body();t=ADMIN_ROOT/'logs'/f"admin-{time.strftime('%Y%m%d-%H%M%S',time.gmtime())}-{os.getpid()}.log";t.write_bytes(body);return {"ok":True,"path":str(t),"size":len(body)}
-        return _err('unknown action',400,action=action)
-    except Exception as e:return _err(f"{type(e).__name__}: {e}",500,path=str(p))
+        if action=="save":
+            body=await request.body();p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(body);log("save",path=str(p),size=len(body),sha256=hashlib.sha256(body).hexdigest());return {"ok":True,"path":str(p),"size":len(body),"instanceId":INSTANCE_ID}
+        if action=="hot-run":
+            result=run_hot();return JSONResponse(status_code=200 if result.get("ok") else 500,content=result)
+        return JSONResponse(status_code=400,content={"ok":False,"error":"unknown action","action":action})
+    except Exception as e:
+        log("post-error",action=action,path=str(p),error=f"{type(e).__name__}: {e}")
+        return JSONResponse(status_code=500,content={"ok":False,"error":f"{type(e).__name__}: {e}","instanceId":INSTANCE_ID})
+
+log("workbench-import",version="1.0.0",hotScript=str(HOT_GATE5))
