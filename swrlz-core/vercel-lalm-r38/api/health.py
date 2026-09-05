@@ -4,11 +4,11 @@ import urllib.request
 
 from fastapi import FastAPI
 
-app = FastAPI(title="§wyrlz Vercel Health Probe", version="0.4.0")
+app = FastAPI(title="§wyrlz Vercel Health Probe", version="0.5.0")
 
 MODEL_URL = (
     "https://raw.githubusercontent.com/kamiswrlzco-cloud/Swrlzco/main/"
-    "SWYRLZ_LALM_R38_LOCAL_TIME_CONTEXT_CALIBRATED.%C2%A7wyrlzx.gz"
+    "SWYRLZ_LALM_R38_LOCAL_TIME_CONTEXT_CALIBRATED.%25C2%25A7wyrlzx.gz"
 )
 MODEL_PATH = Path("/tmp/SWYRLZ_LALM_R38_LOCAL_TIME_CONTEXT_CALIBRATED.§wyrlzx.gz")
 EXPECTED_SIZE = 17_565_695
@@ -27,8 +27,6 @@ def _ensure_model() -> dict:
     downloaded = False
 
     try:
-        # Reuse a valid /tmp copy across warm invocations. If it is missing or
-        # obviously wrong, fetch the compressed R38 again from the repo root.
         if not MODEL_PATH.exists() or MODEL_PATH.stat().st_size != EXPECTED_SIZE:
             tmp_path = MODEL_PATH.with_suffix(MODEL_PATH.suffix + ".part")
             tmp_path.unlink(missing_ok=True)
@@ -87,4 +85,5 @@ def health():
         "containerVerified": False,
         "graphReady": False,
         "interactiveReady": False,
+        "setupUrl": "/api/setup",
     }
