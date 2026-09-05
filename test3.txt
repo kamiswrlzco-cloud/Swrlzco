@@ -1,2 +1,0 @@
-SWRLZ GitHub connector write test 3.
-Created by ChatGPT to verify repository write access before attempting the visual asset package upload.
