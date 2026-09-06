@@ -23,12 +23,20 @@ This directory is the deployable Python/Vercel bootstrap for `SWYRLZ_LALM_R38_LO
 
 Optional override: `SWYRLZ_BOOTSTRAP_URL` may point at another compatible bootstrap ZIP.
 
+### Live admin workbench upload authentication
+
+The live admin file explorer at `/api/admin` supports phone-to-SERVER uploads into `/tmp/swrlz-admin` and its subdirectories. Uploads use resumable 2 MiB browser chunks and server-side atomic finalization. To arm that write path, configure a private Vercel environment variable named `SWRLZ_ADMIN_TOKEN`, redeploy once, and enter the same value in the workbench `SWRLZ_ADMIN_TOKEN` field. The browser keeps it only in `sessionStorage`.
+
+The upload route is intentionally disabled when `SWRLZ_ADMIN_TOKEN` is absent. `/tmp` remains Vercel instance-local and ephemeral, so a runtime recycle can invalidate an in-progress upload; the workbench detects a changed instance and fails the transfer instead of silently assembling chunks across different instances.
+
 ## Endpoints
 
 - `GET /`
 - `GET /api/health`
 - `GET /api/model`
 - `GET /api/sections`
+- `GET /api/admin`
+- `POST /api/admin?action=upload-init|upload-chunk|upload-finish|upload-cancel`
 - `POST /api/generate`
 - `POST /api/generate/stream`
 
