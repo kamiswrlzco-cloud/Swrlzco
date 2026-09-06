@@ -1,0 +1,53 @@
+{
+  "manifestVersion": 1,
+  "checkpoint": "INT-THEME-035C",
+  "target": "CLIENT",
+  "status": "SOURCE_ONLY_VERIFIED",
+  "sourcePackage": "CLIENT_CFv2.1.8_SWRLZ.zip",
+  "sourceRoot": "CLIENT_CFv2.1.8_SWRLZ/",
+  "sha256": "d344e683cc76756020b1a02e118b2417c03d6552eeb032dd5dd91058c0f7f055",
+  "bytes": 36529261,
+  "entries": 684,
+  "android": {
+    "versionCode": 106,
+    "versionName": "2.1.8-theme-chrome-runtime-repair-v1",
+    "patchLabel": "CFv2.1.8-THEME-CHROME-RUNTIME-REPAIR-V1"
+  },
+  "parent": {
+    "sourcePackage": "CLIENT_CFv2.1.7_SWRLZ.zip",
+    "sha256": "bc5b941e9b0c86e28581d8f6019b6c54722243279ef666aa3c35c4f97745fe76",
+    "checkpoint": "INT-THEME-035B"
+  },
+  "scope": {
+    "clientPresentationChange": true,
+    "themeContractChange": true,
+    "serverChange": false,
+    "protocolChange": false,
+    "trustOrAuthorityChange": false,
+    "permissionChange": false,
+    "missionBehaviorChange": false,
+    "forgeAuthorityChange": false
+  },
+  "verification": {
+    "parentShaAndZipCrc": "PASS",
+    "boundedChangedFileScope": "PASS",
+    "xmlAndJsonParsing": "PASS",
+    "kotlinLexicalAndDelimiterChecks": "PASS",
+    "runtimeAssetCatalogEntries": 103,
+    "runtimeAssetCatalogIntegrity": "PASS",
+    "launcherAliasAndResourcePairing": "PASS",
+    "clientDerivativeRepeatability": "PASS",
+    "finalZipCrc": "PASS",
+    "finalZipPathSafety": "PASS"
+  },
+  "notRunOrClaimed": [
+    "Gradle or Android compilation",
+    "unit or instrumentation tests",
+    "APK or AAB assembly",
+    "device startup or launcher-cache acceptance",
+    "TalkBack, font-scale, reduced-motion, frame-time, or memory device acceptance",
+    "GitHub Actions",
+    "release, deployment, or installation"
+  ],
+  "createdAt": "2026-07-26"
+}

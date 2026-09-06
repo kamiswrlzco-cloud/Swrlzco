@@ -1,0 +1,33 @@
+{
+  "candidate_revision": "R1",
+  "cf_version": "2.1.22",
+  "checkpoint": "INT-UX-039Q",
+  "component": "CLIENT",
+  "promotion_verified": false,
+  "sha256": "49284e9a57d30a2b37912c32ac9a85fbb333d4a6ed620687c855469363d0ecd5",
+  "size_bytes": 15021861,
+  "source_parent": "CLIENT_CFv2.1.21_SWRLZ_CANDIDATE_R2.zip",
+  "source_parent_sha256": "c4eb68554bc3c5bf95a0599c42da782ad3b948331cab3b08229eb73c3a9b089b",
+  "validation": {
+    "android_compile": "blocked_before_compilation: Gradle 8.7 unavailable; services.gradle.org unreachable",
+    "apk_build": "pending",
+    "archive_directory_entries": 150,
+    "archive_file_entries": 612,
+    "archive_source_equality": "passed",
+    "command_039p_r2_regression_pre_identity": "28/28 passed",
+    "command_contract_compile": "passed",
+    "compose_optin_gate": "passed",
+    "deterministic_repack": "passed",
+    "forge_039f_039n_regression_gate": "passed",
+    "json_parse_files": 17,
+    "update_ledger_query_smoke": "passed_latest_ask_compare_non_hijack",
+    "update_ledger_kotlin_compile": "passed",
+    "ux_039q_regression_gate": "29/29 passed",
+    "xml_parse_files": 17,
+    "zip_crc": "passed"
+  },
+  "verified": true,
+  "version_code": 120,
+  "version_name": "2.1.22-update-ledger-settings-theme-identity-candidate-r1",
+  "zip": "CLIENT_CFv2.1.22_SWRLZ_CANDIDATE_R1.zip"
+}
